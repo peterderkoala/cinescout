@@ -4,14 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-CineScout is in the pre-implementation/scaffolding stage: the repository currently contains only planning
-documents and empty placeholder directories (`src/`, `docker/`, `docs/`, `pipelines/`). No `.sln`/`.csproj`
-files, source code, dependency manifests, or test/build tooling exist yet. There are no build, lint, or test
-commands to run at this point — do not invent them. When code is added, this file should be updated with the
-actual commands.
+CineScout has a real .NET 10 solution scaffold in `src/` (see `src/cinescout.slnx`), but no application logic
+yet — the [wayfinder map](https://github.com/peterderkoala/cinescout/issues/1) has produced a full spec
+(architecture, data model, ingestion/notification/auth design), but nothing from that spec has been implemented
+in code. Current projects:
 
-The `.gitignore` is a Visual Studio / .NET template and `ARCHITECTURE.md` explicitly describes `src/` as home
-to "slnx and cs files", so the intended stack is C#/.NET, but this has not been established in code yet.
+- `src/cinescout.web` — ASP.NET Core host (hosted Blazor WASM, global `InteractiveWebAssembly` render mode).
+- `src/cinescout.web.Client` — the WASM client project; all pages/layout live here.
+- `src/cinescout.core`, `src/cinescout.model`, `src/cinescout.persistence` — empty stub class libraries, not
+  yet wired into the solution or given real content.
+
+Build: `dotnet build src/cinescout.slnx`. Run the web app: `dotnet run --project src/cinescout.web` (serves on
+`http://localhost:5100` by default). No test project exists yet — xUnit + NSubstitute is the locked choice
+(see the map's Notes) but not yet scaffolded. Don't invent lint/test commands beyond these.
+
+`docker/` and `pipelines/` are still empty placeholders per `ARCHITECTURE.md` — not yet started.
 
 ## Project idea (from IDEA.md)
 
@@ -47,3 +54,13 @@ a rules/matching engine for preferences, and a notification mechanism.
 - `pipelines/` — CI/CD pipelines for PR checks, builds, and releases.
 
 Follow this layout when adding new files rather than introducing an alternative structure.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked as GitHub Issues on peterderkoala/cinescout via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context layout: CONTEXT.md + docs/adr/ at the repo root. See `docs/agents/domain.md`.

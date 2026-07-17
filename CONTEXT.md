@@ -33,7 +33,7 @@ A record that one `Performance` has satisfied a `WatchedMovie`'s active preferen
 _Avoid_: Alert (that's the outward-facing behavior a `Match` triggers, not the record itself)
 
 **NotificationLog**:
-A record of one attempt to notify the user (e.g. via Discord) about a `Match`. Separate from `Match` so retries or additional channels don't change the match record itself.
+A record of one attempt to notify the user (e.g. via Discord). Carries a `NotificationType` (`WatchStarted`, `WatchStopped`, `RulesMatched`, `SeatAvailabilityChanged`); `MatchId` is only set for the latter two, since watch-lifecycle notifications aren't tied to a specific `Match`.
 _Avoid_: Alert log, notification
 
 **SeatStatus**:
@@ -41,5 +41,5 @@ The current free/sold state of one seat (row + seat number) for one `Performance
 _Avoid_: Seat, seat map entry
 
 **FavoriteSeatMatrix**:
-A user-defined zone within a `Room` — a row range plus a seat-number range plus a `PartySize` — used to check whether enough adjacent seats are free for the user's group. Supersedes the earlier, narrower "RoomRule" (row range only) idea.
-_Avoid_: RoomRule, seat rule, priority matrix
+A user-defined zone within a `Room` — a row range plus a seat-number range plus a `PartySize` — used to check whether enough adjacent seats are free for the user's group. Optionally scoped to one `Film` (a specific override), otherwise general for that `Room`; a film-specific matrix takes precedence over a general one. Also subsumes "liking a room in general" (a wide-open matrix), so there is no separate `FavoriteRoom` concept. Supersedes the earlier, narrower "RoomRule" idea.
+_Avoid_: RoomRule, FavoriteRoom, seat rule, priority matrix
