@@ -4,19 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-CineScout has a real .NET 10 solution scaffold in `src/` (see `src/cinescout.slnx`), but no application logic
-yet — the [wayfinder map](https://github.com/peterderkoala/cinescout/issues/1) has produced a full spec
-(architecture, data model, ingestion/notification/auth design), but nothing from that spec has been implemented
-in code. Current projects:
+CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The [wayfinder map](https://github.com/peterderkoala/cinescout/issues/1) produced a full spec, sliced into tickets tracked from [issue #14](https://github.com/peterderkoala/cinescout/issues/14); implementation is in progress against that ticket list. Current projects:
 
 - `src/cinescout.web` — ASP.NET Core host (hosted Blazor WASM, global `InteractiveWebAssembly` render mode).
 - `src/cinescout.web.Client` — the WASM client project; all pages/layout live here.
-- `src/cinescout.core`, `src/cinescout.model`, `src/cinescout.persistence` — empty stub class libraries, not
-  yet wired into the solution or given real content.
+- `src/cinescout.core` — domain services (mapping via Mapperly); no business logic yet.
+- `src/cinescout.model` — the EF Core entity set (`Site`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
+- `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
+- `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
 
 Build: `dotnet build src/cinescout.slnx`. Run the web app: `dotnet run --project src/cinescout.web` (serves on
-`http://localhost:5100` by default). No test project exists yet — xUnit + NSubstitute is the locked choice
-(see the map's Notes) but not yet scaffolded. Don't invent lint/test commands beyond these.
+`http://localhost:5100` by default). Run tests: `dotnet test src/cinescout.slnx` — the persistence tests spin up
+a real Postgres container via Testcontainers, so Docker must be reachable (if `docker ps` reports a permission
+error after a fresh `usermod -aG docker`, wrap the test command in `sg docker -c "..."` rather than waiting for
+a new login session). Don't invent lint commands — none are configured yet.
 
 `docker/` and `pipelines/` are still empty placeholders per `ARCHITECTURE.md` — not yet started.
 
