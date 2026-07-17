@@ -35,3 +35,11 @@ _Avoid_: Alert (that's the outward-facing behavior a `Match` triggers, not the r
 **NotificationLog**:
 A record of one attempt to notify the user (e.g. via Discord) about a `Match`. Separate from `Match` so retries or additional channels don't change the match record itself.
 _Avoid_: Alert log, notification
+
+**SeatStatus**:
+The current free/sold state of one seat (row + seat number) for one `Performance`, upserted each Kinoheld crawl. Carries adjacency (`LeftNeighborSeatId`/`RightNeighborSeatId`) so contiguous free blocks can be located.
+_Avoid_: Seat, seat map entry
+
+**FavoriteSeatMatrix**:
+A user-defined zone within a `Room` — a row range plus a seat-number range plus a `PartySize` — used to check whether enough adjacent seats are free for the user's group. Supersedes the earlier, narrower "RoomRule" (row range only) idea.
+_Avoid_: RoomRule, seat rule, priority matrix
