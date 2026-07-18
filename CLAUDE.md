@@ -11,11 +11,21 @@ CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The 
   InteractiveWebAssembly`), not globally — the `/login` page must render as static SSR so its POST handler can
   call `HttpContext.SignInAsync` directly, and a global render mode on `<Routes>` would force every page
   (including login) into WASM with no way to opt a single page back out.
-- `src/cinescout.web.Client` — the WASM client project; all pages/layout live here.
-- `src/cinescout.core` — domain services (mapping via Mapperly); no business logic yet.
+- `src/cinescout.web.Client` — the WASM client project; interactive pages/layout live here. Pages that need
+  direct server-side access (`CineScoutDbContext`, `HttpContext`) instead live in
+  `src/cinescout.web/Components/Pages` as static-SSR-only components (no `@rendermode`) — `Login.razor` and
+  `Schedule.razor` are the two examples so far; `cinescout.web.Client` deliberately never references
+  `cinescout.persistence` (EF Core/Npgsql aren't WASM-appropriate to ship to the browser).
+- `src/cinescout.core` — domain services: `HallOfFame/` (schedule crawl — `IHallOfFameClient`, upsert/
+  cancellation-by-absence logic, the Hangfire recurring job) and `Kinoheld/` (room seeding — `IKinoheldClient`,
+  parses the widget page's inline `dataLayer.push({...})` JSON via `Utf8JsonReader` token-matching, not a naive
+  brace-counting scan, since the blob embeds raw SVG markup with braces/parens inside string values). Mapping
+  via Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
 - `src/cinescout.model` — the EF Core entity set (`Site`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
 - `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
 - `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
+- `src/cinescout.core.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for `cinescout.core`'s
+  crawl/seeding services, same pattern as `cinescout.persistence.Tests`.
 - `src/cinescout.web.Tests` — xUnit + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory<Program>`)
   integration tests for the web host, e.g. the login/auth gate.
 
@@ -41,6 +51,12 @@ tests like the login gate) skips all of this — Postgres/Hangfire wiring, the c
 the startup migration — so those tests don't need Docker at all; tests that *do* need real persistence (crawl
 upsert, room seeding) construct `CineScoutDbContext` directly against a Testcontainers Postgres instead, the
 same pattern `cinescout.persistence.Tests` already uses.
+
+Recurring jobs must be registered via the DI-resolved `IRecurringJobManager` (`app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<T>(...)`),
+**not** the static `RecurringJob.AddOrUpdate<T>(...)` facade — the static facade reads the legacy global
+`JobStorage.Current`, which the modern `builder.Services.AddHangfire(...)` DI registration never sets, so it
+throws `InvalidOperationException` at startup (caught by actually running the app against a real Postgres, not
+just `dotnet build`/`dotnet test` — worth doing for any change that touches startup wiring).
 
 ## Project idea (from IDEA.md)
 

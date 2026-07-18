@@ -78,8 +78,12 @@ if (!isTestingEnvironment)
 
 if (!isTestingEnvironment)
 {
+    // The static RecurringJob.AddOrUpdate facade needs the legacy global JobStorage.Current,
+    // which the DI-based AddHangfire(...) registration above never sets — use the DI-resolved
+    // IRecurringJobManager instead (Hangfire's own recommended fix, per its exception message).
+    var recurringJobManager = app.Services.GetRequiredService<IRecurringJobManager>();
     var hallOfFameCrawlIntervalHours = app.Configuration.GetValue("HallOfFame:CrawlIntervalHours", 1);
-    RecurringJob.AddOrUpdate<HallOfFameCrawlJob>(
+    recurringJobManager.AddOrUpdate<HallOfFameCrawlJob>(
         "hall-of-fame-crawl",
         job => job.RunAsync(CancellationToken.None),
         $"0 */{hallOfFameCrawlIntervalHours} * * *");

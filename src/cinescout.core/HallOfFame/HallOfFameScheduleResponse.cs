@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace cinescout.core.HallOfFame;
@@ -26,12 +27,16 @@ public class HallOfFameFilmDto
 
 /// <summary>
 /// One attribute-group of showings for a film (e.g. plain showings, D-Box, etc). The dict is
-/// keyed by performanceID (as a string).
+/// keyed by performanceID (as a string). Values are kept as raw <see cref="JsonElement"/>
+/// (not deserialized directly into <see cref="HallOfFamePerformanceDto"/>) so callers can both
+/// map the typed fields they need AND retain the exact raw JSON — via <c>GetRawText()</c> — for
+/// PerformanceSnapshot's archival RawPayload, which must be the real upstream response, not a
+/// re-serialization of only the fields this DTO happens to model.
 /// </summary>
 public class HallOfFamePerformanceGroupDto
 {
     [JsonPropertyName("performances")]
-    public Dictionary<string, HallOfFamePerformanceDto> Performances { get; set; } = [];
+    public Dictionary<string, JsonElement> Performances { get; set; } = [];
 }
 
 public class HallOfFamePerformanceDto

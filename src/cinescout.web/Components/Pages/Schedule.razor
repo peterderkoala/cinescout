@@ -32,7 +32,7 @@ else
             {
                 <tr>
                     <td>@row.FilmTitle</td>
-                    <td>@row.RoomName</td>
+                    <td>@row.SiteName / @row.RoomName</td>
                     <td>@row.StartsAt.ToString("g")</td>
                     <td>
                         @if (row.IsSoldOut)
@@ -57,16 +57,18 @@ else
             .ToListAsync();
 
         var filmTitles = await Db.Films.ToDictionaryAsync(f => f.Id, f => f.Title);
+        var siteNames = await Db.Sites.ToDictionaryAsync(s => s.Id, s => s.Name);
         var roomNames = await Db.Rooms.ToDictionaryAsync(r => r.Id, r => r.Name);
 
         _rows = upcoming
             .Select(p => new ScheduleRow(
                 filmTitles.GetValueOrDefault(p.FilmId, "Unknown"),
+                siteNames.GetValueOrDefault(p.SiteId, "Unknown"),
                 p.RoomId is int roomId ? roomNames.GetValueOrDefault(roomId, "—") : "TBD",
                 p.StartsAt,
                 p.IsSoldOut))
             .ToList();
     }
 
-    private sealed record ScheduleRow(string FilmTitle, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut);
+    private sealed record ScheduleRow(string FilmTitle, string SiteName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut);
 }

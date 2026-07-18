@@ -1,3 +1,4 @@
+using System.Text.Json;
 using cinescout.core.HallOfFame;
 using cinescout.model;
 using cinescout.persistence;
@@ -60,18 +61,19 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
                     [
                         new HallOfFamePerformanceGroupDto
                         {
-                            Performances = new Dictionary<string, HallOfFamePerformanceDto>
+                            Performances = new Dictionary<string, JsonElement>
                             {
-                                [performanceId.ToString()] = new HallOfFamePerformanceDto
-                                {
-                                    PerformanceId = performanceId,
-                                    BookingLink = bookingLink,
-                                    UnixDateTime = unixDateTime,
-                                    IsSoldOut = isSoldOut,
-                                    IsNotBookable = isNotBookable,
-                                    IsOnline = isOnline,
-                                    SaleIsAllowed = saleIsAllowed,
-                                },
+                                [performanceId.ToString()] = JsonSerializer.SerializeToElement(
+                                    new HallOfFamePerformanceDto
+                                    {
+                                        PerformanceId = performanceId,
+                                        BookingLink = bookingLink,
+                                        UnixDateTime = unixDateTime,
+                                        IsSoldOut = isSoldOut,
+                                        IsNotBookable = isNotBookable,
+                                        IsOnline = isOnline,
+                                        SaleIsAllowed = saleIsAllowed,
+                                    }),
                             },
                         },
                     ],
@@ -319,5 +321,75 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
         Assert.Equal(2, snapshots.Count);
         Assert.Contains(snapshots, s => s.CrawledAt == firstCrawl);
         Assert.Contains(snapshots, s => s.CrawledAt == secondCrawl);
+    }
+
+    [Fact]
+    public async Task Snapshot_RawPayload_preserves_fields_the_narrowed_DTO_does_not_model()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        // A field ("performanceAuditoriumAttributeTitle", real upstream data) that
+        // HallOfFamePerformanceDto deliberately does not model — the archival snapshot must
+        // still retain it, since RawPayload is meant to be the real upstream response, not a
+        // re-serialization of only the fields this DTO happens to map.
+        const string rawPerformanceJson = """
+            {
+                "performanceID": 74011,
+                "bookingLink": "https://www.kinoheld.de/kino-kamp-lintfort/hall-of-fame?mode=widget&change=no&showId=74011",
+                "unixdatetime": 1783969200,
+                "isSoldOut": 0,
+                "isNotBookable": 0,
+                "isOnline": 1,
+                "saleIsAllowed": 1,
+                "performanceAuditoriumAttributeTitle": "D-Box"
+            }
+            """;
+        var performanceElement = JsonDocument.Parse(rawPerformanceJson).RootElement;
+
+        var schedule = new HallOfFameScheduleResponse
+        {
+            Films =
+            [
+                new HallOfFameFilmDto
+                {
+                    DetailId = 401865,
+                    FilmTitle = "Vaiana - Live Action",
+                    PerformanceGroups =
+                    [
+                        new HallOfFamePerformanceGroupDto
+                        {
+                            Performances = new Dictionary<string, JsonElement> { ["74011"] = performanceElement },
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var performance = await read.Performances.SingleAsync(p => p.SiteId == siteId);
+        var snapshot = await read.PerformanceSnapshots.SingleAsync(s => s.PerformanceId == performance.Id);
+
+        Assert.Contains("performanceAuditoriumAttributeTitle", snapshot.RawPayload);
+        Assert.Contains("D-Box", snapshot.RawPayload);
     }
 }

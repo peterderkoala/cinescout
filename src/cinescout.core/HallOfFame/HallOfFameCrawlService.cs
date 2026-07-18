@@ -20,12 +20,12 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
         {
             var film = await UpsertFilmAsync(site.Id, filmDto, cancellationToken);
 
-            var performanceDtos = filmDto.PerformanceGroups
+            var performanceElements = filmDto.PerformanceGroups
                 .SelectMany(group => group.Performances.Values);
 
-            foreach (var performanceDto in performanceDtos)
+            foreach (var performanceElement in performanceElements)
             {
-                await UpsertPerformanceAsync(site.Id, film.Id, performanceDto, now, cancellationToken);
+                await UpsertPerformanceAsync(site.Id, film.Id, performanceElement, now, cancellationToken);
             }
         }
 
@@ -72,10 +72,14 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
     private async Task UpsertPerformanceAsync(
         int siteId,
         int filmId,
-        HallOfFamePerformanceDto performanceDto,
+        JsonElement performanceElement,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        var rawPayload = performanceElement.GetRawText();
+        var performanceDto = performanceElement.Deserialize<HallOfFamePerformanceDto>()
+            ?? throw new InvalidOperationException("Hall-of-Fame performance JSON deserialized to null.");
+
         var sourcePerformanceId = performanceDto.PerformanceId.ToString();
 
         var performance = await db.Performances.SingleOrDefaultAsync(
@@ -117,11 +121,13 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
         }
 
         // Unconditional snapshot write — every crawl, regardless of whether anything changed.
+        // RawPayload is the actual upstream JSON (not a re-serialization of the narrowed DTO
+        // above), so the archival record isn't lossy for fields this DTO doesn't happen to model.
         db.PerformanceSnapshots.Add(new PerformanceSnapshot
         {
             PerformanceId = performance.Id,
             CrawledAt = now,
-            RawPayload = JsonSerializer.Serialize(performanceDto),
+            RawPayload = rawPayload,
         });
     }
 }
