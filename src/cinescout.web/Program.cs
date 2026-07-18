@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using cinescout.core.HallOfFame;
+using cinescout.core.Kinoheld;
 using cinescout.persistence;
 using cinescout.web.Auth;
 using cinescout.web.Client.Pages;
@@ -48,6 +49,10 @@ builder.Services.AddHttpClient<IHallOfFameClient, HallOfFameClient>()
 builder.Services.AddScoped<HallOfFameCrawlService>();
 builder.Services.AddScoped<HallOfFameCrawlJob>();
 
+builder.Services.AddHttpClient<IKinoheldClient, KinoheldClient>()
+    .AddStandardResilienceHandler();
+builder.Services.AddScoped<KinoheldRoomSeedingService>();
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -78,6 +83,20 @@ if (!isTestingEnvironment)
         "hall-of-fame-crawl",
         job => job.RunAsync(CancellationToken.None),
         $"0 */{hallOfFameCrawlIntervalHours} * * *");
+}
+
+// Room seeding is eager, not lazy: fetched once per Site from its Kinoheld widget config,
+// independent of the regular seat crawl — not a recurring Hangfire job. Idempotent (upsert), so
+// safe to re-run on every app restart, and self-healing if Kinoheld adds an auditorium later.
+if (!isTestingEnvironment)
+{
+    await using var roomSeedingScope = app.Services.CreateAsyncScope();
+    var roomSeedingDb = roomSeedingScope.ServiceProvider.GetRequiredService<CineScoutDbContext>();
+    var roomSeeder = roomSeedingScope.ServiceProvider.GetRequiredService<KinoheldRoomSeedingService>();
+    foreach (var site in await roomSeedingDb.Sites.Where(s => s.IsActive).ToListAsync())
+    {
+        await roomSeeder.SeedRoomsForSiteAsync(site, CancellationToken.None);
+    }
 }
 
 // Configure the HTTP request pipeline.
