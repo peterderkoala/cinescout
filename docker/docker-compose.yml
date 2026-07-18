@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Postgres 18's official image expects a single mount at /var/lib/postgresql (it places
+      # data in a major-version-specific subdirectory itself, for pg_ctlcluster compatibility)
+      # — NOT the pre-18 convention of mounting straight at /var/lib/postgresql/data.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # ASP.NET Core's DataProtection API defaults to this exact path for the container's "app"
+      # user; without persisting it, every container restart generates a fresh key ring and
+      # invalidates all existing auth cookies, logging everyone out — defeating the 30-day
+      # sliding session the auth gate is built around.
+      - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  dataprotection-keys:
