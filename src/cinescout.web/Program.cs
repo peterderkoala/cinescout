@@ -1,0 +1,90 @@
+using System.Security.Claims;
+using cinescout.web.Auth;
+using cinescout.web.Client.Pages;
+using cinescout.web.Components;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddRazorComponents()
+    .AddInteractiveWebAssemblyComponents()
+    .AddAuthenticationStateSerialization();
+
+builder.Services.AddCascadingAuthenticationState();
+
+builder.Services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.LoginPath = "/login";
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromDays(builder.Configuration.GetValue("Auth:SessionLifetimeDays", 30));
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseWebAssemblyDebugging();
+}
+else
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseAntiforgery();
+
+app.MapStaticAssets().AllowAnonymous();
+
+app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUser> hasher, IConfiguration config) =>
+{
+    var configuredHash = config["Auth:PasswordHash"];
+    var submittedPassword = context.Request.Form["password"].ToString();
+    var returnUrl = context.Request.Form["returnUrl"].ToString();
+
+    var verified = !string.IsNullOrEmpty(configuredHash)
+        && hasher.VerifyHashedPassword(AppUser.Instance, configuredHash, submittedPassword) != PasswordVerificationResult.Failed;
+
+    if (!verified)
+    {
+        return Results.Redirect("/login?error=1");
+    }
+
+    var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [new Claim(ClaimTypes.Name, "cinescout")],
+        CookieAuthenticationDefaults.AuthenticationScheme));
+
+    await context.SignInAsync(
+        CookieAuthenticationDefaults.AuthenticationScheme,
+        principal,
+        new AuthenticationProperties { IsPersistent = true });
+
+    return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+}).AllowAnonymous();
+
+app.MapRazorComponents<App>()
+    .AddInteractiveWebAssemblyRenderMode()
+    .AddAdditionalAssemblies(typeof(cinescout.web.Client._Imports).Assembly);
+
+app.Run();
+
+public partial class Program;
