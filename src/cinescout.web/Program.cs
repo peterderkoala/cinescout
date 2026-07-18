@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using cinescout.core.HallOfFame;
 using cinescout.persistence;
 using cinescout.web.Auth;
 using cinescout.web.Client.Pages;
@@ -42,6 +43,11 @@ if (!isTestingEnvironment)
     builder.Services.AddHangfireServer();
 }
 
+builder.Services.AddHttpClient<IHallOfFameClient, HallOfFameClient>()
+    .AddStandardResilienceHandler();
+builder.Services.AddScoped<HallOfFameCrawlService>();
+builder.Services.AddScoped<HallOfFameCrawlJob>();
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -63,6 +69,15 @@ if (!isTestingEnvironment)
 {
     await using var scope = app.Services.CreateAsyncScope();
     await scope.ServiceProvider.GetRequiredService<CineScoutDbContext>().Database.MigrateAsync();
+}
+
+if (!isTestingEnvironment)
+{
+    var hallOfFameCrawlIntervalHours = app.Configuration.GetValue("HallOfFame:CrawlIntervalHours", 1);
+    RecurringJob.AddOrUpdate<HallOfFameCrawlJob>(
+        "hall-of-fame-crawl",
+        job => job.RunAsync(CancellationToken.None),
+        $"0 */{hallOfFameCrawlIntervalHours} * * *");
 }
 
 // Configure the HTTP request pipeline.

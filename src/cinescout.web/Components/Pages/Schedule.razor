@@ -1,0 +1,72 @@
+@page "/schedule"
+@using cinescout.model
+@using cinescout.persistence
+@using Microsoft.EntityFrameworkCore
+@inject CineScoutDbContext Db
+
+<PageTitle>Schedule</PageTitle>
+
+<h1>Upcoming schedule</h1>
+
+@if (_rows is null)
+{
+    <p><em>Loading…</em></p>
+}
+else if (_rows.Count == 0)
+{
+    <p>No upcoming performances.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Film</th>
+                <th>Site / Room</th>
+                <th>When</th>
+                <th>Sold out</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _rows)
+            {
+                <tr>
+                    <td>@row.FilmTitle</td>
+                    <td>@row.RoomName</td>
+                    <td>@row.StartsAt.ToString("g")</td>
+                    <td>
+                        @if (row.IsSoldOut)
+                        {
+                            <span class="badge bg-danger">Sold out</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ScheduleRow>? _rows;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var upcoming = await Db.Performances
+            .Where(p => p.StartsAt >= DateTimeOffset.UtcNow && p.Status == PerformanceStatus.Normal)
+            .OrderBy(p => p.StartsAt)
+            .ToListAsync();
+
+        var filmTitles = await Db.Films.ToDictionaryAsync(f => f.Id, f => f.Title);
+        var roomNames = await Db.Rooms.ToDictionaryAsync(r => r.Id, r => r.Name);
+
+        _rows = upcoming
+            .Select(p => new ScheduleRow(
+                filmTitles.GetValueOrDefault(p.FilmId, "Unknown"),
+                p.RoomId is int roomId ? roomNames.GetValueOrDefault(roomId, "—") : "TBD",
+                p.StartsAt,
+                p.IsSoldOut))
+            .ToList();
+    }
+
+    private sealed record ScheduleRow(string FilmTitle, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut);
+}

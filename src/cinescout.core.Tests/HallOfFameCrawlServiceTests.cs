@@ -1,0 +1,323 @@
+using cinescout.core.HallOfFame;
+using cinescout.model;
+using cinescout.persistence;
+using Microsoft.EntityFrameworkCore;
+using NSubstitute;
+using Testcontainers.PostgreSql;
+
+namespace cinescout.core.Tests;
+
+public class HallOfFameCrawlServiceTests : IAsyncLifetime
+{
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
+        .Build();
+
+    public async Task InitializeAsync()
+    {
+        await _postgres.StartAsync();
+
+        var options = BuildOptions();
+        await using var context = new CineScoutDbContext(options);
+        await context.Database.MigrateAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _postgres.DisposeAsync();
+    }
+
+    private DbContextOptions<CineScoutDbContext> BuildOptions() =>
+        new DbContextOptionsBuilder<CineScoutDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString())
+            .Options;
+
+    private static Site MakeSite() => new()
+    {
+        ExternalSiteId = "580",
+        Name = "HALL OF FAME - Kino in Kamp-Lintfort",
+        CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website/programm/api/filtered-films",
+        IsActive = true,
+    };
+
+    private static HallOfFameScheduleResponse MakeSchedule(
+        int detailId,
+        string filmTitle,
+        int performanceId,
+        long unixDateTime,
+        int isSoldOut = 0,
+        string bookingLink = "https://www.kinoheld.de/kino-kamp-lintfort/hall-of-fame?mode=widget&change=no&showId=1",
+        int isNotBookable = 0,
+        int isOnline = 1,
+        int saleIsAllowed = 1) => new()
+        {
+            Films =
+            [
+                new HallOfFameFilmDto
+                {
+                    DetailId = detailId,
+                    FilmTitle = filmTitle,
+                    PerformanceGroups =
+                    [
+                        new HallOfFamePerformanceGroupDto
+                        {
+                            Performances = new Dictionary<string, HallOfFamePerformanceDto>
+                            {
+                                [performanceId.ToString()] = new HallOfFamePerformanceDto
+                                {
+                                    PerformanceId = performanceId,
+                                    BookingLink = bookingLink,
+                                    UnixDateTime = unixDateTime,
+                                    IsSoldOut = isSoldOut,
+                                    IsNotBookable = isNotBookable,
+                                    IsOnline = isOnline,
+                                    SaleIsAllowed = saleIsAllowed,
+                                },
+                            },
+                        },
+                    ],
+                },
+            ],
+        };
+
+    [Fact]
+    public async Task Upsert_creates_film_and_performance_on_first_crawl()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        var schedule = MakeSchedule(
+            detailId: 401865,
+            filmTitle: "Vaiana - Live Action",
+            performanceId: 74011,
+            unixDateTime: 1783969200,
+            isSoldOut: 0);
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+
+        var film = await read.Films.SingleAsync(f => f.SiteId == siteId);
+        Assert.Equal("401865", film.ExternalFilmId);
+        Assert.Equal("Vaiana - Live Action", film.Title);
+
+        var performance = await read.Performances.SingleAsync(p => p.SiteId == siteId);
+        Assert.Equal("74011", performance.SourcePerformanceId);
+        Assert.Equal(film.Id, performance.FilmId);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1783969200), performance.StartsAt);
+        Assert.Equal(PerformanceStatus.Normal, performance.Status);
+        Assert.False(performance.IsSoldOut);
+        Assert.True(performance.IsBookable);
+        Assert.Equal(now, performance.LastSeenAt);
+    }
+
+    [Fact]
+    public async Task Upsert_updates_existing_performance_in_place_rather_than_duplicating()
+    {
+        var options = BuildOptions();
+        var firstCrawl = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        var secondCrawl = firstCrawl.AddHours(1);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(
+                MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0),
+                MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 1));
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), firstCrawl, CancellationToken.None);
+        }
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), secondCrawl, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+
+        Assert.Single(read.Films.Where(f => f.SiteId == siteId));
+        var performance = await read.Performances.SingleAsync(p => p.SiteId == siteId);
+        Assert.True(performance.IsSoldOut);
+        Assert.Equal(secondCrawl, performance.LastSeenAt);
+    }
+
+    [Fact]
+    public async Task Performance_missed_for_two_consecutive_crawls_is_cancelled()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        var crawlInterval = TimeSpan.FromHours(1);
+
+        int siteId, filmId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+
+            var film = new Film { SiteId = siteId, ExternalFilmId = "999", Title = "Some Other Film" };
+            setup.Films.Add(film);
+            await setup.SaveChangesAsync();
+            filmId = film.Id;
+
+            setup.Performances.Add(new Performance
+            {
+                FilmId = filmId,
+                SiteId = siteId,
+                SourcePerformanceId = "12345",
+                StartsAt = now.AddDays(1),
+                BookingLink = "https://example.invalid/12345",
+                Status = PerformanceStatus.Normal,
+                IsSoldOut = false,
+                IsBookable = true,
+                LastSeenAt = now - TimeSpan.FromHours(3), // missed 2+ intervals
+            });
+            await setup.SaveChangesAsync();
+        }
+
+        // Canned schedule with a DIFFERENT film/performance — the seeded one is absent.
+        var schedule = MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0);
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, crawlInterval, now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var missed = await read.Performances.SingleAsync(p => p.SourcePerformanceId == "12345");
+        Assert.Equal(PerformanceStatus.Cancelled, missed.Status);
+    }
+
+    [Fact]
+    public async Task Performance_missed_only_once_stays_normal()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        var crawlInterval = TimeSpan.FromHours(1);
+
+        int siteId, filmId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+
+            var film = new Film { SiteId = siteId, ExternalFilmId = "999", Title = "Some Other Film" };
+            setup.Films.Add(film);
+            await setup.SaveChangesAsync();
+            filmId = film.Id;
+
+            setup.Performances.Add(new Performance
+            {
+                FilmId = filmId,
+                SiteId = siteId,
+                SourcePerformanceId = "12345",
+                StartsAt = now.AddDays(1),
+                BookingLink = "https://example.invalid/12345",
+                Status = PerformanceStatus.Normal,
+                IsSoldOut = false,
+                IsBookable = true,
+                LastSeenAt = now - crawlInterval, // missed exactly 1 interval — boundary, stays Normal
+            });
+            await setup.SaveChangesAsync();
+        }
+
+        var schedule = MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0);
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, crawlInterval, now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var stillPresent = await read.Performances.SingleAsync(p => p.SourcePerformanceId == "12345");
+        Assert.Equal(PerformanceStatus.Normal, stillPresent.Status);
+    }
+
+    [Fact]
+    public async Task Snapshot_is_written_unconditionally_on_every_crawl()
+    {
+        var options = BuildOptions();
+        var firstCrawl = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        var secondCrawl = firstCrawl.AddHours(1);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        // Identical response both crawls — nothing changed, but a snapshot must still be
+        // written each time.
+        var schedule = MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0);
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), firstCrawl, CancellationToken.None);
+        }
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), secondCrawl, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var performance = await read.Performances.SingleAsync(p => p.SiteId == siteId);
+        var snapshots = await read.PerformanceSnapshots
+            .Where(s => s.PerformanceId == performance.Id)
+            .ToListAsync();
+
+        Assert.Equal(2, snapshots.Count);
+        Assert.Contains(snapshots, s => s.CrawledAt == firstCrawl);
+        Assert.Contains(snapshots, s => s.CrawledAt == secondCrawl);
+    }
+}
