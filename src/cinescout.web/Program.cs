@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using cinescout.core.Discord;
 using cinescout.core.HallOfFame;
 using cinescout.core.Kinoheld;
+using cinescout.core.WatchedMovies;
 using cinescout.persistence;
 using cinescout.web.Auth;
 using cinescout.web.Client.Pages;
@@ -52,6 +54,10 @@ builder.Services.AddScoped<HallOfFameCrawlJob>();
 builder.Services.AddHttpClient<IKinoheldClient, KinoheldClient>()
     .AddStandardResilienceHandler();
 builder.Services.AddScoped<KinoheldRoomSeedingService>();
+
+builder.Services.AddHttpClient<IDiscordNotifier, DiscordNotifier>()
+    .AddStandardResilienceHandler();
+builder.Services.AddScoped<WatchedMovieService>();
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>

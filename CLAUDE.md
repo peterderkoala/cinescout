@@ -13,14 +13,30 @@ CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The 
   (including login) into WASM with no way to opt a single page back out.
 - `src/cinescout.web.Client` — the WASM client project; interactive pages/layout live here. Pages that need
   direct server-side access (`CineScoutDbContext`, `HttpContext`) instead live in
-  `src/cinescout.web/Components/Pages` as static-SSR-only components (no `@rendermode`) — `Login.razor` and
-  `Schedule.razor` are the two examples so far; `cinescout.web.Client` deliberately never references
-  `cinescout.persistence` (EF Core/Npgsql aren't WASM-appropriate to ship to the browser).
+  `src/cinescout.web/Components/Pages` as static-SSR-only components (no `@rendermode`) — `Login.razor`,
+  `Schedule.razor`, and `WatchedMovies.razor` are the examples so far; `cinescout.web.Client` deliberately never
+  references `cinescout.persistence` (EF Core/Npgsql aren't WASM-appropriate to ship to the browser).
+  `WatchedMovies.razor` is also the first page that *mutates* data from a static-SSR page — it uses Blazor's
+  native `<EditForm Model="this" FormName="...">` + `[SupplyParameterFromForm]` (not a plain HTML form posting
+  to a separate minimal-API endpoint, which is what `Login.razor` does) since this is an authenticated,
+  state-mutating action where the framework's built-in antiforgery protection is worth having; `Login.razor`'s
+  plain-form approach was a deliberate exception for that one anonymous, low-risk action, not the default
+  pattern to copy. Multiple per-row actions (Watch/Unwatch) share one `EditForm` via two differently-named
+  submit buttons (`name="watchFilmId"` / `name="unwatchFilmId"`, each carrying the film id as its `value`) bound
+  to two separate nullable `[SupplyParameterFromForm]` int properties, rather than a dynamic `FormName` per row.
 - `src/cinescout.core` — domain services: `HallOfFame/` (schedule crawl — `IHallOfFameClient`, upsert/
-  cancellation-by-absence logic, the Hangfire recurring job) and `Kinoheld/` (room seeding — `IKinoheldClient`,
+  cancellation-by-absence logic, the Hangfire recurring job), `Kinoheld/` (room seeding — `IKinoheldClient`,
   parses the widget page's inline `dataLayer.push({...})` JSON via `Utf8JsonReader` token-matching, not a naive
-  brace-counting scan, since the blob embeds raw SVG markup with braces/parens inside string values). Mapping
-  via Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
+  brace-counting scan, since the blob embeds raw SVG markup with braces/parens inside string values),
+  `WatchedMovies/` (`WatchedMovieService` — watch/unwatch is a plain insert/delete of a `WatchedMovie` row, not
+  a soft-delete/status flag; the model has no such field and `FilmId` carries a unique index, so re-watching an
+  already-watched film or unwatching one that isn't watched are both defensive no-ops, not errors), and
+  `Discord/` (`IDiscordNotifier` — a thin outgoing-webhook-only wrapper, never throws, always returns a
+  `NotificationResult` so callers can log the attempt regardless of outcome; the webhook URL is read from
+  config at call time, not baked into `HttpClient.BaseAddress` at DI-registration time, and an unconfigured URL
+  is a clean "not configured" failure result rather than a crash — this is the expected, safe-by-default state
+  until #19's own `.env` var, `Discord__WebhookUrl`, documented since #17, is actually filled in). Mapping via
+  Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
 - `src/cinescout.model` — the EF Core entity set (`Site`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
 - `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
 - `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
