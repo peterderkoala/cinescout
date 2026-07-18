@@ -1,11 +1,15 @@
 using System.Security.Claims;
+using cinescout.persistence;
 using cinescout.web.Auth;
 using cinescout.web.Client.Pages;
 using cinescout.web.Components;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +21,26 @@ builder.Services.AddRazorComponents()
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+
+// The "Testing" environment (set by cinescout.web.Tests' WebApplicationFactory for tests that
+// don't need persistence, e.g. the login gate) skips real Postgres/Hangfire wiring entirely —
+// registering an unused DbContext is harmless, but starting Hangfire's server or migrating
+// against a connection string that was never supplied is not.
+var isTestingEnvironment = builder.Environment.IsEnvironment("Testing");
+var connectionString = builder.Configuration.GetConnectionString("Postgres");
+
+if (!isTestingEnvironment && connectionString is null)
+{
+    throw new InvalidOperationException("Connection string 'ConnectionStrings:Postgres' not found.");
+}
+
+builder.Services.AddDbContext<CineScoutDbContext>(options => options.UseNpgsql(connectionString ?? "Host=unused"));
+
+if (!isTestingEnvironment)
+{
+    builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
+    builder.Services.AddHangfireServer();
+}
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
@@ -34,6 +58,12 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+
+if (!isTestingEnvironment)
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<CineScoutDbContext>().Database.MigrateAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

@@ -32,6 +32,16 @@ safe default). To log in locally, set `Auth__PasswordHash` to a hash produced by
 `new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, "<password>")` (`cinescout.web.Auth.AppUser`) —
 e.g. via `dotnet user-secrets` or an env var. `Auth:SessionLifetimeDays` defaults to 30.
 
+`cinescout.web` now needs a real Postgres to actually run (`dotnet run`, not `dotnet test`): set
+`ConnectionStrings__Postgres` (e.g. `Host=localhost;Port=5432;Database=cinescout;Username=...;Password=...`) —
+the app throws on startup if it's missing. Migrations apply automatically at startup via
+`Database.MigrateAsync()`. Hangfire (recurring crawl jobs) uses the same connection string as its job storage.
+The `"Testing"` hosting environment (set by `cinescout.web.Tests`' `WebApplicationFactory` for DB-independent
+tests like the login gate) skips all of this — Postgres/Hangfire wiring, the connection-string requirement, and
+the startup migration — so those tests don't need Docker at all; tests that *do* need real persistence (crawl
+upsert, room seeding) construct `CineScoutDbContext` directly against a Testcontainers Postgres instead, the
+same pattern `cinescout.persistence.Tests` already uses.
+
 ## Project idea (from IDEA.md)
 
 CineScout's purpose is to automate movie-going logistics:

@@ -59,6 +59,7 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
+            builder.UseEnvironment("Testing");
             builder.ConfigureAppConfiguration((_, config) =>
             {
                 var hasher = new PasswordHasher<AppUser>();
