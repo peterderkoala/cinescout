@@ -1,0 +1,241 @@
+@page "/time-preferences"
+@using System.Globalization
+@using cinescout.core.Preferences
+@using cinescout.model
+@using cinescout.persistence
+@using Microsoft.EntityFrameworkCore
+@inject CineScoutDbContext Db
+@inject PreferenceService PreferenceService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Time Preferences</PageTitle>
+
+<div class="container-fluid">
+    <h2>Favorite Time Windows</h2>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
+
+    @if (_windows.Count == 0)
+    {
+        <p class="text-muted">No time windows yet.</p>
+    }
+    else
+    {
+        <EditForm Model="this" FormName="time-window-delete" OnSubmit="HandleDeleteSubmitAsync">
+            <div class="list-group" style="max-width: 32rem;">
+                @foreach (var window in _windows)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div><strong>@DaysSummary(window.DaysOfWeek)</strong> · @window.StartTime.ToString("HH:mm") – @window.EndTime.ToString("HH:mm")</div>
+                        <div>
+                            <a class="btn btn-sm btn-outline-secondary" href="/time-preferences?editId=@window.Id">Edit</a>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" name="deleteId" value="@window.Id">Delete</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </EditForm>
+    }
+
+    <div class="card mt-4" style="max-width: 32rem;">
+        <div class="card-body">
+            <h5 class="card-title">@(IsEditing ? "Edit time window" : "Add time window")</h5>
+            <EditForm Model="this" FormName="time-window-editor" OnSubmit="HandleEditorSubmitAsync">
+                <input type="hidden" name="EditingId" value="@(EditingId ?? EditId)" />
+                <div class="mb-3">
+                    <label class="form-label d-block">Days</label>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-mon" @bind-Value="DayMonday" />
+                        <label class="form-check-label" for="day-mon">Mon</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-tue" @bind-Value="DayTuesday" />
+                        <label class="form-check-label" for="day-tue">Tue</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-wed" @bind-Value="DayWednesday" />
+                        <label class="form-check-label" for="day-wed">Wed</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-thu" @bind-Value="DayThursday" />
+                        <label class="form-check-label" for="day-thu">Thu</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-fri" @bind-Value="DayFriday" />
+                        <label class="form-check-label" for="day-fri">Fri</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-sat" @bind-Value="DaySaturday" />
+                        <label class="form-check-label" for="day-sat">Sat</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <InputCheckbox class="form-check-input" id="day-sun" @bind-Value="DaySunday" />
+                        <label class="form-check-label" for="day-sun">Sun</label>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col">
+                        <label class="form-label" for="start-time">Start</label>
+                        <InputText type="time" class="form-control" id="start-time" @bind-Value="StartTimeText" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="end-time">End</label>
+                        <InputText type="time" class="form-control" id="end-time" @bind-Value="EndTimeText" />
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">@(IsEditing ? "Save changes" : "+ Add time window")</button>
+                @if (IsEditing)
+                {
+                    <a class="btn btn-outline-secondary ms-2" href="/time-preferences">Cancel</a>
+                }
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private static readonly (DaysOfWeekFlags Flag, string Label)[] OrderedDays =
+    [
+        (DaysOfWeekFlags.Monday, "Mon"),
+        (DaysOfWeekFlags.Tuesday, "Tue"),
+        (DaysOfWeekFlags.Wednesday, "Wed"),
+        (DaysOfWeekFlags.Thursday, "Thu"),
+        (DaysOfWeekFlags.Friday, "Fri"),
+        (DaysOfWeekFlags.Saturday, "Sat"),
+        (DaysOfWeekFlags.Sunday, "Sun"),
+    ];
+
+    private List<FavoriteTimeWindow> _windows = [];
+    private string? _error;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "editId")]
+    private int? EditId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-delete")]
+    private int? DeleteId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private int? EditingId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DayMonday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DayTuesday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DayWednesday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DayThursday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DayFriday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DaySaturday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private bool DaySunday { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private string? StartTimeText { get; set; }
+
+    [SupplyParameterFromForm(FormName = "time-window-editor")]
+    private string? EndTimeText { get; set; }
+
+    private bool IsEditing => (EditingId ?? EditId) is not null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWindowsAsync();
+
+        // Pre-populate the editor from the row being edited — but only on the GET navigation
+        // that opened the editor; on the subsequent POST the bound form values must win.
+        if (EditId is int editId && HttpContext is not null && HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            var window = _windows.FirstOrDefault(w => w.Id == editId);
+            if (window is not null)
+            {
+                DayMonday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Monday);
+                DayTuesday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Tuesday);
+                DayWednesday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Wednesday);
+                DayThursday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Thursday);
+                DayFriday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Friday);
+                DaySaturday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Saturday);
+                DaySunday = window.DaysOfWeek.HasFlag(DaysOfWeekFlags.Sunday);
+                StartTimeText = window.StartTime.ToString("HH:mm");
+                EndTimeText = window.EndTime.ToString("HH:mm");
+            }
+        }
+    }
+
+    private async Task LoadWindowsAsync()
+    {
+        _windows = await Db.FavoriteTimeWindows
+            .OrderBy(w => w.StartTime)
+            .ThenBy(w => w.Id)
+            .ToListAsync();
+    }
+
+    private async Task HandleDeleteSubmitAsync()
+    {
+        if (DeleteId is int deleteId)
+        {
+            await PreferenceService.DeleteTimeWindowAsync(deleteId, CancellationToken.None);
+        }
+
+        NavigationManager.NavigateTo("/time-preferences");
+    }
+
+    private async Task HandleEditorSubmitAsync()
+    {
+        var days = DaysOfWeekFlags.None;
+        if (DayMonday) days |= DaysOfWeekFlags.Monday;
+        if (DayTuesday) days |= DaysOfWeekFlags.Tuesday;
+        if (DayWednesday) days |= DaysOfWeekFlags.Wednesday;
+        if (DayThursday) days |= DaysOfWeekFlags.Thursday;
+        if (DayFriday) days |= DaysOfWeekFlags.Friday;
+        if (DaySaturday) days |= DaysOfWeekFlags.Saturday;
+        if (DaySunday) days |= DaysOfWeekFlags.Sunday;
+
+        if (days == DaysOfWeekFlags.None)
+        {
+            _error = "Select at least one day.";
+            return;
+        }
+
+        if (!TimeOnly.TryParse(StartTimeText, CultureInfo.InvariantCulture, out var start)
+            || !TimeOnly.TryParse(EndTimeText, CultureInfo.InvariantCulture, out var end))
+        {
+            _error = "Enter a valid start and end time.";
+            return;
+        }
+
+        if (end <= start)
+        {
+            _error = "End time must be after start time.";
+            return;
+        }
+
+        if (EditingId is int editingId)
+        {
+            await PreferenceService.UpdateTimeWindowAsync(editingId, days, start, end, CancellationToken.None);
+        }
+        else
+        {
+            await PreferenceService.CreateTimeWindowAsync(days, start, end, CancellationToken.None);
+        }
+
+        NavigationManager.NavigateTo("/time-preferences");
+    }
+
+    private static string DaysSummary(DaysOfWeekFlags days) =>
+        string.Join(", ", OrderedDays.Where(d => days.HasFlag(d.Flag)).Select(d => d.Label));
+}

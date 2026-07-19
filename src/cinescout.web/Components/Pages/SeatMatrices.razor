@@ -1,0 +1,344 @@
+@page "/seat-matrices"
+@using cinescout.core.Preferences
+@using cinescout.model
+@using cinescout.persistence
+@using Microsoft.EntityFrameworkCore
+@inject CineScoutDbContext Db
+@inject PreferenceService PreferenceService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Seat Matrices</PageTitle>
+
+<div class="container-fluid">
+    <h2>Favorite Seat Matrices</h2>
+
+    <ul class="nav nav-pills mb-3">
+        <li class="nav-item">
+            <a class="nav-link @(IsOverridesTab ? "" : "active")" href="/seat-matrices">General (per room)</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link @(IsOverridesTab ? "active" : "")" href="/seat-matrices?tab=overrides">Film-specific overrides</a>
+        </li>
+    </ul>
+
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger" role="alert">@_error</div>
+    }
+
+    <EditForm Model="this" FormName="seat-matrix-actions" OnSubmit="HandleActionSubmitAsync">
+        @if (!IsOverridesTab)
+        {
+            <div class="row row-cols-1 row-cols-md-3 g-3">
+                @foreach (var room in _rooms)
+                {
+                    var general = _matrices.FirstOrDefault(m => m.RoomId == room.Id && m.FilmId == null);
+                    <div class="col">
+                        <div class="card h-100 @(general is { IsEnabled: false } ? "opacity-50" : "")">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h6 class="card-title">@room.Name</h6>
+                                    @if (general is not null)
+                                    {
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" checked="@general.IsEnabled" disabled>
+                                        </div>
+                                    }
+                                </div>
+                                @if (general is not null)
+                                {
+                                    <p class="card-text small mb-0">@general.Name<br />rows @general.RowStart–@general.RowEnd, seats @general.SeatNumberStart–@general.SeatNumberEnd, party of @general.PartySize</p>
+                                    <div class="mt-2">
+                                        <a class="btn btn-sm btn-outline-secondary" href="/seat-matrices?editId=@general.Id">Edit</a>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary" name="toggleId" value="@general.Id">@(general.IsEnabled ? "Disable" : "Enable")</button>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" name="deleteId" value="@general.Id">Delete</button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="card-text small text-muted mb-0">No general preference set</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            var overrides = _matrices.Where(m => m.FilmId is not null).ToList();
+            @if (overrides.Count == 0)
+            {
+                <p class="text-muted">No film-specific overrides yet.</p>
+            }
+            <div class="row row-cols-1 row-cols-md-2 g-3">
+                @foreach (var matrix in overrides)
+                {
+                    <div class="col">
+                        <div class="card h-100 @(matrix.IsEnabled ? "" : "opacity-50")">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <h5 class="card-title">@FilmTitle(matrix.FilmId!.Value) <span class="badge bg-info text-dark">@RoomName(matrix.RoomId)</span></h5>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" checked="@matrix.IsEnabled" disabled>
+                                    </div>
+                                </div>
+                                <p class="card-text mb-1">@matrix.Name</p>
+                                <p class="card-text text-muted">Rows @matrix.RowStart–@matrix.RowEnd · Seats @matrix.SeatNumberStart–@matrix.SeatNumberEnd · Party of @matrix.PartySize</p>
+                                <div>
+                                    <a class="btn btn-sm btn-outline-secondary" href="/seat-matrices?tab=overrides&editId=@matrix.Id">Edit</a>
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" name="toggleId" value="@matrix.Id">@(matrix.IsEnabled ? "Disable" : "Enable")</button>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" name="deleteId" value="@matrix.Id">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </EditForm>
+
+    <div class="card mt-4" style="max-width: 32rem;">
+        <div class="card-body">
+            <h5 class="card-title">@(IsEditing ? "Edit seat matrix" : "+ Add seat matrix")</h5>
+            <EditForm Model="this" FormName="seat-matrix-editor" OnSubmit="HandleEditorSubmitAsync">
+                <input type="hidden" name="EditingId" value="@(EditingId ?? EditId)" />
+                <div class="mb-3">
+                    <label class="form-label" for="matrix-name">Name</label>
+                    <InputText class="form-control" id="matrix-name" @bind-Value="FormName" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="matrix-room">Room</label>
+                    <InputSelect class="form-select" id="matrix-room" @bind-Value="FormRoomId">
+                        <option value="">— select room —</option>
+                        @foreach (var room in _rooms)
+                        {
+                            <option value="@room.Id">@room.Name</option>
+                        }
+                    </InputSelect>
+                </div>
+                @if (IsOverridesTab)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="matrix-film">Film</label>
+                        <InputSelect class="form-select" id="matrix-film" @bind-Value="FormFilmId">
+                            <option value="">— select film —</option>
+                            @foreach (var film in _films)
+                            {
+                                <option value="@film.Id">@film.Title</option>
+                            }
+                        </InputSelect>
+                    </div>
+                }
+                <div class="row mb-3">
+                    <div class="col">
+                        <label class="form-label" for="matrix-row-start">Row from</label>
+                        <InputText class="form-control" id="matrix-row-start" @bind-Value="FormRowStart" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="matrix-row-end">Row to</label>
+                        <InputText class="form-control" id="matrix-row-end" @bind-Value="FormRowEnd" />
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col">
+                        <label class="form-label" for="matrix-seat-start">Seat from</label>
+                        <InputNumber class="form-control" id="matrix-seat-start" @bind-Value="FormSeatNumberStart" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label" for="matrix-seat-end">Seat to</label>
+                        <InputNumber class="form-control" id="matrix-seat-end" @bind-Value="FormSeatNumberEnd" />
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="matrix-party-size">Party size</label>
+                    <InputNumber class="form-control" id="matrix-party-size" @bind-Value="FormPartySize" />
+                </div>
+                <div class="form-check form-switch mb-3">
+                    <InputCheckbox class="form-check-input" id="matrix-enabled" @bind-Value="FormIsEnabled" />
+                    <label class="form-check-label" for="matrix-enabled">Enabled</label>
+                </div>
+                <button type="submit" class="btn btn-primary">@(IsEditing ? "Save changes" : "+ Add seat matrix")</button>
+                @if (IsEditing)
+                {
+                    <a class="btn btn-outline-secondary ms-2" href="@TabUrl">Cancel</a>
+                }
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Room> _rooms = [];
+    private List<Film> _films = [];
+    private List<FavoriteSeatMatrix> _matrices = [];
+    private string? _error;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    private string? Tab { get; set; }
+
+    [SupplyParameterFromQuery(Name = "editId")]
+    private int? EditId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-actions")]
+    private int? ToggleId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-actions")]
+    private int? DeleteId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private int? EditingId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private string? FormName { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private int? FormRoomId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private int? FormFilmId { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private string? FormRowStart { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private string? FormRowEnd { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private int? FormSeatNumberStart { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private int? FormSeatNumberEnd { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private int? FormPartySize { get; set; }
+
+    [SupplyParameterFromForm(FormName = "seat-matrix-editor")]
+    private bool FormIsEnabled { get; set; }
+
+    private bool IsOverridesTab => string.Equals(Tab, "overrides", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsEditing => (EditingId ?? EditId) is not null;
+
+    private string TabUrl => IsOverridesTab ? "/seat-matrices?tab=overrides" : "/seat-matrices";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _rooms = await Db.Rooms.OrderBy(r => r.Name).ToListAsync();
+        _films = await Db.Films.OrderBy(f => f.Title).ToListAsync();
+        _matrices = await Db.FavoriteSeatMatrices.OrderBy(m => m.Id).ToListAsync();
+
+        // Pre-populate the editor from the row being edited — but only on the GET navigation
+        // that opened the editor; on the subsequent POST the bound form values must win.
+        if (HttpContext is not null && HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            if (EditId is int editId && _matrices.FirstOrDefault(m => m.Id == editId) is { } matrix)
+            {
+                FormName = matrix.Name;
+                FormRoomId = matrix.RoomId;
+                FormFilmId = matrix.FilmId;
+                FormRowStart = matrix.RowStart;
+                FormRowEnd = matrix.RowEnd;
+                FormSeatNumberStart = matrix.SeatNumberStart;
+                FormSeatNumberEnd = matrix.SeatNumberEnd;
+                FormPartySize = matrix.PartySize;
+                FormIsEnabled = matrix.IsEnabled;
+            }
+            else
+            {
+                FormIsEnabled = true;
+            }
+        }
+    }
+
+    private async Task HandleActionSubmitAsync()
+    {
+        if (ToggleId is int toggleId)
+        {
+            var matrix = _matrices.FirstOrDefault(m => m.Id == toggleId);
+            if (matrix is not null)
+            {
+                await PreferenceService.SetSeatMatrixEnabledAsync(toggleId, !matrix.IsEnabled, CancellationToken.None);
+            }
+        }
+        else if (DeleteId is int deleteId)
+        {
+            await PreferenceService.DeleteSeatMatrixAsync(deleteId, CancellationToken.None);
+        }
+
+        NavigationManager.NavigateTo(TabUrl);
+    }
+
+    private async Task HandleEditorSubmitAsync()
+    {
+        var name = FormName?.Trim();
+        var rowStart = FormRowStart?.Trim();
+        var rowEnd = FormRowEnd?.Trim();
+        var filmId = IsOverridesTab ? FormFilmId : null;
+
+        if (string.IsNullOrEmpty(name))
+        {
+            _error = "Name is required.";
+            return;
+        }
+
+        if (FormRoomId is not int roomId)
+        {
+            _error = "Select a room.";
+            return;
+        }
+
+        if (IsOverridesTab && filmId is null)
+        {
+            _error = "Select a film for a film-specific override.";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(rowStart) || string.IsNullOrEmpty(rowEnd))
+        {
+            _error = "Both row bounds are required.";
+            return;
+        }
+
+        if (string.CompareOrdinal(rowStart, rowEnd) > 0)
+        {
+            _error = "Row from must not come after row to.";
+            return;
+        }
+
+        if (FormSeatNumberStart is not int seatStart || FormSeatNumberEnd is not int seatEnd
+            || seatStart < 1 || seatEnd < seatStart)
+        {
+            _error = "Seat numbers must be at least 1, with seat from not after seat to.";
+            return;
+        }
+
+        if (FormPartySize is not int partySize || partySize < 1)
+        {
+            _error = "Party size must be at least 1.";
+            return;
+        }
+
+        if (EditingId is int editingId)
+        {
+            await PreferenceService.UpdateSeatMatrixAsync(
+                editingId, roomId, filmId, name, rowStart, rowEnd, seatStart, seatEnd, partySize, FormIsEnabled,
+                CancellationToken.None);
+        }
+        else
+        {
+            await PreferenceService.CreateSeatMatrixAsync(
+                roomId, filmId, name, rowStart, rowEnd, seatStart, seatEnd, partySize, FormIsEnabled,
+                CancellationToken.None);
+        }
+
+        NavigationManager.NavigateTo(TabUrl);
+    }
+
+    private string RoomName(int roomId) => _rooms.FirstOrDefault(r => r.Id == roomId)?.Name ?? $"Room {roomId}";
+
+    private string FilmTitle(int filmId) => _films.FirstOrDefault(f => f.Id == filmId)?.Title ?? $"Film {filmId}";
+}
