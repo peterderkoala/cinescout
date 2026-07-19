@@ -33,6 +33,7 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
 
     private static KinoheldWidgetConfig ThreeAuditoriumConfig() => new()
     {
+        CinemaId = "2135",
         Auditoriums =
         [
             new KinoheldAuditorium { Id = "8255", Name = "Kino 1" },
@@ -106,6 +107,11 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         Assert.Equal(3, rooms.Count);
         Assert.Equal(["8255", "8257", "8259"], rooms.Select(r => r.ExternalAuditoriumId));
         Assert.Equal(["Kino 1", "Kino 2", "Kino 3"], rooms.Select(r => r.Name));
+
+        // The widget config's cinema id is captured onto the Site in the same save — the seat
+        // crawl (#22) needs it as "cid" and never guesses it.
+        var persistedSite = await read.Sites.SingleAsync(s => s.Id == siteId);
+        Assert.Equal("2135", persistedSite.KinoheldCinemaId);
     }
 
     [Fact]
@@ -162,6 +168,7 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(new KinoheldWidgetConfig
             {
+                CinemaId = "2135",
                 Auditoriums =
                 [
                     new KinoheldAuditorium { Id = "8255", Name = "Kino 1" },
