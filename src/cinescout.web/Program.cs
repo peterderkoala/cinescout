@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security.Claims;
 using cinescout.core.Discord;
 using cinescout.core.HallOfFame;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,9 +53,28 @@ builder.Services.AddHttpClient<IHallOfFameClient, HallOfFameClient>()
 builder.Services.AddScoped<HallOfFameCrawlService>();
 builder.Services.AddScoped<HallOfFameCrawlJob>();
 
-builder.Services.AddHttpClient<IKinoheldClient, KinoheldClient>()
-    .AddStandardResilienceHandler();
+// Deliberately honest crawling posture (#22): a non-spoofed User-Agent that names this tool, no
+// header spoofing. Standard resilience stays, but its retry strategy must NOT retry 403/429 —
+// retrying a block would worsen it; the KinoheldCircuitBreaker must see it and stop all polling.
+builder.Services.AddHttpClient<IKinoheldClient, KinoheldClient>(client =>
+        // "(personal use)" with a space is not a valid UA comment token for ParseAdd — keep it hyphenated.
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("CineScout/1.0 (personal-use)"))
+    .AddStandardResilienceHandler(options =>
+        options.Retry.ShouldHandle = args =>
+        {
+            var statusCode = args.Outcome.Result?.StatusCode;
+            if (statusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
+            {
+                return ValueTask.FromResult(false);
+            }
+
+            return ValueTask.FromResult(HttpClientResiliencePredicates.IsTransient(args.Outcome));
+        });
 builder.Services.AddScoped<KinoheldRoomSeedingService>();
+builder.Services.AddSingleton<KinoheldCircuitBreaker>();
+builder.Services.AddSingleton<KinoheldFetchCooldownTracker>();
+builder.Services.AddScoped<KinoheldSeatCrawlService>();
+builder.Services.AddScoped<KinoheldSeatCrawlJob>();
 
 builder.Services.AddHttpClient<IDiscordNotifier, DiscordNotifier>()
     .AddStandardResilienceHandler();
@@ -93,6 +114,12 @@ if (!isTestingEnvironment)
         "hall-of-fame-crawl",
         job => job.RunAsync(CancellationToken.None),
         $"0 */{hallOfFameCrawlIntervalHours} * * *");
+
+    var kinoheldSeatCrawlIntervalMinutes = app.Configuration.GetValue("Kinoheld:SeatCrawlIntervalMinutes", 30);
+    recurringJobManager.AddOrUpdate<KinoheldSeatCrawlJob>(
+        "kinoheld-seat-crawl",
+        job => job.RunAsync(CancellationToken.None),
+        $"*/{kinoheldSeatCrawlIntervalMinutes} * * * *");
 }
 
 // Room seeding is eager, not lazy: fetched once per Site from its Kinoheld widget config,
