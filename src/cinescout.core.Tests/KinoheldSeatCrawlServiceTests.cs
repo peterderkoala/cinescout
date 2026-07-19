@@ -517,6 +517,43 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Force_refresh_right_after_a_routine_fetch_is_not_cooled_down()
+    {
+        // The 30s cooldown exists to absorb accidental force-refresh double-clicks only (#14);
+        // a routine stale-cache fetch on page view must not consume it and block a deliberate
+        // force-refresh moments later.
+        var options = BuildOptions();
+        var client = Substitute.For<IKinoheldClient>();
+        client.GetSeatsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(SuccessResult(("s1", "A", 1, "sf", null, null, "8259")));
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var siteId = await SeedSiteAsync(db);
+            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: false);
+            var performanceId = await SeedPerformanceAsync(db, siteId, filmId, "6005", Future);
+
+            db.SeatingSnapshots.Add(new SeatingSnapshot
+            {
+                PerformanceId = performanceId,
+                CrawledAt = DateTimeOffset.UtcNow.AddHours(-2), // stale, so the routine fetch really goes out
+                RawPayload = "{}",
+            });
+            await db.SaveChangesAsync();
+
+            var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
+
+            var routine = await service.FetchForPerformanceAsync(performanceId, forceRefresh: false, CancellationToken.None);
+            Assert.Equal(SeatFetchOutcome.Fetched, routine);
+
+            var force = await service.FetchForPerformanceAsync(performanceId, forceRefresh: true, CancellationToken.None);
+            Assert.Equal(SeatFetchOutcome.Fetched, force);
+        }
+
+        Assert.Equal(2, client.ReceivedCalls().Count());
+    }
+
+    [Fact]
     public async Task OnDemand_with_tripped_breaker_is_CircuitOpen_without_call()
     {
         var options = BuildOptions();

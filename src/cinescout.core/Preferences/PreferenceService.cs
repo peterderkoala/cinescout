@@ -5,6 +5,21 @@ using Microsoft.EntityFrameworkCore;
 namespace cinescout.core.Preferences;
 
 /// <summary>
+/// The full editable field set of a <see cref="FavoriteSeatMatrix"/>, bundled so create/update
+/// call sites can't silently misorder nine positional arguments.
+/// </summary>
+public sealed record SeatMatrixInput(
+    int RoomId,
+    int? FilmId,
+    string Name,
+    string RowStart,
+    string RowEnd,
+    int SeatNumberStart,
+    int SeatNumberEnd,
+    int PartySize,
+    bool IsEnabled);
+
+/// <summary>
 /// Thin persistence layer for the user's preference entities (FavoriteTimeWindow,
 /// FavoriteSeatMatrix). Validation is the UI's job; like WatchedMovieService, operations
 /// on missing ids are defensive no-ops rather than errors.
@@ -48,45 +63,24 @@ public sealed class PreferenceService(CineScoutDbContext db)
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task CreateSeatMatrixAsync(
-        int roomId,
-        int? filmId,
-        string name,
-        string rowStart,
-        string rowEnd,
-        int seatNumberStart,
-        int seatNumberEnd,
-        int partySize,
-        bool isEnabled,
-        CancellationToken cancellationToken)
+    public async Task CreateSeatMatrixAsync(SeatMatrixInput input, CancellationToken cancellationToken)
     {
         db.FavoriteSeatMatrices.Add(new FavoriteSeatMatrix
         {
-            RoomId = roomId,
-            FilmId = filmId,
-            Name = name,
-            RowStart = rowStart,
-            RowEnd = rowEnd,
-            SeatNumberStart = seatNumberStart,
-            SeatNumberEnd = seatNumberEnd,
-            PartySize = partySize,
-            IsEnabled = isEnabled,
+            RoomId = input.RoomId,
+            FilmId = input.FilmId,
+            Name = input.Name,
+            RowStart = input.RowStart,
+            RowEnd = input.RowEnd,
+            SeatNumberStart = input.SeatNumberStart,
+            SeatNumberEnd = input.SeatNumberEnd,
+            PartySize = input.PartySize,
+            IsEnabled = input.IsEnabled,
         });
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task UpdateSeatMatrixAsync(
-        int id,
-        int roomId,
-        int? filmId,
-        string name,
-        string rowStart,
-        string rowEnd,
-        int seatNumberStart,
-        int seatNumberEnd,
-        int partySize,
-        bool isEnabled,
-        CancellationToken cancellationToken)
+    public async Task UpdateSeatMatrixAsync(int id, SeatMatrixInput input, CancellationToken cancellationToken)
     {
         var matrix = await db.FavoriteSeatMatrices.SingleOrDefaultAsync(m => m.Id == id, cancellationToken);
         if (matrix is null)
@@ -94,15 +88,15 @@ public sealed class PreferenceService(CineScoutDbContext db)
             return;
         }
 
-        matrix.RoomId = roomId;
-        matrix.FilmId = filmId;
-        matrix.Name = name;
-        matrix.RowStart = rowStart;
-        matrix.RowEnd = rowEnd;
-        matrix.SeatNumberStart = seatNumberStart;
-        matrix.SeatNumberEnd = seatNumberEnd;
-        matrix.PartySize = partySize;
-        matrix.IsEnabled = isEnabled;
+        matrix.RoomId = input.RoomId;
+        matrix.FilmId = input.FilmId;
+        matrix.Name = input.Name;
+        matrix.RowStart = input.RowStart;
+        matrix.RowEnd = input.RowEnd;
+        matrix.SeatNumberStart = input.SeatNumberStart;
+        matrix.SeatNumberEnd = input.SeatNumberEnd;
+        matrix.PartySize = input.PartySize;
+        matrix.IsEnabled = input.IsEnabled;
         await db.SaveChangesAsync(cancellationToken);
     }
 

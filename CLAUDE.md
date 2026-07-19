@@ -24,10 +24,27 @@ CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The 
   pattern to copy. Multiple per-row actions (Watch/Unwatch) share one `EditForm` via two differently-named
   submit buttons (`name="watchFilmId"` / `name="unwatchFilmId"`, each carrying the film id as its `value`) bound
   to two separate nullable `[SupplyParameterFromForm]` int properties, rather than a dynamic `FormName` per row.
+  `TimePreferences.razor`, `SeatMatrices.razor`, and `PerformanceDetail.razor` (#21/#22) extend the same
+  static-SSR patterns: in-page tabs are plain links carrying a query param (`?tab=overrides`) since static SSR
+  has no `@onclick`; edit flows use `?editId=` with the editor pre-populated only on GET (checked via the
+  cascading `HttpContext`) so posted form values win on submit; successful mutations end in
+  POST-redirect-GET via `NavigationManager.NavigateTo`, validation failures re-render with a Bootstrap alert.
+  The Seat Matrices General tab shows at most one `FilmId`-null matrix per room, so the editor blocks creating
+  a second one (it would be unreachable in the UI — not editable, toggleable, or deletable).
 - `src/cinescout.core` — domain services: `HallOfFame/` (schedule crawl — `IHallOfFameClient`, upsert/
   cancellation-by-absence logic, the Hangfire recurring job), `Kinoheld/` (room seeding — `IKinoheldClient`,
   parses the widget page's inline `dataLayer.push({...})` JSON via `Utf8JsonReader` token-matching, not a naive
-  brace-counting scan, since the blob embeds raw SVG markup with braces/parens inside string values),
+  brace-counting scan, since the blob embeds raw SVG markup with braces/parens inside string values — the same
+  fetch also captures `cinema.id` into `Site.KinoheldCinemaId`, which the seat crawl needs as its `cid`; plus,
+  since #22, the seat crawl itself: `GetSeatsAsync` returns a typed `KinoheldSeatsResult`
+  (Success/NotBookable/NotFound/Blocked/Anomalous — 400/404 are *expected* per-performance outcomes, never
+  thrown), `KinoheldSeatCrawlService` runs the recurring watched-films-only crawl and the on-demand/
+  force-refresh path, and `KinoheldCircuitBreaker` is a deliberately in-memory singleton that trips on any
+  403/429/anomalous response and stops **all** Kinoheld polling until an app restart (the v1 "manual reset");
+  the 30s `KinoheldFetchCooldownTracker` applies to force-refresh only — routine stale-cache fetches are
+  bounded by the freshness window instead, per #14's double-click-guard-only rationale; the HttpClient sends an
+  honest `CineScout/1.0 (personal-use)` UA and its resilience retry deliberately excludes 403/429 so the
+  breaker, not a retry loop, handles being blocked),
   `WatchedMovies/` (`WatchedMovieService` — watch/unwatch is a plain insert/delete of a `WatchedMovie` row, not
   a soft-delete/status flag; the model has no such field and `FilmId` carries a unique index, so re-watching an
   already-watched film or unwatching one that isn't watched are both defensive no-ops, not errors), and

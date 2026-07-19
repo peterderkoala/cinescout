@@ -61,8 +61,10 @@ public sealed class KinoheldSeatCrawlService(
     /// <summary>
     /// On-demand path for the performance detail page. Serves cache when the latest snapshot is
     /// within the freshness window (<c>Kinoheld:SeatFreshnessMinutes</c>, default 30) unless
-    /// <paramref name="forceRefresh"/> is set; every actual outgoing call (forced or not) is
-    /// recorded against the 30-second per-performance cooldown.
+    /// <paramref name="forceRefresh"/> is set. The 30-second per-performance cooldown applies to
+    /// force-refresh only — it exists purely to absorb accidental double-clicks (#14), not to
+    /// second-guess a deliberate refresh or throttle routine stale-cache fetches (those are
+    /// already bounded by the freshness window after any successful fetch).
     /// </summary>
     public async Task<SeatFetchOutcome> FetchForPerformanceAsync(int performanceId, bool forceRefresh, CancellationToken cancellationToken)
     {
@@ -93,7 +95,7 @@ public sealed class KinoheldSeatCrawlService(
             }
         }
 
-        if (!cooldownTracker.TryBeginFetch(performance.Id, now))
+        if (forceRefresh && !cooldownTracker.TryBeginFetch(performance.Id, now))
         {
             return SeatFetchOutcome.CooldownActive;
         }
@@ -207,29 +209,18 @@ public sealed class KinoheldSeatCrawlService(
         {
             seenSeatIds.Add(seat.SourceSeatId);
 
-            if (existingBySeatId.TryGetValue(seat.SourceSeatId, out var existing))
+            if (!existingBySeatId.TryGetValue(seat.SourceSeatId, out var status))
             {
-                existing.Row = seat.Row;
-                existing.SeatNumber = seat.SeatNumber;
-                existing.Status = MapStatus(seat.RawStatus);
-                existing.LeftNeighborSeatId = seat.LeftNeighborSeatId;
-                existing.RightNeighborSeatId = seat.RightNeighborSeatId;
-                existing.UpdatedAt = now;
-            }
-            else
-            {
-                db.SeatStatuses.Add(new SeatStatus
+                status = new SeatStatus
                 {
                     PerformanceId = performance.Id,
                     SourceSeatId = seat.SourceSeatId,
                     Row = seat.Row,
-                    SeatNumber = seat.SeatNumber,
-                    Status = MapStatus(seat.RawStatus),
-                    LeftNeighborSeatId = seat.LeftNeighborSeatId,
-                    RightNeighborSeatId = seat.RightNeighborSeatId,
-                    UpdatedAt = now,
-                });
+                };
+                db.SeatStatuses.Add(status);
             }
+
+            ApplySeat(seat, status, now);
         }
 
         db.SeatStatuses.RemoveRange(existingStatuses.Where(s => !seenSeatIds.Contains(s.SourceSeatId)));
@@ -258,6 +249,16 @@ public sealed class KinoheldSeatCrawlService(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void ApplySeat(KinoheldSeat seat, SeatStatus target, DateTimeOffset now)
+    {
+        target.Row = seat.Row;
+        target.SeatNumber = seat.SeatNumber;
+        target.Status = MapStatus(seat.RawStatus);
+        target.LeftNeighborSeatId = seat.LeftNeighborSeatId;
+        target.RightNeighborSeatId = seat.RightNeighborSeatId;
+        target.UpdatedAt = now;
     }
 
     private static SeatOccupancyStatus MapStatus(string rawStatus) => rawStatus switch

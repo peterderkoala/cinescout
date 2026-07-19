@@ -147,7 +147,7 @@ public class PreferenceServiceTests : IAsyncLifetime
         {
             var service = new PreferenceService(db);
             await service.CreateSeatMatrixAsync(
-                roomId, filmId: null, "Sweet spot", "D", "F", 4, 9, 2, isEnabled: true,
+                new SeatMatrixInput(roomId, FilmId: null, "Sweet spot", "D", "F", 4, 9, 2, IsEnabled: true),
                 CancellationToken.None);
         }
 
@@ -171,7 +171,8 @@ public class PreferenceServiceTests : IAsyncLifetime
         {
             var service = new PreferenceService(db);
             await service.UpdateSeatMatrixAsync(
-                matrixId, roomId, filmId: null, "Back rows", "G", "H", 1, 12, 4, isEnabled: false,
+                matrixId,
+                new SeatMatrixInput(roomId, FilmId: null, "Back rows", "G", "H", 1, 12, 4, IsEnabled: false),
                 CancellationToken.None);
         }
 
@@ -209,7 +210,7 @@ public class PreferenceServiceTests : IAsyncLifetime
         {
             var service = new PreferenceService(db);
             await service.CreateSeatMatrixAsync(
-                roomId, filmId, "Vaiana premiere seats", "A", "C", 5, 8, 3, isEnabled: true,
+                new SeatMatrixInput(roomId, filmId, "Vaiana premiere seats", "A", "C", 5, 8, 3, IsEnabled: true),
                 CancellationToken.None);
         }
 
@@ -230,7 +231,8 @@ public class PreferenceServiceTests : IAsyncLifetime
         {
             var service = new PreferenceService(db);
             await service.UpdateSeatMatrixAsync(
-                12345, roomId, filmId: null, "Ghost", "A", "B", 1, 2, 1, isEnabled: true,
+                12345,
+                new SeatMatrixInput(roomId, FilmId: null, "Ghost", "A", "B", 1, 2, 1, IsEnabled: true),
                 CancellationToken.None);
             await service.DeleteSeatMatrixAsync(12345, CancellationToken.None);
         }
@@ -250,7 +252,7 @@ public class PreferenceServiceTests : IAsyncLifetime
         {
             var service = new PreferenceService(db);
             await service.CreateSeatMatrixAsync(
-                roomId, filmId: null, "Sweet spot", "D", "F", 4, 9, 2, isEnabled: true,
+                new SeatMatrixInput(roomId, FilmId: null, "Sweet spot", "D", "F", 4, 9, 2, IsEnabled: true),
                 CancellationToken.None);
             matrixId = (await db.FavoriteSeatMatrices.SingleAsync()).Id;
         }

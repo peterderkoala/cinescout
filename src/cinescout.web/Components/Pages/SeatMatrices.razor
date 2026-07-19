@@ -322,17 +322,22 @@
             return;
         }
 
+        // The General tab only ever shows one FilmId-null matrix per room, so a second one for
+        // the same room would be unreachable (never editable or deletable) — block it here.
+        if (filmId is null && _matrices.Any(m => m.RoomId == roomId && m.FilmId == null && m.Id != EditingId))
+        {
+            _error = $"{RoomName(roomId)} already has a general preference — edit that one instead.";
+            return;
+        }
+
+        var input = new SeatMatrixInput(roomId, filmId, name, rowStart, rowEnd, seatStart, seatEnd, partySize, FormIsEnabled);
         if (EditingId is int editingId)
         {
-            await PreferenceService.UpdateSeatMatrixAsync(
-                editingId, roomId, filmId, name, rowStart, rowEnd, seatStart, seatEnd, partySize, FormIsEnabled,
-                CancellationToken.None);
+            await PreferenceService.UpdateSeatMatrixAsync(editingId, input, CancellationToken.None);
         }
         else
         {
-            await PreferenceService.CreateSeatMatrixAsync(
-                roomId, filmId, name, rowStart, rowEnd, seatStart, seatEnd, partySize, FormIsEnabled,
-                CancellationToken.None);
+            await PreferenceService.CreateSeatMatrixAsync(input, CancellationToken.None);
         }
 
         NavigationManager.NavigateTo(TabUrl);
