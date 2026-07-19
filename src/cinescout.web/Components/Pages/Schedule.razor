@@ -31,7 +31,7 @@ else
             @foreach (var row in _rows)
             {
                 <tr>
-                    <td>@row.FilmTitle</td>
+                    <td><a href="@($"/performances/{row.PerformanceId}")">@row.FilmTitle</a></td>
                     <td>@row.SiteName / @row.RoomName</td>
                     <td>@row.StartsAt.ToString("g")</td>
                     <td>
@@ -62,6 +62,7 @@ else
 
         _rows = upcoming
             .Select(p => new ScheduleRow(
+                p.Id,
                 filmTitles.GetValueOrDefault(p.FilmId, "Unknown"),
                 siteNames.GetValueOrDefault(p.SiteId, "Unknown"),
                 p.RoomId is int roomId ? roomNames.GetValueOrDefault(roomId, "—") : "TBD",
@@ -70,5 +71,5 @@ else
             .ToList();
     }
 
-    private sealed record ScheduleRow(string FilmTitle, string SiteName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut);
+    private sealed record ScheduleRow(int PerformanceId, string FilmTitle, string SiteName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut);
 }

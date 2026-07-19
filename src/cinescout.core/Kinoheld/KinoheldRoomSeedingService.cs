@@ -33,6 +33,13 @@ public sealed class KinoheldRoomSeedingService(CineScoutDbContext db, IKinoheldC
 
         var config = await client.GetWidgetConfigAsync(bookingLink, cancellationToken);
 
+        // Capture Kinoheld's numeric cinema id alongside the auditoriums — the seat crawl (#22)
+        // needs it as "cid" and never guesses it.
+        if (site.KinoheldCinemaId != config.CinemaId)
+        {
+            site.KinoheldCinemaId = config.CinemaId;
+        }
+
         foreach (var auditorium in config.Auditoriums)
         {
             var room = await db.Rooms.SingleOrDefaultAsync(

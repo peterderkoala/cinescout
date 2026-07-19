@@ -1,0 +1,158 @@
+@page "/performances/{PerformanceId:int}"
+@using cinescout.core.Kinoheld
+@using cinescout.model
+@using cinescout.persistence
+@using Microsoft.EntityFrameworkCore
+@inject CineScoutDbContext Db
+@inject KinoheldSeatCrawlService SeatCrawlService
+@inject KinoheldCircuitBreaker CircuitBreaker
+
+<PageTitle>Performance</PageTitle>
+
+@if (_performance is null)
+{
+    <p>Performance not found.</p>
+}
+else
+{
+    <h1>@_filmTitle</h1>
+
+    <p>
+        @_siteName / @_roomName<br />
+        @_performance.StartsAt.ToString("g")
+        @if (_performance.IsSoldOut)
+        {
+            <span class="badge bg-danger ms-2">Sold out</span>
+        }
+    </p>
+
+    <p><a href="@_performance.BookingLink" target="_blank">Book on Kinoheld</a></p>
+
+    @if (_outcome == SeatFetchOutcome.CircuitOpen)
+    {
+        <div class="alert alert-warning">
+            Kinoheld polling is suspended: @(CircuitBreaker.TripReason ?? "the circuit breaker is tripped.")
+            Restart the app to reset.
+        </div>
+    }
+    else if (_outcome == SeatFetchOutcome.NotBookable)
+    {
+        <p><em>Not currently bookable.</em></p>
+    }
+    else if (_outcome == SeatFetchOutcome.NotFound)
+    {
+        <p><em>No longer available on Kinoheld.</em></p>
+    }
+    else if (_outcome == SeatFetchOutcome.CooldownActive)
+    {
+        <p><em>Refreshed too recently, try again in a moment.</em></p>
+    }
+
+    @if (_dataAge is null)
+    {
+        <p>No seat data yet.</p>
+    }
+    else
+    {
+        <p>Seat data as of @_dataAge.Value.ToString("g") — @_freeSeats of @_totalSeats seats free.</p>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Row</th>
+                    <th>Free / Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rowSummaries)
+                {
+                    <tr>
+                        <td>@row.Row</td>
+                        <td>@row.Free / @row.Total</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <EditForm Model="this" FormName="force-refresh" OnSubmit="HandleForceRefreshAsync">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Force refresh</button>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public int PerformanceId { get; set; }
+
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    private Performance? _performance;
+    private string _filmTitle = "Unknown";
+    private string _siteName = "Unknown";
+    private string _roomName = "TBD";
+    private SeatFetchOutcome? _outcome;
+    private DateTimeOffset? _dataAge;
+    private int _totalSeats;
+    private int _freeSeats;
+    private List<RowSummary> _rowSummaries = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _performance = await Db.Performances.SingleOrDefaultAsync(p => p.Id == PerformanceId);
+        if (_performance is null)
+        {
+            return;
+        }
+
+        _filmTitle = await Db.Films.Where(f => f.Id == _performance.FilmId).Select(f => f.Title).SingleOrDefaultAsync() ?? "Unknown";
+        _siteName = await Db.Sites.Where(s => s.Id == _performance.SiteId).Select(s => s.Name).SingleOrDefaultAsync() ?? "Unknown";
+
+        // A force-refresh POST triggers its own fetch in HandleForceRefreshAsync (which runs
+        // after initialization) — don't stack an on-view fetch on top of it.
+        if (HttpContext?.Request.Method != "POST")
+        {
+            _outcome = await SeatCrawlService.FetchForPerformanceAsync(PerformanceId, forceRefresh: false, CancellationToken.None);
+        }
+
+        await LoadSeatDataAsync();
+    }
+
+    private async Task HandleForceRefreshAsync()
+    {
+        _outcome = await SeatCrawlService.FetchForPerformanceAsync(PerformanceId, forceRefresh: true, CancellationToken.None);
+        await LoadSeatDataAsync();
+    }
+
+    private async Task LoadSeatDataAsync()
+    {
+        // FetchForPerformanceAsync may just have resolved RoomId — re-read the performance.
+        _performance = await Db.Performances.SingleOrDefaultAsync(p => p.Id == PerformanceId);
+        if (_performance is null)
+        {
+            return;
+        }
+
+        _roomName = _performance.RoomId is int roomId
+            ? await Db.Rooms.Where(r => r.Id == roomId).Select(r => r.Name).SingleOrDefaultAsync() ?? "TBD"
+            : "TBD";
+
+        _dataAge = await Db.SeatingSnapshots
+            .Where(s => s.PerformanceId == PerformanceId)
+            .MaxAsync(s => (DateTimeOffset?)s.CrawledAt);
+
+        var seatStatuses = await Db.SeatStatuses
+            .Where(s => s.PerformanceId == PerformanceId)
+            .ToListAsync();
+
+        _totalSeats = seatStatuses.Count;
+        _freeSeats = seatStatuses.Count(s => s.Status == SeatOccupancyStatus.Free);
+        _rowSummaries = seatStatuses
+            .GroupBy(s => s.Row)
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new RowSummary(g.Key, g.Count(s => s.Status == SeatOccupancyStatus.Free), g.Count()))
+            .ToList();
+    }
+
+    private sealed record RowSummary(string Row, int Free, int Total);
+}
