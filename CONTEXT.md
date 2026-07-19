@@ -43,3 +43,7 @@ _Avoid_: Seat, seat map entry
 **FavoriteSeatMatrix**:
 A user-defined zone within a `Room` — a row range plus a seat-number range plus a `PartySize` — used to check whether enough adjacent seats are free for the user's group. Optionally scoped to one `Film` (a specific override), otherwise general for that `Room`; a film-specific matrix takes precedence over a general one. Also subsumes "liking a room in general" (a wide-open matrix), so there is no separate `FavoriteRoom` concept. Supersedes the earlier, narrower "RoomRule" idea.
 _Avoid_: RoomRule, FavoriteRoom, seat rule, priority matrix
+
+**User**:
+An operator account that can log in to CineScout. Replaces the earlier hardcoded single-credential model (a config-only password hash with no persisted identity). The one row is seeded ahead of first use rather than created by the setup flow itself — see [ADR 0001](docs/adr/0001-user-table-seeded-with-null-password-hash.md) — and the schema is deliberately minimal (no roles/permissions) but shaped so a future second `User` doesn't need a breaking migration.
+_Avoid_: AppUser, Account
