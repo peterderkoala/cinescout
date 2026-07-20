@@ -14,14 +14,19 @@ CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The 
 - `src/cinescout.web.Client` — the WASM client project; interactive pages/layout live here. Pages that need
   direct server-side access (`CineScoutDbContext`, `HttpContext`) instead live in
   `src/cinescout.web/Components/Pages` as static-SSR-only components (no `@rendermode`) — `Login.razor`,
-  `Schedule.razor`, and `WatchedMovies.razor` are the examples so far; `cinescout.web.Client` deliberately never
+  `Setup.razor`, `Schedule.razor`, and `WatchedMovies.razor` are the examples so far; `cinescout.web.Client` deliberately never
   references `cinescout.persistence` (EF Core/Npgsql aren't WASM-appropriate to ship to the browser).
   `WatchedMovies.razor` is also the first page that *mutates* data from a static-SSR page — it uses Blazor's
   native `<EditForm Model="this" FormName="...">` + `[SupplyParameterFromForm]` (not a plain HTML form posting
   to a separate minimal-API endpoint, which is what `Login.razor` does) since this is an authenticated,
   state-mutating action where the framework's built-in antiforgery protection is worth having; `Login.razor`'s
   plain-form approach was a deliberate exception for that one anonymous, low-risk action, not the default
-  pattern to copy. Multiple per-row actions (Watch/Unwatch) share one `EditForm` via two differently-named
+  pattern to copy. `Setup.razor` (#41) reuses Login's plain-form/separate-minimal-API shape rather than
+  WatchedMovies's `EditForm`, even though setup *does* mutate the `User` row: antiforgery tokens defend a
+  mutation an attacker rides via a victim's ambient authenticated-session cookies, and setup has neither an
+  authenticated session nor any ambient cookie to ride — it's gated by its own out-of-band secret instead (the
+  startup-log first-run token), which is a stronger, purpose-built control than a generic antiforgery token
+  would be here. Multiple per-row actions (Watch/Unwatch) share one `EditForm` via two differently-named
   submit buttons (`name="watchFilmId"` / `name="unwatchFilmId"`, each carrying the film id as its `value`) bound
   to two separate nullable `[SupplyParameterFromForm]` int properties, rather than a dynamic `FormName` per row.
   `TimePreferences.razor`, `SeatMatrices.razor`, and `PerformanceDetail.razor` (#21/#22) extend the same
@@ -99,13 +104,19 @@ restarting the container, and confirming the same cookie still worked) is `mkdir
 Login credentials live in the persisted `User` table (see `CONTEXT.md`), seeded by migration with
 `PasswordHash = null` — a null hash is the sole "not set up" signal, and login always fails until it's set,
 the same safe default as before (see [ADR 0001](docs/adr/0001-user-table-seeded-with-null-password-hash.md)).
-`Auth:PasswordHash`/`Auth__PasswordHash` is now upgrade-only and deprecated: it's read exactly once, at
-startup, only while `User.PasswordHash` is still null, and copied verbatim into the row (same hasher, no
-re-hash) — after that it's never read again, so it's safe to remove from `.env`. Until the first-run setup
-page ships, this env var is also the practical way to set the initial password locally: set
-`Auth__PasswordHash` to a hash produced by
-`new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, "<password>")` (`cinescout.web.Auth.AppUser`) —
-e.g. via `dotnet user-secrets` or an env var — before first boot. `Auth:SessionLifetimeDays` defaults to 30.
+A fresh deployment is guided to `/setup` (`Login.razor` and `POST /account/login` both redirect there while
+`User.PasswordHash` is null; `Setup.razor` and `POST /account/setup` redirect the other way, to `/login`, once
+it's set — symmetric, no new middleware, no re-running setup later). `/setup` requires the current token, held
+in memory only by the `FirstRunTokenStore` singleton (`cinescout.web.Auth`, no interface — exactly one
+implementation, never swapped, never persisted), regenerated fresh on every boot while unset and logged via
+Serilog at startup (`LogFirstRunTokenIfNeededAsync`, after the legacy-hash migration runs, so an
+already-migrated deployment doesn't get a misleading "please set up" log line); the submitted token is checked
+with `CryptographicOperations.FixedTimeEquals`, not plain string equality. Successful setup writes
+`PasswordHash`/`SetupCompletedAt` and signs the operator in immediately via the same `SignInAsync` call path
+`/account/login` uses. `Auth:PasswordHash`/`Auth__PasswordHash` is upgrade-only and deprecated: it's read
+exactly once, at startup, only while `User.PasswordHash` is still null, and copied verbatim into the row (same
+hasher, no re-hash) — after that it's never read again, so it's safe to remove from `.env`; for a fresh
+deployment, use the `/setup` page instead of hand-generating a hash. `Auth:SessionLifetimeDays` defaults to 30.
 
 `cinescout.web` now needs a real Postgres to actually run (`dotnet run`, not `dotnet test`): set
 `ConnectionStrings__Postgres` (e.g. `Host=localhost;Port=5432;Database=cinescout;Username=...;Password=...`) —

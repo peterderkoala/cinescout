@@ -46,7 +46,7 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
     }
 
     [Fact]
-    public async Task Login_WhenUserHasNoPasswordHashSet_AlwaysFails()
+    public async Task Login_WhenUserHasNoPasswordHashSet_RedirectsToSetupInsteadOfAttemptingVerification()
     {
         await _factory.SetSeededUserPasswordHashAsync(null);
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -55,7 +55,7 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
 
         Assert.False(response.Headers.Contains("Set-Cookie"));
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Contains("/login", response.Headers.Location!.ToString());
+        Assert.Contains("/setup", response.Headers.Location!.ToString());
     }
 
     [Fact]

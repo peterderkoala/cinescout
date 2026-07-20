@@ -1,0 +1,55 @@
+@page "/setup"
+@attribute [AllowAnonymous]
+@using Microsoft.AspNetCore.Authorization
+@using cinescout.persistence
+@using Microsoft.EntityFrameworkCore
+@inject CineScoutDbContext Db
+@inject NavigationManager NavigationManager
+
+<PageTitle>First-run setup</PageTitle>
+
+<div class="row">
+    <div class="col-lg-6">
+        <h1>Set up CineScout</h1>
+        <p class="text-muted">Enter the token printed to the application's startup logs, then choose a password.</p>
+
+        @if (Error == "token")
+        {
+            <p class="text-danger" role="alert">Incorrect or missing token.</p>
+        }
+        else if (Error == "password")
+        {
+            <p class="text-danger" role="alert">Passwords must match and cannot be empty.</p>
+        }
+
+        <form method="post" action="/account/setup">
+            <div class="form-floating mb-3">
+                <input type="text" name="token" id="token" class="form-control" autocomplete="off" required autofocus />
+                <label for="token" class="form-label">Startup-log token</label>
+            </div>
+            <div class="form-floating mb-3">
+                <input type="password" name="password" id="password" class="form-control" autocomplete="new-password" required />
+                <label for="password" class="form-label">Password</label>
+            </div>
+            <div class="form-floating mb-3">
+                <input type="password" name="confirmPassword" id="confirmPassword" class="form-control" autocomplete="new-password" required />
+                <label for="confirmPassword" class="form-label">Confirm password</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Complete setup</button>
+        </form>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await Db.Users.FirstOrDefaultAsync();
+        if (user?.PasswordHash is not null)
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+}

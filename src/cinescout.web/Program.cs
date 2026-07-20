@@ -3,7 +3,6 @@ using cinescout.core.Extensions;
 using cinescout.persistence;
 using cinescout.persistence.Extensions;
 using cinescout.web.Auth;
-using cinescout.web.Client.Pages;
 using cinescout.web.Components;
 using cinescout.web.Extensions;
 using Microsoft.AspNetCore.Authentication;
@@ -49,6 +48,7 @@ if (!isTestingEnvironment)
 {
     await app.Services.ApplyMigrationsAsync();
     await app.MigrateLegacyPasswordHashAsync();
+    await app.LogFirstRunTokenIfNeededAsync();
     app.ScheduleRecurringJobs();
     await app.SeedKinoheldRoomsAsync();
 }
@@ -76,17 +76,59 @@ app.MapStaticAssets().AllowAnonymous();
 app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUser> hasher, CineScoutDbContext db) =>
 {
     var user = await db.Users.FirstOrDefaultAsync();
+    if (user?.PasswordHash is null)
+    {
+        return Results.Redirect("/setup");
+    }
+
     var submittedPassword = context.Request.Form["password"].ToString();
     var returnUrl = context.Request.Form["returnUrl"].ToString();
 
-    var verified = user?.PasswordHash is not null
-        && hasher.VerifyHashedPassword(AppUser.Instance, user.PasswordHash, submittedPassword) != PasswordVerificationResult.Failed;
+    var verified = hasher.VerifyHashedPassword(AppUser.Instance, user.PasswordHash, submittedPassword) != PasswordVerificationResult.Failed;
 
     if (!verified)
     {
         return Results.Redirect("/login?error=1");
     }
 
+    await SignInOperatorAsync(context);
+
+    return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
+}).AllowAnonymous();
+
+app.MapPost("/account/setup", async (HttpContext context, IPasswordHasher<AppUser> hasher, CineScoutDbContext db, FirstRunTokenStore tokenStore) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync();
+    if (user is null || user.PasswordHash is not null)
+    {
+        return Results.Redirect("/login");
+    }
+
+    var submittedToken = context.Request.Form["token"].ToString();
+    var password = context.Request.Form["password"].ToString();
+    var confirmPassword = context.Request.Form["confirmPassword"].ToString();
+
+    if (!tokenStore.Matches(submittedToken))
+    {
+        return Results.Redirect("/setup?error=token");
+    }
+
+    if (string.IsNullOrEmpty(password) || password != confirmPassword)
+    {
+        return Results.Redirect("/setup?error=password");
+    }
+
+    user.PasswordHash = hasher.HashPassword(AppUser.Instance, password);
+    user.SetupCompletedAt = DateTimeOffset.UtcNow;
+    await db.SaveChangesAsync();
+
+    await SignInOperatorAsync(context);
+
+    return Results.Redirect("/");
+}).AllowAnonymous();
+
+static async Task SignInOperatorAsync(HttpContext context)
+{
     var principal = new ClaimsPrincipal(new ClaimsIdentity(
         [new Claim(ClaimTypes.Name, "cinescout")],
         CookieAuthenticationDefaults.AuthenticationScheme));
@@ -95,9 +137,7 @@ app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUse
         CookieAuthenticationDefaults.AuthenticationScheme,
         principal,
         new AuthenticationProperties { IsPersistent = true });
-
-    return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
-}).AllowAnonymous();
+}
 
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()

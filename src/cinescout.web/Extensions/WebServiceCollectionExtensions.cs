@@ -17,6 +17,7 @@ public static class WebServiceCollectionExtensions
     public static IServiceCollection AddCineScoutAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+        services.AddSingleton<FirstRunTokenStore>();
 
         services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
             .AddCookie(options =>
@@ -51,6 +52,21 @@ public static class WebServiceCollectionExtensions
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         await LegacyPasswordHashMigrator.MigrateAsync(db, app.Configuration, logger);
+    }
+
+    public static async Task LogFirstRunTokenIfNeededAsync(this WebApplication app)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CineScoutDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        var tokenStore = scope.ServiceProvider.GetRequiredService<FirstRunTokenStore>();
+
+        var user = await db.Users.FirstOrDefaultAsync();
+        if (user?.PasswordHash is null)
+        {
+            logger.LogInformation(
+                "First-run setup required. Visit /setup and enter this token: {Token}", tokenStore.Token);
+        }
     }
 
     public static void ScheduleRecurringJobs(this WebApplication app)
