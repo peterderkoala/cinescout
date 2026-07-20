@@ -37,6 +37,7 @@ builder.Services
     .AddHallOfFame()
     .AddKinoheld()
     .AddDiscord()
+    .AddEmail()
     .AddWatchedMovies()
     .AddPreferences();
 
