@@ -11,4 +11,5 @@ public class SeatingSnapshotSeat
     public SeatOccupancyStatus Status { get; set; }
     public string? LeftNeighborSeatId { get; set; }
     public string? RightNeighborSeatId { get; set; }
+    public string? PriceAreaProviderId { get; set; }
 }

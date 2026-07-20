@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using cinescout.persistence;
@@ -11,9 +12,11 @@ using cinescout.persistence;
 namespace cinescout.persistence.Migrations
 {
     [DbContext(typeof(CineScoutDbContext))]
-    partial class CineScoutDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720142942_AddMatchingEngine")]
+    partial class AddMatchingEngine
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

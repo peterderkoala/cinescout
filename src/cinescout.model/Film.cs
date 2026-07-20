@@ -10,4 +10,7 @@ public class Film
     public int SiteId { get; set; }
     public required string ExternalFilmId { get; set; }
     public required string Title { get; set; }
+
+    /// <summary>Poster image URL from the Hall-of-Fame crawl (its "posterUrl" field); null until crawled.</summary>
+    public string? PosterUrl { get; set; }
 }

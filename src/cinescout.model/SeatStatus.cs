@@ -18,5 +18,8 @@ public class SeatStatus
     public SeatOccupancyStatus Status { get; set; }
     public string? LeftNeighborSeatId { get; set; }
     public string? RightNeighborSeatId { get; set; }
+
+    /// <summary>Kinoheld's price-area provider id for this seat ("p"); resolves against PerformancePriceArea.ProviderId.</summary>
+    public string? PriceAreaProviderId { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

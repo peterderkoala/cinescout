@@ -1,5 +1,6 @@
 @page "/performances/{PerformanceId:int}"
 @using cinescout.core.Kinoheld
+@using cinescout.core.Matching
 @using cinescout.model
 @using cinescout.persistence
 @using Microsoft.EntityFrameworkCore
@@ -19,7 +20,7 @@ else
 
     <p>
         @_siteName / @_roomName<br />
-        @_performance.StartsAt.ToString("g")
+        @CinemaTimeZone.ToLocal(_performance.StartsAt).ToString("g")
         @if (_performance.IsSoldOut)
         {
             <span class="badge bg-danger ms-2">Sold out</span>

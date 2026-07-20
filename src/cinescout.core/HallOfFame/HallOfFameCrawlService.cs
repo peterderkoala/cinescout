@@ -57,13 +57,15 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
                 SiteId = siteId,
                 ExternalFilmId = externalFilmId,
                 Title = filmDto.FilmTitle,
+                PosterUrl = filmDto.PosterUrl,
             };
             db.Films.Add(film);
             await db.SaveChangesAsync(cancellationToken);
         }
-        else if (film.Title != filmDto.FilmTitle)
+        else
         {
             film.Title = filmDto.FilmTitle;
+            film.PosterUrl = filmDto.PosterUrl;
         }
 
         return film;

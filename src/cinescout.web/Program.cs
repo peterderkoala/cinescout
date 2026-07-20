@@ -38,6 +38,7 @@ builder.Services
     .AddKinoheld()
     .AddDiscord()
     .AddEmail()
+    .AddMatching()
     .AddWatchedMovies()
     .AddPreferences();
 

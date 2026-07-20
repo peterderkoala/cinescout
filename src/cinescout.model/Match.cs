@@ -18,4 +18,11 @@ public class Match
     public int WatchedMovieId { get; set; }
     public DateTimeOffset MatchedAt { get; set; }
     public MatchStatus Status { get; set; }
+
+    /// <summary>
+    /// Whether the applicable FavoriteSeatMatrix's contiguous-block-vs-PartySize check was
+    /// satisfied as of the last evaluation. Tracked so a SeatAvailabilityChanged notification
+    /// can fire only when this flips, not on every seat-count change.
+    /// </summary>
+    public bool HasSufficientSeats { get; set; }
 }

@@ -1,4 +1,6 @@
+using cinescout.core.Discord;
 using cinescout.core.Kinoheld;
+using cinescout.core.Matching;
 using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
@@ -44,14 +46,16 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
             breaker,
             cooldownTracker,
             new ConfigurationBuilder().Build(),
+            new MatchEvaluationService(db, Substitute.For<IDiscordNotifier>(), NullLogger<MatchEvaluationService>.Instance),
             NullLogger<KinoheldSeatCrawlService>.Instance);
 
     private static KinoheldSeatsResult.Success SuccessResult(params (string SeatId, string Row, int Number, string Status, string? Left, string? Right, string SectorId)[] seats) =>
         new(
             RawPayload: "{\"seats\":{}}", // must be valid JSON — SeatingSnapshot.RawPayload is a jsonb column
             Seats: seats
-                .Select(s => new KinoheldSeat(s.SeatId, s.Row, s.Number, s.Status, s.Left, s.Right, s.SectorId))
-                .ToList());
+                .Select(s => new KinoheldSeat(s.SeatId, s.Row, s.Number, s.Status, s.Left, s.Right, s.SectorId, PriceAreaProviderId: null))
+                .ToList(),
+            PriceAreas: []);
 
     private static async Task<int> SeedSiteAsync(CineScoutDbContext db, string? kinoheldCinemaId = "2135", string externalSiteId = "580")
     {

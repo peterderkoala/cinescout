@@ -3,6 +3,7 @@ using cinescout.core.Discord;
 using cinescout.core.Email;
 using cinescout.core.HallOfFame;
 using cinescout.core.Kinoheld;
+using cinescout.core.Matching;
 using cinescout.core.Preferences;
 using cinescout.core.WatchedMovies;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,6 +62,13 @@ public static class CoreServiceCollectionExtensions
     public static IServiceCollection AddEmail(this IServiceCollection services)
     {
         services.AddTransient<IEmailSender, EmailSender>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddMatching(this IServiceCollection services)
+    {
+        services.AddScoped<MatchEvaluationService>();
 
         return services;
     }

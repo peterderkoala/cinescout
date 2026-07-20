@@ -16,7 +16,8 @@ public abstract record KinoheldSeatsResult
     /// <summary>HTTP 200 with a parseable seat map.</summary>
     /// <param name="RawPayload">The verbatim response body (valid JSON), archived per snapshot.</param>
     /// <param name="Seats">The parsed per-seat entries.</param>
-    public sealed record Success(string RawPayload, IReadOnlyList<KinoheldSeat> Seats) : KinoheldSeatsResult;
+    /// <param name="PriceAreas">The response's top-level "priceAreas" entries.</param>
+    public sealed record Success(string RawPayload, IReadOnlyList<KinoheldSeat> Seats, IReadOnlyList<KinoheldPriceArea> PriceAreas) : KinoheldSeatsResult;
 
     /// <summary>HTTP 400 — "Diese Vorstellung ist aktuell nicht buchbar". Expected; retried next cycle.</summary>
     public sealed record NotBookable : KinoheldSeatsResult;
@@ -33,7 +34,8 @@ public abstract record KinoheldSeatsResult
 
 /// <summary>
 /// One seat from a getSeats response, narrowed to what CineScout persists — Kinoheld's purely
-/// cosmetic/rendering fields (pixel position, size, icons, price areas) are ignored.
+/// cosmetic/rendering fields (pixel position, size, icons) are ignored. Price-area membership
+/// ("p") is kept: #23's matching engine needs it to price a matched seat block.
 /// </summary>
 /// <param name="SourceSeatId">Kinoheld's own seat id (the key in the response's "seats" object), e.g. "21353011006".</param>
 /// <param name="Row">Row letter ("r"), e.g. "D".</param>
@@ -42,6 +44,7 @@ public abstract record KinoheldSeatsResult
 /// <param name="LeftNeighborSeatId">Seat id to the left ("sl"); null when upstream sends the number 0 (no neighbor).</param>
 /// <param name="RightNeighborSeatId">Seat id to the right ("sr"); null when upstream sends the number 0 (no neighbor).</param>
 /// <param name="SectorId">Auditorium external id ("secId", a string) — resolves against <see cref="cinescout.model.Room.ExternalAuditoriumId"/>.</param>
+/// <param name="PriceAreaProviderId">Price-area provider id ("p"); resolves against <see cref="KinoheldPriceArea.ProviderId"/>. Null if absent.</param>
 public sealed record KinoheldSeat(
     string SourceSeatId,
     string Row,
@@ -49,4 +52,15 @@ public sealed record KinoheldSeat(
     string RawStatus,
     string? LeftNeighborSeatId,
     string? RightNeighborSeatId,
-    string SectorId);
+    string SectorId,
+    string? PriceAreaProviderId);
+
+/// <summary>
+/// One entry from a getSeats response's top-level "priceAreas" array. <paramref name="ProviderId"/>
+/// (not <paramref name="Id"/>) is what a seat's "p" field references.
+/// </summary>
+/// <param name="Id">Kinoheld's price-area id ("id").</param>
+/// <param name="ProviderId">Price-area provider id ("providerId") — the value seats reference via "p".</param>
+/// <param name="Name">Human-readable label ("name"), e.g. "Komfort".</param>
+/// <param name="OrderPrice">Base price for this area ("orderPrice"), a decimal upstream string like "15.3636".</param>
+public sealed record KinoheldPriceArea(string Id, string ProviderId, string Name, decimal OrderPrice);

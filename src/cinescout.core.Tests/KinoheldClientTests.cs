@@ -77,7 +77,17 @@ public class KinoheldClientTests
           "sectors": [
             {"id":"8259","hasSeatSelection":true,"availableSeats":{"order":true,"reservation":true},"seatsStats":{"total":3,"free":1}}
           ],
-          "seat_selection_available": true
+          "seat_selection_available": true,
+          "priceAreas": [
+            {
+              "id": "67711089", "providerId": "1", "name": "Komfort",
+              "color": "#ffffff", "isActive": true, "seatSelectionAvailable": true,
+              "orderPrice": "15.3636",
+              "categories": [
+                {"id": "203003403", "name": "Normal", "displayName": "Normal", "val": 15.3636, "valWithFee": 16.8999, "min": 0, "max": 10, "step": 1}
+              ]
+            }
+          ]
         }
         """;
 
@@ -118,6 +128,13 @@ public class KinoheldClientTests
         Assert.Null(first.LeftNeighborSeatId); // sl: 0 (JSON number) means no neighbor
         Assert.Equal("21353011007", first.RightNeighborSeatId); // sr: string id
         Assert.Equal("8259", first.SectorId);
+        Assert.Equal("1", first.PriceAreaProviderId);
+
+        var priceArea = Assert.Single(success.PriceAreas);
+        Assert.Equal("67711089", priceArea.Id);
+        Assert.Equal("1", priceArea.ProviderId);
+        Assert.Equal("Komfort", priceArea.Name);
+        Assert.Equal(15.3636m, priceArea.OrderPrice);
 
         var second = success.Seats.Single(s => s.SourceSeatId == "21353011007");
         Assert.Equal(2, second.SeatNumber);

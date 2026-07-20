@@ -11,6 +11,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
     public DbSet<Performance> Performances => Set<Performance>();
     public DbSet<PerformanceSnapshot> PerformanceSnapshots => Set<PerformanceSnapshot>();
     public DbSet<SeatStatus> SeatStatuses => Set<SeatStatus>();
+    public DbSet<PerformancePriceArea> PerformancePriceAreas => Set<PerformancePriceArea>();
     public DbSet<SeatingSnapshot> SeatingSnapshots => Set<SeatingSnapshot>();
     public DbSet<SeatingSnapshotSeat> SeatingSnapshotSeats => Set<SeatingSnapshotSeat>();
     public DbSet<WatchedMovie> WatchedMovies => Set<WatchedMovie>();
@@ -57,6 +58,13 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
         {
             e.HasIndex(s => new { s.PerformanceId, s.SourceSeatId }).IsUnique();
             e.HasOne<Performance>().WithMany().HasForeignKey(s => s.PerformanceId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PerformancePriceArea>(e =>
+        {
+            e.HasIndex(p => new { p.PerformanceId, p.ProviderId }).IsUnique();
+            e.Property(p => p.OrderPrice).HasPrecision(10, 4);
+            e.HasOne<Performance>().WithMany().HasForeignKey(p => p.PerformanceId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SeatingSnapshot>(e =>

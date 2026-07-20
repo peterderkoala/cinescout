@@ -21,6 +21,9 @@ public class HallOfFameFilmDto
     [JsonPropertyName("filmTitle")]
     public required string FilmTitle { get; set; }
 
+    [JsonPropertyName("posterUrl")]
+    public string? PosterUrl { get; set; }
+
     [JsonPropertyName("performances")]
     public List<HallOfFamePerformanceGroupDto> PerformanceGroups { get; set; } = [];
 }

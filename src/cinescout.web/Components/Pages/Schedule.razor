@@ -1,4 +1,5 @@
 @page "/schedule"
+@using cinescout.core.Matching
 @using cinescout.model
 @using cinescout.persistence
 @using Microsoft.EntityFrameworkCore
@@ -33,7 +34,7 @@ else
                 <tr>
                     <td><a href="@($"/performances/{row.PerformanceId}")">@row.FilmTitle</a></td>
                     <td>@row.SiteName / @row.RoomName</td>
-                    <td>@row.StartsAt.ToString("g")</td>
+                    <td>@CinemaTimeZone.ToLocal(row.StartsAt).ToString("g")</td>
                     <td>
                         @if (row.IsSoldOut)
                         {

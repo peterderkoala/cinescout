@@ -1,3 +1,4 @@
+using cinescout.core.Matching;
 using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ public sealed class KinoheldSeatCrawlService(
     KinoheldCircuitBreaker circuitBreaker,
     KinoheldFetchCooldownTracker cooldownTracker,
     IConfiguration configuration,
+    MatchEvaluationService matchEvaluationService,
     ILogger<KinoheldSeatCrawlService> logger)
 {
     /// <summary>
@@ -194,8 +196,11 @@ public sealed class KinoheldSeatCrawlService(
                 Status = MapStatus(seat.RawStatus),
                 LeftNeighborSeatId = seat.LeftNeighborSeatId,
                 RightNeighborSeatId = seat.RightNeighborSeatId,
+                PriceAreaProviderId = seat.PriceAreaProviderId,
             });
         }
+
+        await UpsertPriceAreasAsync(performance.Id, success.PriceAreas, cancellationToken);
 
         // SeatStatus is the current-state mirror of the latest crawl: update in place, add new,
         // and remove rows for seats absent from this response.
@@ -249,6 +254,37 @@ public sealed class KinoheldSeatCrawlService(
         }
 
         await db.SaveChangesAsync(cancellationToken);
+
+        await matchEvaluationService.EvaluateAsync(performance.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// PerformancePriceArea is the current-state mirror of the latest crawl's price areas — same
+    /// add/update/remove posture as SeatStatus above.
+    /// </summary>
+    private async Task UpsertPriceAreasAsync(int performanceId, IReadOnlyList<KinoheldPriceArea> priceAreas, CancellationToken cancellationToken)
+    {
+        var existing = await db.PerformancePriceAreas
+            .Where(p => p.PerformanceId == performanceId)
+            .ToListAsync(cancellationToken);
+        var existingByProviderId = existing.ToDictionary(p => p.ProviderId);
+        var seenProviderIds = new HashSet<string>();
+
+        foreach (var area in priceAreas)
+        {
+            seenProviderIds.Add(area.ProviderId);
+
+            if (!existingByProviderId.TryGetValue(area.ProviderId, out var row))
+            {
+                row = new PerformancePriceArea { PerformanceId = performanceId, ProviderId = area.ProviderId, Name = area.Name };
+                db.PerformancePriceAreas.Add(row);
+            }
+
+            row.Name = area.Name;
+            row.OrderPrice = area.OrderPrice;
+        }
+
+        db.PerformancePriceAreas.RemoveRange(existing.Where(p => !seenProviderIds.Contains(p.ProviderId)));
     }
 
     private static void ApplySeat(KinoheldSeat seat, SeatStatus target, DateTimeOffset now)
@@ -258,6 +294,7 @@ public sealed class KinoheldSeatCrawlService(
         target.Status = MapStatus(seat.RawStatus);
         target.LeftNeighborSeatId = seat.LeftNeighborSeatId;
         target.RightNeighborSeatId = seat.RightNeighborSeatId;
+        target.PriceAreaProviderId = seat.PriceAreaProviderId;
         target.UpdatedAt = now;
     }
 

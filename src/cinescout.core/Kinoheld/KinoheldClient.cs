@@ -90,15 +90,44 @@ public sealed class KinoheldClient(HttpClient httpClient) : IKinoheldClient
                     RawStatus: seat.GetProperty("status").GetString() ?? throw new JsonException("Seat \"status\" was null."),
                     LeftNeighborSeatId: ParseNeighbor(seat, "sl"),
                     RightNeighborSeatId: ParseNeighbor(seat, "sr"),
-                    SectorId: seat.GetProperty("secId").GetString() ?? throw new JsonException("Seat \"secId\" was null.")));
+                    SectorId: seat.GetProperty("secId").GetString() ?? throw new JsonException("Seat \"secId\" was null."),
+                    PriceAreaProviderId: seat.TryGetProperty("p", out var p) ? p.GetString() : null));
             }
 
-            return new KinoheldSeatsResult.Success(body, seats);
+            var priceAreas = ParsePriceAreas(document.RootElement);
+
+            return new KinoheldSeatsResult.Success(body, seats, priceAreas);
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {
             return new KinoheldSeatsResult.Anomalous($"200 response body did not parse as the expected seats shape: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Parses the response's top-level "priceAreas" array (absent or empty is valid — not every
+    /// response necessarily carries pricing, and a missing array shouldn't itself be Anomalous).
+    /// </summary>
+    private static IReadOnlyList<KinoheldPriceArea> ParsePriceAreas(JsonElement root)
+    {
+        if (!root.TryGetProperty("priceAreas", out var priceAreasElement) || priceAreasElement.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var priceAreas = new List<KinoheldPriceArea>();
+        foreach (var area in priceAreasElement.EnumerateArray())
+        {
+            priceAreas.Add(new KinoheldPriceArea(
+                Id: area.GetProperty("id").GetString() ?? throw new JsonException("Price area \"id\" was null."),
+                ProviderId: area.GetProperty("providerId").GetString() ?? throw new JsonException("Price area \"providerId\" was null."),
+                Name: area.GetProperty("name").GetString() ?? throw new JsonException("Price area \"name\" was null."),
+                OrderPrice: decimal.Parse(
+                    area.GetProperty("orderPrice").GetString() ?? throw new JsonException("Price area \"orderPrice\" was null."),
+                    CultureInfo.InvariantCulture)));
+        }
+
+        return priceAreas;
     }
 
     private static int ParseSeatNumber(JsonElement n) => n.ValueKind switch
