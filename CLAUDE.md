@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The [wayfinder map](https://github.com/peterderkoala/cinescout/issues/1) produced a full spec, sliced into tickets tracked from [issue #14](https://github.com/peterderkoala/cinescout/issues/14); implementation is in progress against that ticket list. Current projects:
+CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The [wayfinder map](https://github.com/peterderkoala/cinescout/issues/1) produced a full spec, sliced into tickets tracked from [issue #14](https://github.com/peterderkoala/cinescout/issues/14); implementation is in progress against that ticket list.
+
+`./handoff/` (git-ignored) is where an agent session's end-of-session handoff doc gets written — check
+there first when picking up mid-project; it's the fastest way to see what the last session did and what's
+next, without re-deriving it from git log/issues. Throwaway per session, not part of project history.
+
+Current projects:
 
 - `src/cinescout.web` — ASP.NET Core host (hosted Blazor WASM). Cookie authentication gates the whole app by
   default (`AuthorizationOptions.FallbackPolicy`); render mode is set **per page** (`@rendermode
@@ -57,8 +63,21 @@ CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The 
   `NotificationResult` so callers can log the attempt regardless of outcome; the webhook URL is read from
   config at call time, not baked into `HttpClient.BaseAddress` at DI-registration time, and an unconfigured URL
   is a clean "not configured" failure result rather than a crash — this is the expected, safe-by-default state
-  until #19's own `.env` var, `Discord__WebhookUrl`, documented since #17, is actually filled in). Mapping via
-  Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
+  until #19's own `.env` var, `Discord__WebhookUrl`, documented since #17, is actually filled in),
+  `Email/` (`IEmailSender`/`EmailSender`, #42 — mirrors `IDiscordNotifier`'s posture exactly: MailKit under the
+  hood, config read at call time, a fixed known-exception set mapped to a failed `EmailResult` rather than a
+  broad catch, sends wrapped in a manually-built `Microsoft.Extensions.Resilience` pipeline since
+  `AddStandardResilienceHandler()` is HTTP-only and SMTP isn't HTTP), and `Matching/` (#23 — the "payoff
+  feature": `TimeWindowMatcher`/`SeatBlockFinder` are pure, no-I/O logic per #14's testing decision (the latter
+  walks true seat adjacency via `SeatStatus.LeftNeighborSeatId`/`RightNeighborSeatId`, not merely consecutive
+  seat numbers); `MatchEvaluationService` is the I/O orchestrator, hooked into `KinoheldSeatCrawlService` right
+  after each seat crawl, creating an `Active` `Match` once per `(Performance, WatchedMovie)` pair and firing
+  `RulesMatched`/`SeatAvailabilityChanged` (the latter only when `Match.HasSufficientSeats` flips, not on every
+  seat-count change) via the same notify-and-log pattern `WatchedMovieService` established; `CinemaTimeZone`
+  converts `Performance.StartsAt` — persisted as a UTC-offset instant via `DateTimeOffset.FromUnixTimeSeconds`
+  but actually a Europe/Berlin wall-clock time — before comparing against `FavoriteTimeWindow`, which is why
+  `Schedule.razor`/`PerformanceDetail.razor` also route their display through it now instead of the raw value).
+  Mapping via Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
 - `src/cinescout.model` — the EF Core entity set (`Site`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
 - `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
 - `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
