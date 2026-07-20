@@ -1,22 +1,13 @@
-using System.Net;
 using System.Security.Claims;
-using cinescout.core.Discord;
-using cinescout.core.HallOfFame;
-using cinescout.core.Kinoheld;
-using cinescout.core.Preferences;
-using cinescout.core.WatchedMovies;
-using cinescout.persistence;
+using cinescout.core.Extensions;
+using cinescout.persistence.Extensions;
 using cinescout.web.Auth;
 using cinescout.web.Client.Pages;
 using cinescout.web.Components;
-using Hangfire;
-using Hangfire.PostgreSql;
+using cinescout.web.Extensions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Http.Resilience;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,8 +18,6 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddCascadingAuthenticationState();
 
-builder.Services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
-
 // The "Testing" environment (set by cinescout.web.Tests' WebApplicationFactory for tests that
 // don't need persistence, e.g. the login gate) skips real Postgres/Hangfire wiring entirely —
 // registering an unused DbContext is harmless, but starting Hangfire's server or migrating
@@ -36,106 +25,29 @@ builder.Services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>
 var isTestingEnvironment = builder.Environment.IsEnvironment("Testing");
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
 
-if (!isTestingEnvironment && connectionString is null)
-{
-    throw new InvalidOperationException("Connection string 'ConnectionStrings:Postgres' not found.");
-}
-
-builder.Services.AddDbContext<CineScoutDbContext>(options => options.UseNpgsql(connectionString ?? "Host=unused"));
+builder.Services.AddPersistence(builder.Configuration, requireConnectionString: !isTestingEnvironment);
 
 if (!isTestingEnvironment)
 {
-    builder.Services.AddHangfire(config => config.UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
-    builder.Services.AddHangfireServer();
+    builder.Services.AddHangfireInfrastructure(connectionString);
 }
 
-builder.Services.AddHttpClient<IHallOfFameClient, HallOfFameClient>()
-    .AddStandardResilienceHandler();
-builder.Services.AddScoped<HallOfFameCrawlService>();
-builder.Services.AddScoped<HallOfFameCrawlJob>();
+builder.Services
+    .AddHallOfFame()
+    .AddKinoheld()
+    .AddDiscord()
+    .AddWatchedMovies()
+    .AddPreferences();
 
-// Deliberately honest crawling posture (#22): a non-spoofed User-Agent that names this tool, no
-// header spoofing. Standard resilience stays, but its retry strategy must NOT retry 403/429 —
-// retrying a block would worsen it; the KinoheldCircuitBreaker must see it and stop all polling.
-builder.Services.AddHttpClient<IKinoheldClient, KinoheldClient>(client =>
-        // "(personal use)" with a space is not a valid UA comment token for ParseAdd — keep it hyphenated.
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("CineScout/1.0 (personal-use)"))
-    .AddStandardResilienceHandler(options =>
-        options.Retry.ShouldHandle = args =>
-        {
-            var statusCode = args.Outcome.Result?.StatusCode;
-            if (statusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
-            {
-                return ValueTask.FromResult(false);
-            }
-
-            return ValueTask.FromResult(HttpClientResiliencePredicates.IsTransient(args.Outcome));
-        });
-builder.Services.AddScoped<KinoheldRoomSeedingService>();
-builder.Services.AddSingleton<KinoheldCircuitBreaker>();
-builder.Services.AddSingleton<KinoheldFetchCooldownTracker>();
-builder.Services.AddScoped<KinoheldSeatCrawlService>();
-builder.Services.AddScoped<KinoheldSeatCrawlJob>();
-
-builder.Services.AddHttpClient<IDiscordNotifier, DiscordNotifier>()
-    .AddStandardResilienceHandler();
-builder.Services.AddScoped<WatchedMovieService>();
-builder.Services.AddScoped<PreferenceService>();
-
-builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.LoginPath = "/login";
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromDays(builder.Configuration.GetValue("Auth:SessionLifetimeDays", 30));
-    });
-
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
-});
+builder.Services.AddCineScoutAuthentication(builder.Configuration);
 
 var app = builder.Build();
 
 if (!isTestingEnvironment)
 {
-    await using var scope = app.Services.CreateAsyncScope();
-    await scope.ServiceProvider.GetRequiredService<CineScoutDbContext>().Database.MigrateAsync();
-}
-
-if (!isTestingEnvironment)
-{
-    // The static RecurringJob.AddOrUpdate facade needs the legacy global JobStorage.Current,
-    // which the DI-based AddHangfire(...) registration above never sets — use the DI-resolved
-    // IRecurringJobManager instead (Hangfire's own recommended fix, per its exception message).
-    var recurringJobManager = app.Services.GetRequiredService<IRecurringJobManager>();
-    var hallOfFameCrawlIntervalHours = app.Configuration.GetValue("HallOfFame:CrawlIntervalHours", 1);
-    recurringJobManager.AddOrUpdate<HallOfFameCrawlJob>(
-        "hall-of-fame-crawl",
-        job => job.RunAsync(CancellationToken.None),
-        $"0 */{hallOfFameCrawlIntervalHours} * * *");
-
-    var kinoheldSeatCrawlIntervalMinutes = app.Configuration.GetValue("Kinoheld:SeatCrawlIntervalMinutes", 30);
-    recurringJobManager.AddOrUpdate<KinoheldSeatCrawlJob>(
-        "kinoheld-seat-crawl",
-        job => job.RunAsync(CancellationToken.None),
-        $"*/{kinoheldSeatCrawlIntervalMinutes} * * * *");
-}
-
-// Room seeding is eager, not lazy: fetched once per Site from its Kinoheld widget config,
-// independent of the regular seat crawl — not a recurring Hangfire job. Idempotent (upsert), so
-// safe to re-run on every app restart, and self-healing if Kinoheld adds an auditorium later.
-if (!isTestingEnvironment)
-{
-    await using var roomSeedingScope = app.Services.CreateAsyncScope();
-    var roomSeedingDb = roomSeedingScope.ServiceProvider.GetRequiredService<CineScoutDbContext>();
-    var roomSeeder = roomSeedingScope.ServiceProvider.GetRequiredService<KinoheldRoomSeedingService>();
-    foreach (var site in await roomSeedingDb.Sites.Where(s => s.IsActive).ToListAsync())
-    {
-        await roomSeeder.SeedRoomsForSiteAsync(site, CancellationToken.None);
-    }
+    await app.Services.ApplyMigrationsAsync();
+    app.ScheduleRecurringJobs();
+    await app.SeedKinoheldRoomsAsync();
 }
 
 // Configure the HTTP request pipeline.
