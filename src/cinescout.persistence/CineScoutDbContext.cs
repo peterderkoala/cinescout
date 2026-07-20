@@ -18,6 +18,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
     public DbSet<FavoriteSeatMatrix> FavoriteSeatMatrices => Set<FavoriteSeatMatrix>();
     public DbSet<Match> Matches => Set<Match>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -90,6 +91,14 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
         modelBuilder.Entity<NotificationLog>(e =>
         {
             e.HasOne<Match>().WithMany().HasForeignKey(n => n.MatchId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Seeded ahead of first use, not inserted by the setup flow — PasswordHash == null is the
+        // sole first-run signal. See ADR 0001.
+        modelBuilder.Entity<User>(e =>
+        {
+            e.HasIndex(u => u.Username).IsUnique();
+            e.HasData(new User { Id = 1, Username = "cinescout" });
         });
     }
 }

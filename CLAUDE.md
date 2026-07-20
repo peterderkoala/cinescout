@@ -96,20 +96,31 @@ cookies survive a container restart instead of silently becoming unverifiable �
 restarting the container, and confirming the same cookie still worked) is `mkdir`+`chown`'d in the Dockerfile
 *before* `USER $APP_UID`, and is a named volume in `docker-compose.yml`, not just an ad hoc directory.
 
-No `Auth:PasswordHash` is checked into `appsettings.json` (an unset hash means login always fails, which is the
-safe default). To log in locally, set `Auth__PasswordHash` to a hash produced by
+Login credentials live in the persisted `User` table (see `CONTEXT.md`), seeded by migration with
+`PasswordHash = null` — a null hash is the sole "not set up" signal, and login always fails until it's set,
+the same safe default as before (see [ADR 0001](docs/adr/0001-user-table-seeded-with-null-password-hash.md)).
+`Auth:PasswordHash`/`Auth__PasswordHash` is now upgrade-only and deprecated: it's read exactly once, at
+startup, only while `User.PasswordHash` is still null, and copied verbatim into the row (same hasher, no
+re-hash) — after that it's never read again, so it's safe to remove from `.env`. Until the first-run setup
+page ships, this env var is also the practical way to set the initial password locally: set
+`Auth__PasswordHash` to a hash produced by
 `new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, "<password>")` (`cinescout.web.Auth.AppUser`) —
-e.g. via `dotnet user-secrets` or an env var. `Auth:SessionLifetimeDays` defaults to 30.
+e.g. via `dotnet user-secrets` or an env var — before first boot. `Auth:SessionLifetimeDays` defaults to 30.
 
 `cinescout.web` now needs a real Postgres to actually run (`dotnet run`, not `dotnet test`): set
 `ConnectionStrings__Postgres` (e.g. `Host=localhost;Port=5432;Database=cinescout;Username=...;Password=...`) —
 the app throws on startup if it's missing. Migrations apply automatically at startup via
 `Database.MigrateAsync()`. Hangfire (recurring crawl jobs) uses the same connection string as its job storage.
-The `"Testing"` hosting environment (set by `cinescout.web.Tests`' `WebApplicationFactory` for DB-independent
-tests like the login gate) skips all of this — Postgres/Hangfire wiring, the connection-string requirement, and
-the startup migration — so those tests don't need Docker at all; tests that *do* need real persistence (crawl
-upsert, room seeding) construct `CineScoutDbContext` directly against a Testcontainers Postgres instead, the
-same pattern `cinescout.persistence.Tests` already uses.
+The `"Testing"` hosting environment (set by `cinescout.web.Tests`' `WebApplicationFactory`) skips Hangfire wiring
+and the startup migration, and doesn't *require* a connection string (`AddPersistence`'s `requireConnectionString`
+is `false`) — but it doesn't skip persistence entirely: any test whose request path touches the database (e.g.
+`LoginTests`, which checks the seeded `User` row) still needs a real Testcontainers Postgres, supplied via
+`WebApplicationFactory.ConfigureWebHost`'s `UseSetting("ConnectionStrings:Postgres", ...)` — plain
+`ConfigureAppConfiguration` isn't early enough, since `Program.cs` reads the connection string into a local
+variable before `Build()` runs. Tests with no such request path (e.g. the unauthenticated-redirect check) don't
+need Docker at all. Tests that need real persistence outside the web host entirely (crawl upsert, room seeding)
+construct `CineScoutDbContext` directly against a Testcontainers Postgres instead, the same pattern
+`cinescout.persistence.Tests` already uses.
 
 Recurring jobs must be registered via the DI-resolved `IRecurringJobManager` (`app.Services.GetRequiredService<IRecurringJobManager>().AddOrUpdate<T>(...)`),
 **not** the static `RecurringJob.AddOrUpdate<T>(...)` facade — the static facade reads the legacy global

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using cinescout.core.Extensions;
+using cinescout.persistence;
 using cinescout.persistence.Extensions;
 using cinescout.web.Auth;
 using cinescout.web.Client.Pages;
@@ -8,6 +9,7 @@ using cinescout.web.Extensions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,10 +20,10 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddCascadingAuthenticationState();
 
-// The "Testing" environment (set by cinescout.web.Tests' WebApplicationFactory for tests that
-// don't need persistence, e.g. the login gate) skips real Postgres/Hangfire wiring entirely —
-// registering an unused DbContext is harmless, but starting Hangfire's server or migrating
-// against a connection string that was never supplied is not.
+// The "Testing" environment (set by cinescout.web.Tests' WebApplicationFactory) skips Hangfire
+// wiring and the startup migration, and doesn't require a connection string to be configured —
+// but the DbContext registration itself still gets used by tests whose request path touches the
+// database (e.g. the login gate now checking the seeded User row), so it can't be skipped outright.
 var isTestingEnvironment = builder.Environment.IsEnvironment("Testing");
 var connectionString = builder.Configuration.GetConnectionString("Postgres");
 
@@ -46,6 +48,7 @@ var app = builder.Build();
 if (!isTestingEnvironment)
 {
     await app.Services.ApplyMigrationsAsync();
+    await app.MigrateLegacyPasswordHashAsync();
     app.ScheduleRecurringJobs();
     await app.SeedKinoheldRoomsAsync();
 }
@@ -70,14 +73,14 @@ app.UseAntiforgery();
 
 app.MapStaticAssets().AllowAnonymous();
 
-app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUser> hasher, IConfiguration config) =>
+app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUser> hasher, CineScoutDbContext db) =>
 {
-    var configuredHash = config["Auth:PasswordHash"];
+    var user = await db.Users.FirstOrDefaultAsync();
     var submittedPassword = context.Request.Form["password"].ToString();
     var returnUrl = context.Request.Form["returnUrl"].ToString();
 
-    var verified = !string.IsNullOrEmpty(configuredHash)
-        && hasher.VerifyHashedPassword(AppUser.Instance, configuredHash, submittedPassword) != PasswordVerificationResult.Failed;
+    var verified = user?.PasswordHash is not null
+        && hasher.VerifyHashedPassword(AppUser.Instance, user.PasswordHash, submittedPassword) != PasswordVerificationResult.Failed;
 
     if (!verified)
     {

@@ -44,6 +44,15 @@ public static class WebServiceCollectionExtensions
         return services;
     }
 
+    public static async Task MigrateLegacyPasswordHashAsync(this WebApplication app)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<CineScoutDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+        await LegacyPasswordHashMigrator.MigrateAsync(db, app.Configuration, logger);
+    }
+
     public static void ScheduleRecurringJobs(this WebApplication app)
     {
         // The static RecurringJob.AddOrUpdate facade needs the legacy global JobStorage.Current,
