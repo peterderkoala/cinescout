@@ -69,21 +69,18 @@ else
         var siteNames = await Db.Sites.ToDictionaryAsync(s => s.Id, s => s.Name);
         var roomNames = await Db.Rooms.ToDictionaryAsync(r => r.Id, r => r.Name);
 
-        var rows = new List<ScheduleRow>();
-        foreach (var p in upcoming)
-        {
-            var hasOpenSeats = await SeatAvailabilityQuery.HasOpenFavoriteMatrixSeatsAsync(p.Id, CancellationToken.None);
-            rows.Add(new ScheduleRow(
+        var openSeatsByPerformance = await SeatAvailabilityQuery.HasOpenFavoriteMatrixSeatsAsync(upcoming, CancellationToken.None);
+
+        _rows = upcoming
+            .Select(p => new ScheduleRow(
                 p.Id,
                 filmTitles.GetValueOrDefault(p.FilmId, "Unknown"),
                 siteNames.GetValueOrDefault(p.SiteId, "Unknown"),
                 p.RoomId is int roomId ? roomNames.GetValueOrDefault(roomId, "—") : "TBD",
                 p.StartsAt,
                 p.IsSoldOut,
-                hasOpenSeats));
-        }
-
-        _rows = rows;
+                openSeatsByPerformance.GetValueOrDefault(p.Id)))
+            .ToList();
     }
 
     private sealed record ScheduleRow(

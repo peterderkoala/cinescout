@@ -254,4 +254,62 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
 
         Assert.False(result);
     }
+
+    [Fact]
+    public async Task Batch_overload_matches_the_single_performance_result_for_a_mix_of_performances()
+    {
+        var options = BuildOptions();
+        int withSeatsId;
+        int withoutMatrixId;
+        int insufficientBlockId;
+        int unresolvedRoomId;
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var withSeats = await SeedScenarioAsync(db);
+            withSeatsId = withSeats.PerformanceId;
+            db.FavoriteSeatMatrices.Add(Matrix(withSeats.RoomId, filmId: null, partySize: 2));
+            await db.SaveChangesAsync();
+            await ReplaceFreeAdjacentSeatsAsync(db, withSeatsId, "D", count: 3);
+
+            var withoutMatrix = await SeedScenarioAsync(db);
+            withoutMatrixId = withoutMatrix.PerformanceId;
+            await ReplaceFreeAdjacentSeatsAsync(db, withoutMatrixId, "D", count: 10);
+
+            var insufficientBlock = await SeedScenarioAsync(db);
+            insufficientBlockId = insufficientBlock.PerformanceId;
+            db.FavoriteSeatMatrices.Add(Matrix(insufficientBlock.RoomId, filmId: null, partySize: 4));
+            await db.SaveChangesAsync();
+            await ReplaceFreeAdjacentSeatsAsync(db, insufficientBlockId, "D", count: 3);
+
+            var unresolvedRoom = await SeedScenarioAsync(db);
+            unresolvedRoomId = unresolvedRoom.PerformanceId;
+            var performance = await db.Performances.SingleAsync(p => p.Id == unresolvedRoomId);
+            performance.RoomId = null;
+            db.FavoriteSeatMatrices.Add(Matrix(unresolvedRoom.RoomId, filmId: null, partySize: 2));
+            await db.SaveChangesAsync();
+            await ReplaceFreeAdjacentSeatsAsync(db, unresolvedRoomId, "D", count: 3);
+        }
+
+        await using var db2 = new CineScoutDbContext(options);
+        var performanceIds = new[] { withSeatsId, withoutMatrixId, insufficientBlockId, unresolvedRoomId };
+        var performances = await db2.Performances.Where(p => performanceIds.Contains(p.Id)).ToListAsync();
+
+        var result = await new SeatAvailabilityQuery(db2).HasOpenFavoriteMatrixSeatsAsync(performances, CancellationToken.None);
+
+        Assert.True(result[withSeatsId]);
+        Assert.False(result[withoutMatrixId]);
+        Assert.False(result[insufficientBlockId]);
+        Assert.False(result[unresolvedRoomId]);
+    }
+
+    [Fact]
+    public async Task Batch_overload_returns_an_empty_dictionary_for_an_empty_input()
+    {
+        var options = BuildOptions();
+        await using var db = new CineScoutDbContext(options);
+
+        var result = await new SeatAvailabilityQuery(db).HasOpenFavoriteMatrixSeatsAsync([], CancellationToken.None);
+
+        Assert.Empty(result);
+    }
 }
