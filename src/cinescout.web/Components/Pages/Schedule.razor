@@ -4,6 +4,7 @@
 @using cinescout.persistence
 @using Microsoft.EntityFrameworkCore
 @inject CineScoutDbContext Db
+@inject SeatAvailabilityQuery SeatAvailabilityQuery
 
 <PageTitle>Schedule</PageTitle>
 
@@ -26,6 +27,7 @@ else
                 <th>Site / Room</th>
                 <th>When</th>
                 <th>Sold out</th>
+                <th>Seats</th>
             </tr>
         </thead>
         <tbody>
@@ -39,6 +41,12 @@ else
                         @if (row.IsSoldOut)
                         {
                             <span class="badge bg-danger">Sold out</span>
+                        }
+                    </td>
+                    <td>
+                        @if (row.HasOpenFavoriteMatrixSeats)
+                        {
+                            <span class="badge bg-success">Seats available</span>
                         }
                     </td>
                 </tr>
@@ -61,16 +69,23 @@ else
         var siteNames = await Db.Sites.ToDictionaryAsync(s => s.Id, s => s.Name);
         var roomNames = await Db.Rooms.ToDictionaryAsync(r => r.Id, r => r.Name);
 
-        _rows = upcoming
-            .Select(p => new ScheduleRow(
+        var rows = new List<ScheduleRow>();
+        foreach (var p in upcoming)
+        {
+            var hasOpenSeats = await SeatAvailabilityQuery.HasOpenFavoriteMatrixSeatsAsync(p.Id, CancellationToken.None);
+            rows.Add(new ScheduleRow(
                 p.Id,
                 filmTitles.GetValueOrDefault(p.FilmId, "Unknown"),
                 siteNames.GetValueOrDefault(p.SiteId, "Unknown"),
                 p.RoomId is int roomId ? roomNames.GetValueOrDefault(roomId, "—") : "TBD",
                 p.StartsAt,
-                p.IsSoldOut))
-            .ToList();
+                p.IsSoldOut,
+                hasOpenSeats));
+        }
+
+        _rows = rows;
     }
 
-    private sealed record ScheduleRow(int PerformanceId, string FilmTitle, string SiteName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut);
+    private sealed record ScheduleRow(
+        int PerformanceId, string FilmTitle, string SiteName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut, bool HasOpenFavoriteMatrixSeats);
 }

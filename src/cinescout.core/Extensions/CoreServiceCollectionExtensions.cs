@@ -69,6 +69,7 @@ public static class CoreServiceCollectionExtensions
     public static IServiceCollection AddMatching(this IServiceCollection services)
     {
         services.AddScoped<MatchEvaluationService>();
+        services.AddScoped<SeatAvailabilityQuery>();
 
         return services;
     }

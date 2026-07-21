@@ -29,7 +29,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
             return;
         }
 
-        var matrix = await ResolveApplicableSeatMatrixAsync(performance.RoomId.Value, performance.FilmId, cancellationToken);
+        var matrix = await SeatMatrixResolver.ResolveApplicableAsync(db, performance.RoomId.Value, performance.FilmId, cancellationToken);
         var seats = await db.SeatStatuses.Where(s => s.PerformanceId == performanceId).ToListAsync(cancellationToken);
         var block = matrix is not null ? SeatBlockFinder.FindContiguousFreeBlock(seats, matrix) : null;
         var hasSufficientSeats = block is not null;
@@ -72,22 +72,6 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
 
             await NotifySeatAvailabilityChangedAsync(existingMatch, performance, hasSufficientSeats, matrix, cancellationToken);
         }
-    }
-
-    private async Task<FavoriteSeatMatrix?> ResolveApplicableSeatMatrixAsync(int roomId, int filmId, CancellationToken cancellationToken)
-    {
-        // FirstOrDefault, not SingleOrDefault: a unique index enforces at most one enabled
-        // matrix per (RoomId, FilmId) going forward (see CineScoutDbContext), but this stays
-        // defensive against any pre-existing/legacy duplicate rather than crashing a crawl over it.
-        var filmSpecific = await db.FavoriteSeatMatrices.FirstOrDefaultAsync(
-            m => m.RoomId == roomId && m.FilmId == filmId && m.IsEnabled, cancellationToken);
-        if (filmSpecific is not null)
-        {
-            return filmSpecific;
-        }
-
-        return await db.FavoriteSeatMatrices.FirstOrDefaultAsync(
-            m => m.RoomId == roomId && m.FilmId == null && m.IsEnabled, cancellationToken);
     }
 
     private async Task<decimal?> FindCheapestMatchingPriceAsync(int performanceId, IReadOnlyList<SeatStatus> block, CancellationToken cancellationToken)
