@@ -6,6 +6,7 @@ public enum NotificationType
     WatchStopped,
     RulesMatched,
     SeatAvailabilityChanged,
+    NewFilmAdded,
 }
 
 public enum NotificationStatus

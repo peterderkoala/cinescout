@@ -51,20 +51,6 @@ public sealed class WatchedMovieService(CineScoutDbContext db, IDiscordNotifier 
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Only watch-lifecycle notification types are sent from here."),
         };
 
-        var result = await notifier.SendAsync(message, cancellationToken);
-
-        // Recorded regardless of whether the notifier succeeded — the watch/unwatch mutation
-        // above already committed either way, and a failed Discord delivery is itself something
-        // worth an audit trail for, not a reason to roll back the user's action.
-        db.NotificationLogs.Add(new NotificationLog
-        {
-            NotificationType = type,
-            MatchId = null,
-            Channel = "Discord",
-            SentAt = DateTimeOffset.UtcNow,
-            Status = result.Success ? NotificationStatus.Success : NotificationStatus.Failed,
-            ResponseDetail = result.Detail,
-        });
-        await db.SaveChangesAsync(cancellationToken);
+        await NotificationDispatcher.SendAndLogAsync(db, notifier, type, matchId: null, message, cancellationToken);
     }
 }

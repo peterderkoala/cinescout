@@ -1,4 +1,5 @@
 using System.Text.Json;
+using cinescout.core.Discord;
 using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
@@ -8,9 +9,11 @@ namespace cinescout.core.HallOfFame;
 /// <summary>
 /// Crawls a single site's Hall-of-Fame schedule and upserts Film/Performance rows, writes an
 /// unconditional PerformanceSnapshot per performance per crawl, and flips performances not
-/// seen for 2 consecutive crawls to Cancelled.
+/// seen for 2 consecutive crawls to Cancelled. Sends a NewFilmAdded notification the first time a
+/// film is ever seen at a site — deliberately unfiltered and un-gated against a site's first-ever
+/// crawl (accepted, one-time cost rather than new domain concepts; see issue #43).
 /// </summary>
-public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient client)
+public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient client, IDiscordNotifier notifier)
 {
     public async Task CrawlSiteAsync(Site site, TimeSpan crawlInterval, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -61,6 +64,8 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
             };
             db.Films.Add(film);
             await db.SaveChangesAsync(cancellationToken);
+
+            await NotifyNewFilmAsync(film, cancellationToken);
         }
         else
         {
@@ -70,6 +75,10 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
 
         return film;
     }
+
+    private Task NotifyNewFilmAsync(Film film, CancellationToken cancellationToken) =>
+        NotificationDispatcher.SendAndLogAsync(
+            db, notifier, NotificationType.NewFilmAdded, matchId: null, $"New film added: **{film.Title}**.", cancellationToken);
 
     private async Task UpsertPerformanceAsync(
         int siteId,

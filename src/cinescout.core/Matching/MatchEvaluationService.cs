@@ -155,25 +155,12 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
 
     private async Task SendAndLogAsync(NotificationType type, Match match, string message, CancellationToken cancellationToken)
     {
-        var result = await notifier.SendAsync(message, cancellationToken);
+        var result = await NotificationDispatcher.SendAndLogAsync(db, notifier, type, match.Id, message, cancellationToken);
 
         if (!result.Success)
         {
             logger.LogWarning("Discord notification ({Type}) for Match {MatchId} failed: {Detail}", type, match.Id, result.Detail);
         }
-
-        // Recorded regardless of whether the notifier succeeded — the Match mutation above
-        // already committed either way, matching WatchedMovieService's NotificationLog posture.
-        db.NotificationLogs.Add(new NotificationLog
-        {
-            NotificationType = type,
-            MatchId = match.Id,
-            Channel = "Discord",
-            SentAt = DateTimeOffset.UtcNow,
-            Status = result.Success ? NotificationStatus.Success : NotificationStatus.Failed,
-            ResponseDetail = result.Detail,
-        });
-        await db.SaveChangesAsync(cancellationToken);
     }
 
     private static string DescribeWindow(FavoriteTimeWindow window) =>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using cinescout.core.Discord;
 using cinescout.core.HallOfFame;
 using cinescout.model;
 using cinescout.persistence;
@@ -12,6 +13,16 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
         .Build();
+
+    private readonly IDiscordNotifier _notifier = CreateNotifier();
+
+    private static IDiscordNotifier CreateNotifier()
+    {
+        var notifier = Substitute.For<IDiscordNotifier>();
+        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new NotificationResult(true, "204 No Content"));
+        return notifier;
+    }
 
     public async Task InitializeAsync()
     {
@@ -108,7 +119,7 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
         }
@@ -153,14 +164,14 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), firstCrawl, CancellationToken.None);
         }
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), secondCrawl, CancellationToken.None);
         }
@@ -215,7 +226,7 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, crawlInterval, now, CancellationToken.None);
         }
@@ -266,7 +277,7 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, crawlInterval, now, CancellationToken.None);
         }
@@ -300,14 +311,14 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), firstCrawl, CancellationToken.None);
         }
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), secondCrawl, CancellationToken.None);
         }
@@ -380,7 +391,7 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new HallOfFameCrawlService(db, client);
+            var service = new HallOfFameCrawlService(db, client, _notifier);
             var site = await db.Sites.SingleAsync(s => s.Id == siteId);
             await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
         }
@@ -391,5 +402,123 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
 
         Assert.Contains("performanceAuditoriumAttributeTitle", snapshot.RawPayload);
         Assert.Contains("D-Box", snapshot.RawPayload);
+    }
+
+    [Fact]
+    public async Task First_time_seeing_a_film_sends_and_logs_a_NewFilmAdded_notification()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        var schedule = MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0);
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var log = await read.NotificationLogs.SingleAsync();
+        Assert.Equal(NotificationType.NewFilmAdded, log.NotificationType);
+        Assert.Null(log.MatchId);
+        Assert.Equal("Discord", log.Channel);
+        Assert.Equal(NotificationStatus.Success, log.Status);
+
+        await _notifier.Received(1).SendAsync(
+            Arg.Is<string>(m => m != null && m.Contains("Vaiana - Live Action")),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Recrawling_an_already_known_film_does_not_re_notify()
+    {
+        var options = BuildOptions();
+        var firstCrawl = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        var secondCrawl = firstCrawl.AddHours(1);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(
+                MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0),
+                MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 1));
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), firstCrawl, CancellationToken.None);
+        }
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), secondCrawl, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        Assert.Equal(1, await read.NotificationLogs.CountAsync(l => l.NotificationType == NotificationType.NewFilmAdded));
+
+        await _notifier.Received(1).SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Notifier_failure_still_logs_the_NewFilmAdded_attempt_without_rolling_back_the_upsert()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        var schedule = MakeSchedule(401865, "Vaiana - Live Action", 74011, 1783969200, isSoldOut: 0);
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        var failingNotifier = Substitute.For<IDiscordNotifier>();
+        failingNotifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new NotificationResult(false, "Discord webhook URL not configured."));
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, failingNotifier);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        Assert.True(await read.Films.AnyAsync(f => f.SiteId == siteId));
+
+        var log = await read.NotificationLogs.SingleAsync();
+        Assert.Equal(NotificationStatus.Failed, log.Status);
+        Assert.Equal("Discord webhook URL not configured.", log.ResponseDetail);
     }
 }
