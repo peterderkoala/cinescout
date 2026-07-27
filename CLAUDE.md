@@ -87,10 +87,12 @@ Current projects:
   integration tests for the web host, e.g. the login/auth gate.
 
 Build: `dotnet build src/cinescout.slnx`. Run the web app: `dotnet run --project src/cinescout.web` (serves on
-`http://localhost:5100` by default). Run tests: `dotnet test src/cinescout.slnx` — the persistence tests spin up
-a real Postgres container via Testcontainers, so Docker must be reachable (if `docker ps` reports a permission
-error after a fresh `usermod -aG docker`, wrap the test command in `sg docker -c "..."` rather than waiting for
-a new login session). Don't invent lint commands — none are configured yet.
+`http://localhost:5100` by default). Run tests: `./run-tests.sh` (repo root) — a thin wrapper around `dotnet
+test src/cinescout.slnx` that falls back to `sg docker -c "..."` automatically if Docker isn't reachable
+directly (e.g. a `usermod -aG docker` that hasn't taken effect in the current shell yet); pass through extra
+`dotnet test` args as needed, e.g. `./run-tests.sh --filter FullyQualifiedName~HallOfFameCrawlServiceTests`. The
+persistence/core tests spin up a real Postgres container via Testcontainers, so Docker must be reachable one way
+or the other. Don't invent lint commands — none are configured yet.
 
 `pipelines/` is still an empty placeholder per `ARCHITECTURE.md` — not yet started.
 
