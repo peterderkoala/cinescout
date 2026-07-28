@@ -8,6 +8,7 @@ using cinescout.web.Extensions;
 using cinescout.web.HealthChecks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -60,6 +61,21 @@ builder.Services
 
 builder.Services.AddCineScoutAuthentication(builder.Configuration);
 
+// TLS terminates at the operator's own externally-managed Nginx Proxy Manager, not here (#46/#51)
+// — trust its X-Forwarded-For/X-Forwarded-Proto headers so the app sees the real client IP/scheme.
+// KnownIPNetworks comes from config, not hardcoded: the real subnet isn't knowable until the
+// operator's external Docker network (shared with their NPM stack) actually exists.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    var knownNetwork = builder.Configuration["ForwardedHeaders:KnownNetwork"];
+    if (!string.IsNullOrEmpty(knownNetwork))
+    {
+        options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(knownNetwork));
+    }
+});
+
 var app = builder.Build();
 
 if (!isTestingEnvironment)
@@ -71,6 +87,11 @@ if (!isTestingEnvironment)
     await app.SeedKinoheldRoomsAsync();
 }
 
+// Must run before anything that inspects the request's scheme/remote IP (in particular
+// UseAuthentication below, whose cookie handling cares about the real scheme) — otherwise it'd
+// see NPM's internal HTTP hop instead of the real client's HTTPS/IP.
+app.UseForwardedHeaders();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -79,11 +100,8 @@ if (app.Environment.IsDevelopment())
 else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();

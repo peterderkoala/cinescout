@@ -46,8 +46,18 @@ services:
     # memory headroom and 4x CPU headroom over that peak.
     mem_limit: 512m
     cpus: 1.0
+    # "default" keeps reaching postgres (only on that network); "npm-network" is the operator's
+    # externally-managed Nginx Proxy Manager network (#46/#51) — must already exist (see README),
+    # created outside this repo, not by this compose file.
+    networks:
+      - default
+      - npm-network
 
 volumes:
   postgres-data:
   dataprotection-keys:
   log-data:
+
+networks:
+  npm-network:
+    external: true
