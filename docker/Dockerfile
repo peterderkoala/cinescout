@@ -27,7 +27,7 @@ COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 # volume mount happens — Docker copies a named volume's initial content (incl. ownership) from
 # whatever already exists at the mount point in the image the first time the volume is used, so
 # this is what makes that volume writable by a non-root container instead of root-owned.
-RUN mkdir -p /home/app/.aspnet/DataProtection-Keys && chown $APP_UID:$APP_UID /home/app/.aspnet/DataProtection-Keys
+RUN mkdir -p /home/app/.aspnet/DataProtection-Keys /app/logs && chown $APP_UID:$APP_UID /home/app/.aspnet/DataProtection-Keys /app/logs
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "cinescout.web.dll"]

@@ -32,6 +32,10 @@ services:
       # invalidates all existing auth cookies, logging everyone out — defeating the 30-day
       # sliding session the auth gate is built around.
       - dataprotection-keys:/home/app/.aspnet/DataProtection-Keys
+      # Serilog's rolling File sink writes here (relative "logs/..." path resolves against the
+      # app's working directory, /app, per the Dockerfile's WORKDIR) — persisted so log history
+      # survives a container restart instead of being lost with the writable container layer.
+      - log-data:/app/logs
     ports:
       - "8080:8080"
     depends_on:
@@ -46,3 +50,4 @@ services:
 volumes:
   postgres-data:
   dataprotection-keys:
+  log-data:
