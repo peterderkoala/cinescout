@@ -62,14 +62,4 @@ public sealed class KinoheldCircuitBreaker
             _trippedAt = DateTimeOffset.UtcNow;
         }
     }
-
-    public void Reset()
-    {
-        lock (_lock)
-        {
-            _isTripped = false;
-            _tripReason = null;
-            _trippedAt = null;
-        }
-    }
 }

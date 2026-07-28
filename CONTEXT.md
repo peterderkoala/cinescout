@@ -33,7 +33,7 @@ A record that one `Performance` has satisfied a `WatchedMovie`'s active preferen
 _Avoid_: Alert (that's the outward-facing behavior a `Match` triggers, not the record itself)
 
 **NotificationLog**:
-A record of one attempt to notify the user (e.g. via Discord). Carries a `NotificationType` (`WatchStarted`, `WatchStopped`, `RulesMatched`, `SeatAvailabilityChanged`); `MatchId` is only set for the latter two, since watch-lifecycle notifications aren't tied to a specific `Match`.
+A record of one attempt to notify the user (e.g. via Discord). Carries a `NotificationType` (`WatchStarted`, `WatchStopped`, `RulesMatched`, `SeatAvailabilityChanged`, `NewFilmAdded`); `MatchId` is only set for `RulesMatched`/`SeatAvailabilityChanged`, since watch-lifecycle and new-film notifications aren't tied to a specific `Match`.
 _Avoid_: Alert log, notification
 
 **SeatStatus**:
