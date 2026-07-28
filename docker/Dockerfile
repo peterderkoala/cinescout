@@ -30,4 +30,8 @@ COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 RUN mkdir -p /home/app/.aspnet/DataProtection-Keys /app/logs && chown $APP_UID:$APP_UID /home/app/.aspnet/DataProtection-Keys /app/logs
 USER $APP_UID
 EXPOSE 8080
+# Exec form (no shell) invokes the app's own --healthcheck CLI mode (see Program.cs) — avoids
+# depending on curl/wget, neither of which this runtime image ships.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=30s \
+    CMD ["dotnet", "cinescout.web.dll", "--healthcheck"]
 ENTRYPOINT ["dotnet", "cinescout.web.dll"]

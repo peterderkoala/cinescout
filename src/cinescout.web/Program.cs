@@ -5,11 +5,20 @@ using cinescout.persistence.Extensions;
 using cinescout.web.Auth;
 using cinescout.web.Components;
 using cinescout.web.Extensions;
+using cinescout.web.HealthChecks;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+
+// Docker's HEALTHCHECK invokes this in-process rather than depending on curl/wget being present
+// in the runtime image — must short-circuit before CreateBuilder(args), so it never registers a
+// second Hangfire server alongside the one already running for the real app process.
+if (args.Contains("--healthcheck"))
+{
+    return await RunHealthCheckAsync();
+}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,9 +41,12 @@ var connectionString = builder.Configuration.GetConnectionString("Postgres");
 
 builder.Services.AddPersistence(builder.Configuration, requireConnectionString: !isTestingEnvironment);
 
+var healthChecksBuilder = builder.Services.AddHealthChecks();
+
 if (!isTestingEnvironment)
 {
     builder.Services.AddHangfireInfrastructure(connectionString);
+    healthChecksBuilder.AddCheck<HangfireHeartbeatHealthCheck>("hangfire");
 }
 
 builder.Services
@@ -78,6 +90,8 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets().AllowAnonymous();
+
+app.MapHealthChecks("/healthz").AllowAnonymous();
 
 app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUser> hasher, CineScoutDbContext db) =>
 {
@@ -133,6 +147,21 @@ app.MapPost("/account/setup", async (HttpContext context, IPasswordHasher<AppUse
     return Results.Redirect("/");
 }).AllowAnonymous();
 
+static async Task<int> RunHealthCheckAsync()
+{
+    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+
+    try
+    {
+        var response = await client.GetAsync("http://localhost:8080/healthz");
+        return response.IsSuccessStatusCode ? 0 : 1;
+    }
+    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+    {
+        return 1;
+    }
+}
+
 static async Task SignInOperatorAsync(HttpContext context)
 {
     var principal = new ClaimsPrincipal(new ClaimsIdentity(
@@ -150,5 +179,6 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(cinescout.web.Client._Imports).Assembly);
 
 app.Run();
+return 0;
 
 public partial class Program;
