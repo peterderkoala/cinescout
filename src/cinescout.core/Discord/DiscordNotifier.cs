@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
+using Polly.Timeout;
 
 namespace cinescout.core.Discord;
 
@@ -23,7 +24,11 @@ public sealed class DiscordNotifier(HttpClient httpClient, IConfiguration config
             var response = await httpClient.PostAsJsonAsync(webhookUrl, new { content = message }, cancellationToken);
             return new NotificationResult(response.IsSuccessStatusCode, $"{(int)response.StatusCode} {response.ReasonPhrase}");
         }
-        catch (HttpRequestException ex)
+        // InvalidOperationException: a malformed (not merely empty) webhook URL — PostAsJsonAsync
+        // throws before any request is attempted. TaskCanceledException/TimeoutRejectedException:
+        // the AddStandardResilienceHandler pipeline's attempt/total timeout tripping. All three are
+        // "never throws" contract violations otherwise, per the doc comment on IDiscordNotifier.
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or TaskCanceledException or TimeoutRejectedException)
         {
             return new NotificationResult(false, ex.Message);
         }
