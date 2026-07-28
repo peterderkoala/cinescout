@@ -11,10 +11,11 @@ film/performance content rather than each re-deriving it. See
 
 - [`home.md`](../home.md) — featured variant, Active Matches hero.
 - [`schedule.md`](../schedule.md) — compact-row variant, grouped by day.
-- Watched Movies, Performance Detail were flagged on the map as likely consumers too (compact-row
-  for the first, featured variant probably for Performance Detail's own header) — not yet
-  confirmed; each page's own ticket decides and should update this list and link back here rather
-  than re-deriving the card from scratch.
+- [`watched-movies.md`](../watched-movies.md) — compact-row variant, one card per upcoming
+  performance of each watched film (all of them, not just the next one).
+- Performance Detail was flagged on the map as a likely consumer too (featured variant, probably
+  for its own header) — not yet confirmed; that page's own ticket decides and should update this
+  list and link back here rather than re-deriving the card from scratch.
 
 ## Two variants, one data model
 
