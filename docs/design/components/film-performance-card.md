@@ -10,10 +10,11 @@ film/performance content rather than each re-deriving it. See
 **Known consumers so far** (update this list as later page tickets confirm their usage):
 
 - [`home.md`](../home.md) — featured variant, Active Matches hero.
-- Schedule, Watched Movies, Performance Detail were flagged on the map as likely consumers too
-  (compact-row variant for the first two, featured variant probably for Performance Detail's own
-  header) — not yet confirmed; each page's own ticket decides and should update this list and link
-  back here rather than re-deriving the card from scratch.
+- [`schedule.md`](../schedule.md) — compact-row variant, grouped by day.
+- Watched Movies, Performance Detail were flagged on the map as likely consumers too (compact-row
+  for the first, featured variant probably for Performance Detail's own header) — not yet
+  confirmed; each page's own ticket decides and should update this list and link back here rather
+  than re-deriving the card from scratch.
 
 ## Two variants, one data model
 
@@ -31,9 +32,17 @@ breakpoints):
 - Film title
 - Date/time
 - `Room` name
-- A small status badge — `Sold out` (`.badge.text-bg-danger`), `Cancelled`
-  (`.badge.text-bg-secondary`), or omitted entirely when bookable (no badge needed for the default/
-  expected state — only flag the exceptions)
+- A small status badge, **mutually exclusive, one shown at most** — in priority order:
+  1. `Cancelled` (`.badge.text-bg-secondary`), if the performance is cancelled
+  2. else `Sold out` (`.badge.text-bg-danger`), if sold out
+  3. else `Seats available` (`.badge.text-bg-success`), if `HasOpenFavoriteMatrixSeats` is true
+     (the browse-any-performance seat indicator from #24 — not gated on watched status)
+  4. else no badge (the default/expected bookable-but-not-yet-evaluated state doesn't need a badge)
+- A separate **`Watching` indicator** — `bi-bookmark-star-fill`, colored with the design system's
+  burgundy primary (**not** the gold Match-accent, which stays reserved for an actual `Match`),
+  shown independently alongside the status badge whenever the performance's film is on the user's
+  active Watched list. Independent of the status badge above — both can appear together (e.g. a
+  watched film's sold-out showing still shows `Sold out` *and* the bookmark icon).
 
 ### Featured card
 
