@@ -14,6 +14,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # Real observed peak (#55): ~92 MiB / 7.83% CPU during an active Hall-of-Fame crawl. These
+    # limits give roughly 3x memory headroom and ~6x CPU headroom over that peak.
+    mem_limit: 256m
+    cpus: 0.5
 
   app:
     build:
@@ -33,6 +37,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Real observed peak (#55): ~214.6 MiB / ~24.6% CPU spike during an active Kinoheld seat
+    # crawl (the highest of the three profiled conditions). These limits give roughly 2.4x
+    # memory headroom and 4x CPU headroom over that peak.
+    mem_limit: 512m
+    cpus: 1.0
 
 volumes:
   postgres-data:
