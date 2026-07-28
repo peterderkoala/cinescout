@@ -5,13 +5,11 @@ Split out while resolving [wayfinder ticket #69](https://github.com/peterderkoal
 Confirms the map's originally-flagged "seat-matrix visualization" reuse candidate. See
 [`00-design-system.md`](../00-design-system.md) for color/spacing.
 
-**Known consumers so far** (update this list as later page tickets confirm their usage):
+**Known consumers so far**:
 
-- [`seat-matrices.md`](../seat-matrices.md) — **zone-preview mode** (this doc's primary spec).
-- Performance Detail was flagged on the map as a likely second consumer, for showing **live seat
-  availability** — a related but distinct mode (real `SeatStatus` data, not an abstract zone). Not
-  yet confirmed; that page's own ticket (#70) decides and should extend this doc with a
-  "live-availability mode" section rather than building a second, unrelated seat-grid from scratch.
+- [`seat-matrices.md`](../seat-matrices.md) — **zone-preview mode**.
+- [`performance-detail.md`](../performance-detail.md) — **live-availability mode**, confirmed while
+  resolving [wayfinder ticket #70](https://github.com/peterderkoala/cinescout/issues/70).
 
 ## Zone-preview mode (confirmed by #69)
 
@@ -36,6 +34,35 @@ keep the highlighted block's *proportions* accurate relative to its row/seat spa
 individual cells to render below a legible minimum size — a very large zone (e.g. rows A–M × seats
 1–20) should degrade gracefully into a proportionally-shaped block rather than 260 illegible tiny
 squares.
+
+## Live-availability mode (confirmed by #70)
+
+**What it's for**: `PerformanceDetail`'s actual seat map for one performance — real per-seat data,
+not an abstract preview. Replaces that page's previous per-row `Free / Total` count table entirely
+(the top-line "X of Y seats free" summary text stays, since it's a useful at-a-glance number a grid
+alone doesn't give as quickly).
+
+**Layout — walk the adjacency chain, not raw seat numbers**: position cells within a row by
+following each seat's real `LeftNeighborSeatId`/`RightNeighborSeatId` chain, **not** by
+`SeatNumber` order. Kinoheld's own seat numbering isn't always gap-free/sequential, and the
+matching engine's `SeatBlockFinder` already treats adjacency, not seat numbers, as the source of
+truth for what counts as "contiguous" (per root `CLAUDE.md`). If the grid used raw numbers instead,
+it could visually show a row as gap-free while the actual matching logic sees a gap — misleading on
+exactly the screen where a user is judging whether a room has room for their group. This is real
+implementation work (walking a linked structure instead of sorting a number), not just a rendering
+default — flag it as such to whoever builds this.
+
+**Cell coloring**, mapped from `SeatOccupancyStatus`:
+
+| Status | Treatment |
+|---|---|
+| `Free` | Outlined/unfilled, `success`-bordered — the inviting, available state |
+| `Sold` | Filled, muted `secondary` — visually receded, taken |
+| `Other` | Outlined, `warning`-bordered (Bootstrap's stock warning yellow — **distinct** from the design system's custom marquee-gold Match-accent, so no collision with that reserved meaning) |
+
+All three use Bootstrap's stock semantic colors, not the design system's custom accents — seat
+status is a different kind of state than "this is a Match," and reusing the Match-gold here would
+dilute that reserved meaning.
 
 ## Solution references
 

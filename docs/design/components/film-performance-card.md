@@ -13,9 +13,11 @@ film/performance content rather than each re-deriving it. See
 - [`schedule.md`](../schedule.md) — compact-row variant, grouped by day.
 - [`watched-movies.md`](../watched-movies.md) — compact-row variant, one card per upcoming
   performance of each watched film (all of them, not just the next one).
-- Performance Detail was flagged on the map as a likely consumer too (featured variant, probably
-  for its own header) — not yet confirmed; that page's own ticket decides and should update this
-  list and link back here rather than re-deriving the card from scratch.
+- [`performance-detail.md`](../performance-detail.md) — featured variant, as the page's own header
+  — confirmed while resolving [wayfinder ticket #70](https://github.com/peterderkoala/cinescout/issues/70).
+  Match-reason badges shown only when the viewed performance is an active `Match`; the `Watching`
+  indicator shown instead when the film is watched but this performance isn't a `Match`; neither
+  shown for an unwatched film browsed casually.
 
 ## Two variants, one data model
 
