@@ -19,7 +19,9 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
     {
         var schedule = await client.GetScheduleAsync(site.CrawlBaseUrl, cancellationToken);
 
-        foreach (var filmDto in schedule.Films)
+        // Films with a null detailId have no stable external id to upsert against (see #59) —
+        // skip them rather than crash the whole crawl on them.
+        foreach (var filmDto in schedule.Films.Where(f => f.DetailId is not null))
         {
             var film = await UpsertFilmAsync(site.Id, filmDto, cancellationToken);
 
@@ -47,7 +49,7 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
 
     private async Task<Film> UpsertFilmAsync(int siteId, HallOfFameFilmDto filmDto, CancellationToken cancellationToken)
     {
-        var externalFilmId = filmDto.DetailId.ToString();
+        var externalFilmId = filmDto.DetailId!.Value.ToString();
 
         var film = await db.Films.SingleOrDefaultAsync(
             f => f.SiteId == siteId && f.ExternalFilmId == externalFilmId,

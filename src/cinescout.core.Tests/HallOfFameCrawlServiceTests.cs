@@ -405,6 +405,71 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Film_with_null_detailId_is_skipped_without_crashing_the_rest_of_the_crawl()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int siteId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var site = MakeSite();
+            setup.Sites.Add(site);
+            await setup.SaveChangesAsync();
+            siteId = site.Id;
+        }
+
+        var schedule = new HallOfFameScheduleResponse
+        {
+            Films =
+            [
+                new HallOfFameFilmDto
+                {
+                    DetailId = null,
+                    FilmTitle = "Untitled Draft Entry",
+                    PerformanceGroups = [],
+                },
+                new HallOfFameFilmDto
+                {
+                    DetailId = 401865,
+                    FilmTitle = "Vaiana - Live Action",
+                    PerformanceGroups =
+                    [
+                        new HallOfFamePerformanceGroupDto
+                        {
+                            Performances = new Dictionary<string, JsonElement>
+                            {
+                                ["74011"] = JsonSerializer.SerializeToElement(
+                                    new HallOfFamePerformanceDto
+                                    {
+                                        PerformanceId = 74011,
+                                        BookingLink = "https://www.kinoheld.de/kino-kamp-lintfort/hall-of-fame?mode=widget&change=no&showId=74011",
+                                        UnixDateTime = 1783969200,
+                                    }),
+                            },
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            await service.CrawlSiteAsync(site, TimeSpan.FromHours(1), now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var film = await read.Films.SingleAsync(f => f.SiteId == siteId);
+        Assert.Equal("Vaiana - Live Action", film.Title);
+        Assert.DoesNotContain(read.Films, f => f.Title == "Untitled Draft Entry");
+    }
+
+    [Fact]
     public async Task First_time_seeing_a_film_sends_and_logs_a_NewFilmAdded_notification()
     {
         var options = BuildOptions();

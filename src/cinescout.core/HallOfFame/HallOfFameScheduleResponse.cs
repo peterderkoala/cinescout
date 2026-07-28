@@ -15,8 +15,11 @@ public class HallOfFameScheduleResponse
 
 public class HallOfFameFilmDto
 {
+    // Nullable: the live feed genuinely returns null detailId for some films (unclear what they
+    // represent upstream — see issue #59); there's no stable external film id to key an upsert
+    // off without it, so HallOfFameCrawlService skips these rather than crashing on them.
     [JsonPropertyName("detailId")]
-    public int DetailId { get; set; }
+    public int? DetailId { get; set; }
 
     [JsonPropertyName("filmTitle")]
     public required string FilmTitle { get; set; }
