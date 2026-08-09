@@ -9,9 +9,9 @@ namespace cinescout.core.Matching;
 
 /// <summary>
 /// Evaluates one performance against active preferences after a Kinoheld seat crawl, creating an
-/// Active Match the first time a (Performance, WatchedMovie) pair qualifies (never duplicated on
+/// Active Match the first time a (Performance, TrackedMovie) pair qualifies (never duplicated on
 /// re-crawl) and firing RulesMatched/SeatAvailabilityChanged Discord notifications. A no-op for
-/// non-watched films or a performance whose Room hasn't been resolved yet.
+/// non-tracked films or a performance whose Room hasn't been resolved yet.
 /// </summary>
 public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifier notifier, ILogger<MatchEvaluationService> logger)
 {
@@ -23,8 +23,8 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
             return;
         }
 
-        var watchedMovie = await db.WatchedMovies.SingleOrDefaultAsync(w => w.FilmId == performance.FilmId, cancellationToken);
-        if (watchedMovie is null)
+        var trackedMovie = await db.TrackedMovies.SingleOrDefaultAsync(w => w.FilmId == performance.FilmId, cancellationToken);
+        if (trackedMovie is null)
         {
             return;
         }
@@ -35,7 +35,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
         var hasSufficientSeats = block is not null;
 
         var existingMatch = await db.Matches.SingleOrDefaultAsync(
-            m => m.PerformanceId == performanceId && m.WatchedMovieId == watchedMovie.Id && m.Status == MatchStatus.Active,
+            m => m.PerformanceId == performanceId && m.TrackedMovieId == trackedMovie.Id && m.Status == MatchStatus.Active,
             cancellationToken);
 
         if (existingMatch is null)
@@ -55,7 +55,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
             var match = new Match
             {
                 PerformanceId = performanceId,
-                WatchedMovieId = watchedMovie.Id,
+                TrackedMovieId = trackedMovie.Id,
                 MatchedAt = DateTimeOffset.UtcNow,
                 Status = MatchStatus.Active,
                 HasSufficientSeats = true,
@@ -98,14 +98,14 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
     private async Task NotifyRulesMatchedAsync(
         Match match, Performance performance, FavoriteSeatMatrix matrix, IReadOnlyList<SeatStatus> block, FavoriteTimeWindow window, CancellationToken cancellationToken)
     {
-        var (film, site, room) = await LoadNotificationContextAsync(performance, cancellationToken);
+        var (film, cinema, room) = await LoadNotificationContextAsync(performance, cancellationToken);
         var price = await FindCheapestMatchingPriceAsync(performance.Id, block, cancellationToken);
         var localStart = CinemaTimeZone.ToLocal(performance.StartsAt);
 
         var lines = new List<string>
         {
             $"🎬 **{film.Title}** matches your preferences!",
-            $"{site.Name} / {room.Name} — {localStart:ddd, dd MMM yyyy HH:mm}",
+            $"{cinema.Name} / {room.Name} — {localStart:ddd, dd MMM yyyy HH:mm}",
             $"Falls within your {DescribeWindow(window)} time window, with {block.Count} adjacent free seat(s) (needs {matrix.PartySize}) in \"{matrix.Name}\".",
         };
 
@@ -127,7 +127,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
     private async Task NotifySeatAvailabilityChangedAsync(
         Match match, Performance performance, bool hasSufficientSeats, FavoriteSeatMatrix? matrix, CancellationToken cancellationToken)
     {
-        var (film, site, room) = await LoadNotificationContextAsync(performance, cancellationToken);
+        var (film, cinema, room) = await LoadNotificationContextAsync(performance, cancellationToken);
         var localStart = CinemaTimeZone.ToLocal(performance.StartsAt);
         var partySizeNote = matrix is not null ? $" (needs {matrix.PartySize})" : string.Empty;
         var status = hasSufficientSeats
@@ -137,7 +137,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
         var message = string.Join('\n',
         [
             $"🔔 Seat availability changed for **{film.Title}**",
-            $"{site.Name} / {room.Name} — {localStart:ddd, dd MMM yyyy HH:mm}",
+            $"{cinema.Name} / {room.Name} — {localStart:ddd, dd MMM yyyy HH:mm}",
             $"It {status}.",
             $"Book: <{performance.BookingLink}>",
         ]);
@@ -145,12 +145,12 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
         await SendAndLogAsync(NotificationType.SeatAvailabilityChanged, match, message, cancellationToken);
     }
 
-    private async Task<(Film Film, Site Site, Room Room)> LoadNotificationContextAsync(Performance performance, CancellationToken cancellationToken)
+    private async Task<(Film Film, Cinema Cinema, Room Room)> LoadNotificationContextAsync(Performance performance, CancellationToken cancellationToken)
     {
         var film = await db.Films.SingleAsync(f => f.Id == performance.FilmId, cancellationToken);
-        var site = await db.Sites.SingleAsync(s => s.Id == performance.SiteId, cancellationToken);
+        var cinema = await db.Cinemas.SingleAsync(s => s.Id == performance.CinemaId, cancellationToken);
         var room = await db.Rooms.SingleAsync(r => r.Id == performance.RoomId!.Value, cancellationToken);
-        return (film, site, room);
+        return (film, cinema, room);
     }
 
     private async Task SendAndLogAsync(NotificationType type, Match match, string message, CancellationToken cancellationToken)

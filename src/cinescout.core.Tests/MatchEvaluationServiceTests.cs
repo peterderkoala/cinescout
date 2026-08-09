@@ -36,38 +36,38 @@ public class MatchEvaluationServiceTests : IAsyncLifetime
             .UseNpgsql(_postgres.GetConnectionString())
             .Options;
 
-    private sealed record Scenario(int SiteId, int RoomId, int FilmId, int PerformanceId);
+    private sealed record Scenario(int CinemaId, int RoomId, int FilmId, int PerformanceId);
 
-    private static async Task<Scenario> SeedScenarioAsync(CineScoutDbContext db, DateTimeOffset startsAt, string? posterUrl = null, bool watched = true)
+    private static async Task<Scenario> SeedScenarioAsync(CineScoutDbContext db, DateTimeOffset startsAt, string? posterUrl = null, bool tracked = true)
     {
-        var site = new Site
+        var cinema = new Cinema
         {
-            ExternalSiteId = "580",
+            ExternalCinemaId = "580",
             Name = "HALL OF FAME - Kino in Kamp-Lintfort",
             CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
             IsActive = true,
         };
-        db.Sites.Add(site);
+        db.Cinemas.Add(cinema);
         await db.SaveChangesAsync();
 
-        var room = new Room { SiteId = site.Id, ExternalAuditoriumId = "8259", Name = "Kino 3" };
+        var room = new Room { CinemaId = cinema.Id, ExternalAuditoriumId = "8259", Name = "Kino 3" };
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
 
-        var film = new Film { SiteId = site.Id, ExternalFilmId = "f1", Title = "Vaiana - Live Action", PosterUrl = posterUrl };
+        var film = new Film { CinemaId = cinema.Id, ExternalFilmId = "f1", Title = "Vaiana - Live Action", PosterUrl = posterUrl };
         db.Films.Add(film);
         await db.SaveChangesAsync();
 
-        if (watched)
+        if (tracked)
         {
-            db.WatchedMovies.Add(new WatchedMovie { FilmId = film.Id, CreatedAt = DateTimeOffset.UtcNow });
+            db.TrackedMovies.Add(new TrackedMovie { FilmId = film.Id, CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
         }
 
         var performance = new Performance
         {
             FilmId = film.Id,
-            SiteId = site.Id,
+            CinemaId = cinema.Id,
             RoomId = room.Id,
             SourcePerformanceId = "74705",
             StartsAt = startsAt,
@@ -80,7 +80,7 @@ public class MatchEvaluationServiceTests : IAsyncLifetime
         db.Performances.Add(performance);
         await db.SaveChangesAsync();
 
-        return new Scenario(site.Id, room.Id, film.Id, performance.Id);
+        return new Scenario(cinema.Id, room.Id, film.Id, performance.Id);
     }
 
     private static async Task ReplaceFreeAdjacentSeatsAsync(CineScoutDbContext db, int performanceId, string row, int count, string? priceAreaProviderId = null)
@@ -336,13 +336,13 @@ public class MatchEvaluationServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Non_watched_film_is_a_no_op()
+    public async Task Non_tracked_film_is_a_no_op()
     {
         var options = BuildOptions();
         int performanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var scenario = await SeedScenarioAsync(db, Future, watched: false);
+            var scenario = await SeedScenarioAsync(db, Future, tracked: false);
             performanceId = scenario.PerformanceId;
             db.FavoriteTimeWindows.Add(AlwaysMatchingWindow());
             db.FavoriteSeatMatrices.Add(Matrix(scenario.RoomId, filmId: null, partySize: 2));

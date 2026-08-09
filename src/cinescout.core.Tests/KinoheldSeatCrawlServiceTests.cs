@@ -57,30 +57,30 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
                 .ToList(),
             PriceAreas: []);
 
-    private static async Task<int> SeedSiteAsync(CineScoutDbContext db, string? kinoheldCinemaId = "2135", string externalSiteId = "580")
+    private static async Task<int> SeedCinemaAsync(CineScoutDbContext db, string? kinoheldCinemaId = "2135", string externalCinemaId = "580")
     {
-        var site = new Site
+        var cinema = new Cinema
         {
-            ExternalSiteId = externalSiteId,
+            ExternalCinemaId = externalCinemaId,
             Name = "HALL OF FAME - Kino in Kamp-Lintfort",
             CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
             IsActive = true,
             KinoheldCinemaId = kinoheldCinemaId,
         };
-        db.Sites.Add(site);
+        db.Cinemas.Add(cinema);
         await db.SaveChangesAsync();
-        return site.Id;
+        return cinema.Id;
     }
 
-    private static async Task<int> SeedFilmAsync(CineScoutDbContext db, int siteId, string externalFilmId, bool watched)
+    private static async Task<int> SeedFilmAsync(CineScoutDbContext db, int cinemaId, string externalFilmId, bool tracked)
     {
-        var film = new Film { SiteId = siteId, ExternalFilmId = externalFilmId, Title = $"Film {externalFilmId}" };
+        var film = new Film { CinemaId = cinemaId, ExternalFilmId = externalFilmId, Title = $"Film {externalFilmId}" };
         db.Films.Add(film);
         await db.SaveChangesAsync();
 
-        if (watched)
+        if (tracked)
         {
-            db.WatchedMovies.Add(new WatchedMovie { FilmId = film.Id, CreatedAt = DateTimeOffset.UtcNow });
+            db.TrackedMovies.Add(new TrackedMovie { FilmId = film.Id, CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
         }
 
@@ -89,7 +89,7 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
 
     private static async Task<int> SeedPerformanceAsync(
         CineScoutDbContext db,
-        int siteId,
+        int cinemaId,
         int filmId,
         string sourcePerformanceId,
         DateTimeOffset startsAt,
@@ -99,7 +99,7 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         var performance = new Performance
         {
             FilmId = filmId,
-            SiteId = siteId,
+            CinemaId = cinemaId,
             RoomId = roomId,
             SourcePerformanceId = sourcePerformanceId,
             StartsAt = startsAt,
@@ -114,9 +114,9 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         return performance.Id;
     }
 
-    private static async Task<int> SeedRoomAsync(CineScoutDbContext db, int siteId, string externalAuditoriumId, string name)
+    private static async Task<int> SeedRoomAsync(CineScoutDbContext db, int cinemaId, string externalAuditoriumId, string name)
     {
-        var room = new Room { SiteId = siteId, ExternalAuditoriumId = externalAuditoriumId, Name = name };
+        var room = new Room { CinemaId = cinemaId, ExternalAuditoriumId = externalAuditoriumId, Name = name };
         db.Rooms.Add(room);
         await db.SaveChangesAsync();
         return room.Id;
@@ -125,27 +125,27 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
     private static DateTimeOffset Future => DateTimeOffset.UtcNow.AddDays(2);
 
     [Fact]
-    public async Task Crawl_scopes_to_watched_future_normal_performances_only()
+    public async Task Crawl_scopes_to_tracked_future_normal_performances_only()
     {
         var options = BuildOptions();
         var client = Substitute.For<IKinoheldClient>();
         client.GetSeatsAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(SuccessResult(("s1", "A", 1, "sf", null, null, "8259")));
 
-        int watchedFuturePerformanceId;
+        int trackedFuturePerformanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var watchedFilmId = await SeedFilmAsync(db, siteId, "f-watched", watched: true);
-            var unwatchedFilmId = await SeedFilmAsync(db, siteId, "f-unwatched", watched: false);
+            var cinemaId = await SeedCinemaAsync(db);
+            var trackedFilmId = await SeedFilmAsync(db, cinemaId, "f-tracked", tracked: true);
+            var untrackedFilmId = await SeedFilmAsync(db, cinemaId, "f-untracked", tracked: false);
 
-            watchedFuturePerformanceId = await SeedPerformanceAsync(db, siteId, watchedFilmId, "1001", Future);
-            await SeedPerformanceAsync(db, siteId, watchedFilmId, "1002", DateTimeOffset.UtcNow.AddDays(-1)); // past
-            await SeedPerformanceAsync(db, siteId, watchedFilmId, "1003", Future, PerformanceStatus.Cancelled); // cancelled
-            await SeedPerformanceAsync(db, siteId, unwatchedFilmId, "1004", Future); // not watched
+            trackedFuturePerformanceId = await SeedPerformanceAsync(db, cinemaId, trackedFilmId, "1001", Future);
+            await SeedPerformanceAsync(db, cinemaId, trackedFilmId, "1002", DateTimeOffset.UtcNow.AddDays(-1)); // past
+            await SeedPerformanceAsync(db, cinemaId, trackedFilmId, "1003", Future, PerformanceStatus.Cancelled); // cancelled
+            await SeedPerformanceAsync(db, cinemaId, untrackedFilmId, "1004", Future); // not tracked
 
             var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         await client.Received(1).GetSeatsAsync("2135", "1001", Arg.Any<CancellationToken>());
@@ -154,7 +154,7 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         await using var read = new CineScoutDbContext(options);
         var snapshots = await read.SeatingSnapshots.ToListAsync();
         Assert.Single(snapshots);
-        Assert.Equal(watchedFuturePerformanceId, snapshots[0].PerformanceId);
+        Assert.Equal(trackedFuturePerformanceId, snapshots[0].PerformanceId);
     }
 
     [Fact]
@@ -171,12 +171,12 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int performanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "2001", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "2001", Future);
 
             var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         int s1StatusRowId;
@@ -207,7 +207,7 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         await using (var db = new CineScoutDbContext(options))
         {
             var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         await using (var finalRead = new CineScoutDbContext(options))
@@ -241,14 +241,14 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int expectedRoomId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            await SeedRoomAsync(db, siteId, "8255", "Kino 1");
-            expectedRoomId = await SeedRoomAsync(db, siteId, "8259", "Kino 3");
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "3001", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            await SeedRoomAsync(db, cinemaId, "8255", "Kino 1");
+            expectedRoomId = await SeedRoomAsync(db, cinemaId, "8259", "Kino 3");
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "3001", Future);
 
             var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         await using var read = new CineScoutDbContext(options);
@@ -268,14 +268,14 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int presetRoomId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            presetRoomId = await SeedRoomAsync(db, siteId, "8255", "Kino 1");
-            await SeedRoomAsync(db, siteId, "8259", "Kino 3"); // what the response's secId would resolve to
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "3002", Future, roomId: presetRoomId);
+            var cinemaId = await SeedCinemaAsync(db);
+            presetRoomId = await SeedRoomAsync(db, cinemaId, "8255", "Kino 1");
+            await SeedRoomAsync(db, cinemaId, "8259", "Kino 3"); // what the response's secId would resolve to
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "3002", Future, roomId: presetRoomId);
 
             var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         await using var read = new CineScoutDbContext(options);
@@ -294,13 +294,13 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int performanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            await SeedRoomAsync(db, siteId, "8259", "Kino 3");
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "3003", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            await SeedRoomAsync(db, cinemaId, "8259", "Kino 3");
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "3003", Future);
 
             var service = CreateService(db, client, new KinoheldCircuitBreaker(), new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         await using var read = new CineScoutDbContext(options);
@@ -327,13 +327,13 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int laterPerformanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            erroredPerformanceId = await SeedPerformanceAsync(db, siteId, filmId, "4001", Future);
-            laterPerformanceId = await SeedPerformanceAsync(db, siteId, filmId, "4002", Future.AddHours(3));
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            erroredPerformanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "4001", Future);
+            laterPerformanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "4002", Future.AddHours(3));
 
             var service = CreateService(db, client, breaker, new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         Assert.False(breaker.IsTripped);
@@ -360,13 +360,13 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         var breaker = new KinoheldCircuitBreaker();
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            await SeedPerformanceAsync(db, siteId, filmId, "5001", Future);
-            await SeedPerformanceAsync(db, siteId, filmId, "5002", Future.AddHours(3));
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            await SeedPerformanceAsync(db, cinemaId, filmId, "5001", Future);
+            await SeedPerformanceAsync(db, cinemaId, filmId, "5002", Future.AddHours(3));
 
             var service = CreateService(db, client, breaker, new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         Assert.True(breaker.IsTripped);
@@ -384,7 +384,7 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         await using (var db = new CineScoutDbContext(options))
         {
             var service = CreateService(db, client, breaker, new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         Assert.Empty(client.ReceivedCalls());
@@ -403,13 +403,13 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         var breaker = new KinoheldCircuitBreaker();
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            await SeedPerformanceAsync(db, siteId, filmId, "5101", Future);
-            await SeedPerformanceAsync(db, siteId, filmId, "5102", Future.AddHours(3));
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            await SeedPerformanceAsync(db, cinemaId, filmId, "5101", Future);
+            await SeedPerformanceAsync(db, cinemaId, filmId, "5102", Future.AddHours(3));
 
             var service = CreateService(db, client, breaker, new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
         }
 
         Assert.True(breaker.IsTripped);
@@ -428,9 +428,9 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int performanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: false);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "6001", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: false);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "6001", Future);
 
             db.SeatingSnapshots.Add(new SeatingSnapshot
             {
@@ -460,9 +460,9 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int performanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: false);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "6002", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: false);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "6002", Future);
 
             db.SeatingSnapshots.Add(new SeatingSnapshot
             {
@@ -496,9 +496,9 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         var cooldownTracker = new KinoheldFetchCooldownTracker();
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: false);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "6003", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: false);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "6003", Future);
 
             db.SeatingSnapshots.Add(new SeatingSnapshot
             {
@@ -533,9 +533,9 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: false);
-            var performanceId = await SeedPerformanceAsync(db, siteId, filmId, "6005", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: false);
+            var performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "6005", Future);
 
             db.SeatingSnapshots.Add(new SeatingSnapshot
             {
@@ -567,9 +567,9 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: false);
-            var performanceId = await SeedPerformanceAsync(db, siteId, filmId, "6004", Future);
+            var cinemaId = await SeedCinemaAsync(db);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: false);
+            var performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "6004", Future);
 
             var service = CreateService(db, client, breaker, new KinoheldFetchCooldownTracker());
             var outcome = await service.FetchForPerformanceAsync(performanceId, forceRefresh: true, CancellationToken.None);
@@ -605,12 +605,12 @@ public class KinoheldSeatCrawlServiceTests : IAsyncLifetime
         int performanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var siteId = await SeedSiteAsync(db, kinoheldCinemaId: null);
-            var filmId = await SeedFilmAsync(db, siteId, "f1", watched: true);
-            performanceId = await SeedPerformanceAsync(db, siteId, filmId, "7001", Future);
+            var cinemaId = await SeedCinemaAsync(db, kinoheldCinemaId: null);
+            var filmId = await SeedFilmAsync(db, cinemaId, "f1", tracked: true);
+            performanceId = await SeedPerformanceAsync(db, cinemaId, filmId, "7001", Future);
 
             var service = CreateService(db, client, breaker, new KinoheldFetchCooldownTracker());
-            await service.CrawlWatchedAsync(CancellationToken.None);
+            await service.CrawlTrackedAsync(CancellationToken.None);
 
             var onDemandOutcome = await service.FetchForPerformanceAsync(performanceId, forceRefresh: true, CancellationToken.None);
             Assert.Equal(SeatFetchOutcome.Unavailable, onDemandOutcome);

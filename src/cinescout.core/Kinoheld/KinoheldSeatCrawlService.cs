@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace cinescout.core.Kinoheld;
 
 /// <summary>
-/// Fetches and stores Kinoheld seat availability, both on the recurring schedule (watched films'
+/// Fetches and stores Kinoheld seat availability, both on the recurring schedule (tracked films'
 /// upcoming performances only) and on demand from the performance detail page. Every outgoing
 /// call is gated by the <see cref="KinoheldCircuitBreaker"/> — the moment Kinoheld pushes back
 /// (403/429/anomalous), all polling stops until an app restart. HTTP 400 ("not currently
@@ -26,9 +26,9 @@ public sealed class KinoheldSeatCrawlService(
 {
     /// <summary>
     /// Recurring-crawl path: fetches seats for every upcoming, non-cancelled performance of a
-    /// currently-watched film. Stops iterating immediately if the circuit breaker trips mid-run.
+    /// currently-tracked film. Stops iterating immediately if the circuit breaker trips mid-run.
     /// </summary>
-    public async Task CrawlWatchedAsync(CancellationToken cancellationToken)
+    public async Task CrawlTrackedAsync(CancellationToken cancellationToken)
     {
         if (circuitBreaker.IsTripped)
         {
@@ -40,9 +40,9 @@ public sealed class KinoheldSeatCrawlService(
         }
 
         var now = DateTimeOffset.UtcNow;
-        var watchedFilmIds = db.WatchedMovies.Select(w => w.FilmId);
+        var trackedFilmIds = db.TrackedMovies.Select(w => w.FilmId);
         var performances = await db.Performances
-            .Where(p => watchedFilmIds.Contains(p.FilmId)
+            .Where(p => trackedFilmIds.Contains(p.FilmId)
                 && p.StartsAt >= now
                 && p.Status == PerformanceStatus.Normal)
             .OrderBy(p => p.StartsAt)
@@ -111,8 +111,8 @@ public sealed class KinoheldSeatCrawlService(
     /// </summary>
     private async Task<SeatFetchOutcome> FetchAndStoreAsync(Performance performance, CancellationToken cancellationToken)
     {
-        var cinemaId = await db.Sites
-            .Where(s => s.Id == performance.SiteId)
+        var cinemaId = await db.Cinemas
+            .Where(s => s.Id == performance.CinemaId)
             .Select(s => s.KinoheldCinemaId)
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -120,9 +120,9 @@ public sealed class KinoheldSeatCrawlService(
         {
             // Never guess the cid — it's captured by room seeding and simply may not be there yet.
             logger.LogWarning(
-                "Skipping seat fetch for performance {PerformanceId}: its Site {SiteId} has no KinoheldCinemaId yet (room seeding hasn't captured it).",
+                "Skipping seat fetch for performance {PerformanceId}: its Cinema {CinemaId} has no KinoheldCinemaId yet (room seeding hasn't captured it).",
                 performance.Id,
-                performance.SiteId);
+                performance.CinemaId);
             return SeatFetchOutcome.Unavailable;
         }
 
@@ -236,15 +236,15 @@ public sealed class KinoheldSeatCrawlService(
         {
             var sectorId = success.Seats[0].SectorId;
             var room = await db.Rooms.SingleOrDefaultAsync(
-                r => r.SiteId == performance.SiteId && r.ExternalAuditoriumId == sectorId,
+                r => r.CinemaId == performance.CinemaId && r.ExternalAuditoriumId == sectorId,
                 cancellationToken);
 
             if (room is null)
             {
                 logger.LogWarning(
-                    "No Room with ExternalAuditoriumId {SectorId} found for Site {SiteId}; leaving performance {PerformanceId}'s RoomId null.",
+                    "No Room with ExternalAuditoriumId {SectorId} found for Cinema {CinemaId}; leaving performance {PerformanceId}'s RoomId null.",
                     sectorId,
-                    performance.SiteId,
+                    performance.CinemaId,
                     performance.Id);
             }
             else

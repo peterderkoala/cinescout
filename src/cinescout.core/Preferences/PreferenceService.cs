@@ -6,7 +6,7 @@ namespace cinescout.core.Preferences;
 
 /// <summary>
 /// The full editable field set of a <see cref="FavoriteSeatMatrix"/>, bundled so create/update
-/// call sites can't silently misorder nine positional arguments.
+/// call cinemas can't silently misorder nine positional arguments.
 /// </summary>
 public sealed record SeatMatrixInput(
     int RoomId,
@@ -21,7 +21,7 @@ public sealed record SeatMatrixInput(
 
 /// <summary>
 /// Thin persistence layer for the user's preference entities (FavoriteTimeWindow,
-/// FavoriteSeatMatrix). Validation is the UI's job; like WatchedMovieService, operations
+/// FavoriteSeatMatrix). Validation is the UI's job; like TrackedMovieService, operations
 /// on missing ids are defensive no-ops rather than errors.
 /// </summary>
 public sealed class PreferenceService(CineScoutDbContext db)

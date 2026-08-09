@@ -1,0 +1,80 @@
+@page "/tracked-movies"
+@using cinescout.core.TrackedMovies
+@using cinescout.persistence
+@using Microsoft.EntityFrameworkCore
+@inject CineScoutDbContext Db
+@inject TrackedMovieService TrackedMovieService
+
+<PageTitle>Tracked Movies</PageTitle>
+
+<h1>Tracked Movies</h1>
+
+<EditForm Model="this" FormName="tracked-movies" OnSubmit="HandleSubmitAsync">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Film</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var row in _rows)
+            {
+                <tr>
+                    <td>@row.Title</td>
+                    <td>
+                        @if (row.IsTracked)
+                        {
+                            <button type="submit" class="btn btn-outline-secondary btn-sm" name="untrackFilmId" value="@row.FilmId">Untrack</button>
+                        }
+                        else
+                        {
+                            <button type="submit" class="btn btn-primary btn-sm" name="trackFilmId" value="@row.FilmId">Track</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</EditForm>
+
+@code {
+    private List<FilmRow> _rows = [];
+
+    [SupplyParameterFromForm]
+    private int? TrackFilmId { get; set; }
+
+    [SupplyParameterFromForm]
+    private int? UntrackFilmId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRowsAsync();
+    }
+
+    private async Task LoadRowsAsync()
+    {
+        var trackedFilmIds = (await Db.TrackedMovies.Select(w => w.FilmId).ToListAsync()).ToHashSet();
+        var films = await Db.Films.OrderBy(f => f.Title).ToListAsync();
+
+        _rows = films
+            .Select(f => new FilmRow(f.Id, f.Title, trackedFilmIds.Contains(f.Id)))
+            .ToList();
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (TrackFilmId is int trackFilmId)
+        {
+            await TrackedMovieService.TrackAsync(trackFilmId, CancellationToken.None);
+        }
+        else if (UntrackFilmId is int untrackFilmId)
+        {
+            await TrackedMovieService.UntrackAsync(untrackFilmId, CancellationToken.None);
+        }
+
+        await LoadRowsAsync();
+    }
+
+    private sealed record FilmRow(int FilmId, string Title, bool IsTracked);
+}

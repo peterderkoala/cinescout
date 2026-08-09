@@ -5,7 +5,7 @@ namespace cinescout.persistence;
 
 public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : DbContext(options)
 {
-    public DbSet<Site> Sites => Set<Site>();
+    public DbSet<Cinema> Cinemas => Set<Cinema>();
     public DbSet<Film> Films => Set<Film>();
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<Performance> Performances => Set<Performance>();
@@ -14,7 +14,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
     public DbSet<PerformancePriceArea> PerformancePriceAreas => Set<PerformancePriceArea>();
     public DbSet<SeatingSnapshot> SeatingSnapshots => Set<SeatingSnapshot>();
     public DbSet<SeatingSnapshotSeat> SeatingSnapshotSeats => Set<SeatingSnapshotSeat>();
-    public DbSet<WatchedMovie> WatchedMovies => Set<WatchedMovie>();
+    public DbSet<TrackedMovie> TrackedMovies => Set<TrackedMovie>();
     public DbSet<FavoriteTimeWindow> FavoriteTimeWindows => Set<FavoriteTimeWindow>();
     public DbSet<FavoriteSeatMatrix> FavoriteSeatMatrices => Set<FavoriteSeatMatrix>();
     public DbSet<Match> Matches => Set<Match>();
@@ -23,28 +23,28 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Site>(e =>
+        modelBuilder.Entity<Cinema>(e =>
         {
-            e.HasIndex(s => s.ExternalSiteId).IsUnique();
+            e.HasIndex(s => s.ExternalCinemaId).IsUnique();
         });
 
         modelBuilder.Entity<Film>(e =>
         {
-            e.HasIndex(f => new { f.SiteId, f.ExternalFilmId }).IsUnique();
-            e.HasOne<Site>().WithMany().HasForeignKey(f => f.SiteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(f => new { f.CinemaId, f.ExternalFilmId }).IsUnique();
+            e.HasOne<Cinema>().WithMany().HasForeignKey(f => f.CinemaId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Room>(e =>
         {
-            e.HasIndex(r => new { r.SiteId, r.ExternalAuditoriumId }).IsUnique();
-            e.HasOne<Site>().WithMany().HasForeignKey(r => r.SiteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(r => new { r.CinemaId, r.ExternalAuditoriumId }).IsUnique();
+            e.HasOne<Cinema>().WithMany().HasForeignKey(r => r.CinemaId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Performance>(e =>
         {
-            e.HasIndex(p => new { p.SiteId, p.SourcePerformanceId }).IsUnique();
+            e.HasIndex(p => new { p.CinemaId, p.SourcePerformanceId }).IsUnique();
             e.HasOne<Film>().WithMany().HasForeignKey(p => p.FilmId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne<Site>().WithMany().HasForeignKey(p => p.SiteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Cinema>().WithMany().HasForeignKey(p => p.CinemaId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Room>().WithMany().HasForeignKey(p => p.RoomId).OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -78,7 +78,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
             e.HasOne<SeatingSnapshot>().WithMany().HasForeignKey(s => s.SnapshotId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<WatchedMovie>(e =>
+        modelBuilder.Entity<TrackedMovie>(e =>
         {
             e.HasIndex(w => w.FilmId).IsUnique();
             e.HasOne<Film>().WithMany().HasForeignKey(w => w.FilmId).OnDelete(DeleteBehavior.Cascade);
@@ -93,7 +93,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
         modelBuilder.Entity<Match>(e =>
         {
             e.HasOne<Performance>().WithMany().HasForeignKey(m => m.PerformanceId).OnDelete(DeleteBehavior.Cascade);
-            e.HasOne<WatchedMovie>().WithMany().HasForeignKey(m => m.WatchedMovieId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<TrackedMovie>().WithMany().HasForeignKey(m => m.TrackedMovieId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<NotificationLog>(e =>

@@ -4,7 +4,7 @@ using cinescout.persistence;
 namespace cinescout.core.Discord;
 
 /// <summary>
-/// Shared send-then-log shape used by every notification call site (watch-lifecycle, match
+/// Shared send-then-log shape used by every notification call site (track-lifecycle, match
 /// events, new-film-added): send via IDiscordNotifier, then write a NotificationLog row
 /// unconditionally — success or failure, since a failed Discord delivery is itself worth an
 /// audit trail, not a reason to roll back whatever state change already committed.

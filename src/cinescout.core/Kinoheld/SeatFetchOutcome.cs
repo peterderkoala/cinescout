@@ -21,6 +21,6 @@ public enum SeatFetchOutcome
     /// <summary>Kinoheld answered HTTP 404 — the show no longer exists there. Expected; nothing persisted.</summary>
     NotFound,
 
-    /// <summary>The fetch couldn't be attempted at all: unknown performance, or its Site has no KinoheldCinemaId yet.</summary>
+    /// <summary>The fetch couldn't be attempted at all: unknown performance, or its Cinema has no KinoheldCinemaId yet.</summary>
     Unavailable,
 }

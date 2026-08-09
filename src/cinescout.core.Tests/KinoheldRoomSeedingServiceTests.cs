@@ -42,21 +42,21 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         ],
     };
 
-    private async Task<(int SiteId, string BookingLink)> SeedSiteWithPerformanceAsync(CineScoutDbContext db)
+    private async Task<(int CinemaId, string BookingLink)> SeedCinemaWithPerformanceAsync(CineScoutDbContext db)
     {
-        var site = new Site
+        var cinema = new Cinema
         {
-            ExternalSiteId = "580",
+            ExternalCinemaId = "580",
             Name = "HALL OF FAME - Kino in Kamp-Lintfort",
             CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
             IsActive = true,
         };
-        db.Sites.Add(site);
+        db.Cinemas.Add(cinema);
         await db.SaveChangesAsync();
 
         var film = new Film
         {
-            SiteId = site.Id,
+            CinemaId = cinema.Id,
             ExternalFilmId = "401865",
             Title = "Vaiana - Live Action",
         };
@@ -68,7 +68,7 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         db.Performances.Add(new Performance
         {
             FilmId = film.Id,
-            SiteId = site.Id,
+            CinemaId = cinema.Id,
             SourcePerformanceId = "1",
             StartsAt = new DateTimeOffset(2026, 7, 18, 19, 0, 0, TimeSpan.Zero),
             BookingLink = bookingLink,
@@ -79,7 +79,7 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         });
         await db.SaveChangesAsync();
 
-        return (site.Id, bookingLink);
+        return (cinema.Id, bookingLink);
     }
 
     [Fact]
@@ -90,28 +90,28 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ThreeAuditoriumConfig());
 
-        int siteId;
+        int cinemaId;
         await using (var db = new CineScoutDbContext(options))
         {
-            (siteId, _) = await SeedSiteWithPerformanceAsync(db);
+            (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
 
             var service = new KinoheldRoomSeedingService(db, client);
-            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
 
-            await service.SeedRoomsForSiteAsync(site, CancellationToken.None);
+            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
 
         await using var read = new CineScoutDbContext(options);
-        var rooms = await read.Rooms.Where(r => r.SiteId == siteId).OrderBy(r => r.ExternalAuditoriumId).ToListAsync();
+        var rooms = await read.Rooms.Where(r => r.CinemaId == cinemaId).OrderBy(r => r.ExternalAuditoriumId).ToListAsync();
 
         Assert.Equal(3, rooms.Count);
         Assert.Equal(["8255", "8257", "8259"], rooms.Select(r => r.ExternalAuditoriumId));
         Assert.Equal(["Kino 1", "Kino 2", "Kino 3"], rooms.Select(r => r.Name));
 
-        // The widget config's cinema id is captured onto the Site in the same save — the seat
+        // The widget config's cinema id is captured onto the Cinema in the same save — the seat
         // crawl (#22) needs it as "cid" and never guesses it.
-        var persistedSite = await read.Sites.SingleAsync(s => s.Id == siteId);
-        Assert.Equal("2135", persistedSite.KinoheldCinemaId);
+        var persistedCinema = await read.Cinemas.SingleAsync(s => s.Id == cinemaId);
+        Assert.Equal("2135", persistedCinema.KinoheldCinemaId);
     }
 
     [Fact]
@@ -122,22 +122,22 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ThreeAuditoriumConfig());
 
-        int siteId;
+        int cinemaId;
         await using (var db = new CineScoutDbContext(options))
         {
-            (siteId, _) = await SeedSiteWithPerformanceAsync(db);
+            (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
         }
 
         for (var i = 0; i < 2; i++)
         {
             await using var db = new CineScoutDbContext(options);
             var service = new KinoheldRoomSeedingService(db, client);
-            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
-            await service.SeedRoomsForSiteAsync(site, CancellationToken.None);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
 
         await using var read = new CineScoutDbContext(options);
-        var rooms = await read.Rooms.Where(r => r.SiteId == siteId).ToListAsync();
+        var rooms = await read.Rooms.Where(r => r.CinemaId == cinemaId).ToListAsync();
 
         Assert.Equal(3, rooms.Count);
     }
@@ -150,19 +150,19 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ThreeAuditoriumConfig());
 
-        int siteId;
+        int cinemaId;
         await using (var db = new CineScoutDbContext(options))
         {
-            (siteId, _) = await SeedSiteWithPerformanceAsync(db);
+            (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
             var service = new KinoheldRoomSeedingService(db, client);
-            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
-            await service.SeedRoomsForSiteAsync(site, CancellationToken.None);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
 
         int originalRoomId;
         await using (var read = new CineScoutDbContext(options))
         {
-            originalRoomId = (await read.Rooms.SingleAsync(r => r.SiteId == siteId && r.ExternalAuditoriumId == "8259")).Id;
+            originalRoomId = (await read.Rooms.SingleAsync(r => r.CinemaId == cinemaId && r.ExternalAuditoriumId == "8259")).Id;
         }
 
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -180,12 +180,12 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         await using (var db = new CineScoutDbContext(options))
         {
             var service = new KinoheldRoomSeedingService(db, client);
-            var site = await db.Sites.SingleAsync(s => s.Id == siteId);
-            await service.SeedRoomsForSiteAsync(site, CancellationToken.None);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
 
         await using var finalRead = new CineScoutDbContext(options);
-        var rooms = await finalRead.Rooms.Where(r => r.SiteId == siteId).ToListAsync();
+        var rooms = await finalRead.Rooms.Where(r => r.CinemaId == cinemaId).ToListAsync();
 
         Assert.Equal(3, rooms.Count);
         var renamedRoom = await finalRead.Rooms.SingleAsync(r => r.Id == originalRoomId);
@@ -201,28 +201,28 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .Returns(ThreeAuditoriumConfig());
 
-        int siteId;
+        int cinemaId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var site = new Site
+            var cinema = new Cinema
             {
-                ExternalSiteId = "581",
-                Name = "Site with no crawled performances yet",
+                ExternalCinemaId = "581",
+                Name = "Cinema with no crawled performances yet",
                 CrawlBaseUrl = "https://example.invalid",
                 IsActive = true,
             };
-            db.Sites.Add(site);
+            db.Cinemas.Add(cinema);
             await db.SaveChangesAsync();
-            siteId = site.Id;
+            cinemaId = cinema.Id;
 
             var service = new KinoheldRoomSeedingService(db, client);
-            await service.SeedRoomsForSiteAsync(site, CancellationToken.None);
+            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
 
         await client.DidNotReceive().GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         await using var read = new CineScoutDbContext(options);
-        var rooms = await read.Rooms.Where(r => r.SiteId == siteId).ToListAsync();
+        var rooms = await read.Rooms.Where(r => r.CinemaId == cinemaId).ToListAsync();
         Assert.Empty(rooms);
     }
 }

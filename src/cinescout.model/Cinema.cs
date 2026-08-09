@@ -1,9 +1,9 @@
 namespace cinescout.model;
 
-public class Site
+public class Cinema
 {
     public int Id { get; set; }
-    public required string ExternalSiteId { get; set; }
+    public required string ExternalCinemaId { get; set; }
     public required string Name { get; set; }
     public required string CrawlBaseUrl { get; set; }
     public bool IsActive { get; set; }

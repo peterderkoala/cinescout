@@ -14,7 +14,7 @@ public class Performance
 {
     public int Id { get; set; }
     public int FilmId { get; set; }
-    public int SiteId { get; set; }
+    public int CinemaId { get; set; }
     public int? RoomId { get; set; }
     public required string SourcePerformanceId { get; set; }
     public DateTimeOffset StartsAt { get; set; }

@@ -7,7 +7,7 @@ namespace cinescout.core.Matching;
 /// <summary>
 /// Resolves the FavoriteSeatMatrix applicable to a (Room, Film) pair — a film-specific matrix wins
 /// over the room's general (FilmId == null) matrix. Shared by MatchEvaluationService (crawl-time,
-/// watched films only) and SeatAvailabilityQuery (query-time, any performance) so the precedence
+/// tracked films only) and SeatAvailabilityQuery (query-time, any performance) so the precedence
 /// rule lives in exactly one place.
 /// </summary>
 public static class SeatMatrixResolver

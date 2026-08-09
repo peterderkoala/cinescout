@@ -19,7 +19,7 @@ else
     <h1>@_filmTitle</h1>
 
     <p>
-        @_siteName / @_roomName<br />
+        @_cinemaName / @_roomName<br />
         @CinemaTimeZone.ToLocal(_performance.StartsAt).ToString("g")
         @if (_performance.IsSoldOut)
         {
@@ -90,7 +90,7 @@ else
 
     private Performance? _performance;
     private string _filmTitle = "Unknown";
-    private string _siteName = "Unknown";
+    private string _cinemaName = "Unknown";
     private string _roomName = "TBD";
     private SeatFetchOutcome? _outcome;
     private DateTimeOffset? _dataAge;
@@ -107,7 +107,7 @@ else
         }
 
         _filmTitle = await Db.Films.Where(f => f.Id == _performance.FilmId).Select(f => f.Title).SingleOrDefaultAsync() ?? "Unknown";
-        _siteName = await Db.Sites.Where(s => s.Id == _performance.SiteId).Select(s => s.Name).SingleOrDefaultAsync() ?? "Unknown";
+        _cinemaName = await Db.Cinemas.Where(s => s.Id == _performance.CinemaId).Select(s => s.Name).SingleOrDefaultAsync() ?? "Unknown";
 
         // A force-refresh POST triggers its own fetch in HandleForceRefreshAsync (which runs
         // after initialization) — don't stack an on-view fetch on top of it.

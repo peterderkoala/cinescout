@@ -91,16 +91,16 @@ public static class WebServiceCollectionExtensions
 
     public static async Task SeedKinoheldRoomsAsync(this WebApplication app)
     {
-        // Room seeding is eager, not lazy: fetched once per Site from its Kinoheld widget config,
+        // Room seeding is eager, not lazy: fetched once per Cinema from its Kinoheld widget config,
         // independent of the regular seat crawl — not a recurring Hangfire job. Idempotent (upsert), so
         // safe to re-run on every app restart, and self-healing if Kinoheld adds an auditorium later.
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<CineScoutDbContext>();
         var roomSeeder = scope.ServiceProvider.GetRequiredService<KinoheldRoomSeedingService>();
 
-        foreach (var site in await db.Sites.Where(s => s.IsActive).ToListAsync())
+        foreach (var cinema in await db.Cinemas.Where(s => s.IsActive).ToListAsync())
         {
-            await roomSeeder.SeedRoomsForSiteAsync(site, CancellationToken.None);
+            await roomSeeder.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
     }
 }

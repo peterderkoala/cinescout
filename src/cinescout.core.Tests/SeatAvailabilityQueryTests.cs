@@ -32,16 +32,16 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
 
     private sealed record Scenario(int RoomId, int FilmId, int PerformanceId);
 
-    private static async Task<Scenario> SeedScenarioAsync(CineScoutDbContext db, bool watched = false, int? roomId = null)
+    private static async Task<Scenario> SeedScenarioAsync(CineScoutDbContext db, bool tracked = false, int? roomId = null)
     {
-        var site = new Site
+        var cinema = new Cinema
         {
-            ExternalSiteId = Guid.NewGuid().ToString(),
+            ExternalCinemaId = Guid.NewGuid().ToString(),
             Name = "HALL OF FAME - Kino in Kamp-Lintfort",
             CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
             IsActive = true,
         };
-        db.Sites.Add(site);
+        db.Cinemas.Add(cinema);
         await db.SaveChangesAsync();
 
         int resolvedRoomId;
@@ -51,26 +51,26 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
         else
         {
-            var room = new Room { SiteId = site.Id, ExternalAuditoriumId = "8259", Name = "Kino 3" };
+            var room = new Room { CinemaId = cinema.Id, ExternalAuditoriumId = "8259", Name = "Kino 3" };
             db.Rooms.Add(room);
             await db.SaveChangesAsync();
             resolvedRoomId = room.Id;
         }
 
-        var film = new Film { SiteId = site.Id, ExternalFilmId = "f1", Title = "Vaiana - Live Action" };
+        var film = new Film { CinemaId = cinema.Id, ExternalFilmId = "f1", Title = "Vaiana - Live Action" };
         db.Films.Add(film);
         await db.SaveChangesAsync();
 
-        if (watched)
+        if (tracked)
         {
-            db.WatchedMovies.Add(new WatchedMovie { FilmId = film.Id, CreatedAt = DateTimeOffset.UtcNow });
+            db.TrackedMovies.Add(new TrackedMovie { FilmId = film.Id, CreatedAt = DateTimeOffset.UtcNow });
             await db.SaveChangesAsync();
         }
 
         var performance = new Performance
         {
             FilmId = film.Id,
-            SiteId = site.Id,
+            CinemaId = cinema.Id,
             RoomId = resolvedRoomId,
             SourcePerformanceId = "74705",
             StartsAt = DateTimeOffset.UtcNow.AddDays(2),
@@ -143,34 +143,34 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Returns_true_for_a_non_watched_film_the_same_as_a_watched_one()
+    public async Task Returns_true_for_a_non_tracked_film_the_same_as_a_tracked_one()
     {
         var options = BuildOptions();
-        int watchedPerformanceId;
-        int nonWatchedPerformanceId;
+        int trackedPerformanceId;
+        int nonTrackedPerformanceId;
         await using (var db = new CineScoutDbContext(options))
         {
-            var watchedScenario = await SeedScenarioAsync(db, watched: true);
-            watchedPerformanceId = watchedScenario.PerformanceId;
-            db.FavoriteSeatMatrices.Add(Matrix(watchedScenario.RoomId, filmId: null, partySize: 2));
+            var trackedScenario = await SeedScenarioAsync(db, tracked: true);
+            trackedPerformanceId = trackedScenario.PerformanceId;
+            db.FavoriteSeatMatrices.Add(Matrix(trackedScenario.RoomId, filmId: null, partySize: 2));
             await db.SaveChangesAsync();
-            await ReplaceFreeAdjacentSeatsAsync(db, watchedPerformanceId, "D", count: 3);
+            await ReplaceFreeAdjacentSeatsAsync(db, trackedPerformanceId, "D", count: 3);
 
-            // Separate room so its general matrix doesn't also apply to the watched performance above.
-            var nonWatchedScenario = await SeedScenarioAsync(db, watched: false);
-            nonWatchedPerformanceId = nonWatchedScenario.PerformanceId;
-            db.FavoriteSeatMatrices.Add(Matrix(nonWatchedScenario.RoomId, filmId: null, partySize: 2));
+            // Separate room so its general matrix doesn't also apply to the tracked performance above.
+            var nonTrackedScenario = await SeedScenarioAsync(db, tracked: false);
+            nonTrackedPerformanceId = nonTrackedScenario.PerformanceId;
+            db.FavoriteSeatMatrices.Add(Matrix(nonTrackedScenario.RoomId, filmId: null, partySize: 2));
             await db.SaveChangesAsync();
-            await ReplaceFreeAdjacentSeatsAsync(db, nonWatchedPerformanceId, "D", count: 3);
+            await ReplaceFreeAdjacentSeatsAsync(db, nonTrackedPerformanceId, "D", count: 3);
         }
 
         await using var db2 = new CineScoutDbContext(options);
         var query = new SeatAvailabilityQuery(db2);
-        var watchedResult = await query.HasOpenFavoriteMatrixSeatsAsync(watchedPerformanceId, CancellationToken.None);
-        var nonWatchedResult = await query.HasOpenFavoriteMatrixSeatsAsync(nonWatchedPerformanceId, CancellationToken.None);
+        var trackedResult = await query.HasOpenFavoriteMatrixSeatsAsync(trackedPerformanceId, CancellationToken.None);
+        var nonTrackedResult = await query.HasOpenFavoriteMatrixSeatsAsync(nonTrackedPerformanceId, CancellationToken.None);
 
-        Assert.True(watchedResult);
-        Assert.True(nonWatchedResult);
+        Assert.True(trackedResult);
+        Assert.True(nonTrackedResult);
     }
 
     [Fact]

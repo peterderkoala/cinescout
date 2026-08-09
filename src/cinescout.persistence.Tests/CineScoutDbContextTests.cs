@@ -34,24 +34,24 @@ public class CineScoutDbContextTests : IAsyncLifetime
     {
         var options = BuildOptions();
 
-        int siteId, filmId, roomId, performanceId, watchedMovieId, matchId;
+        int cinemaId, filmId, roomId, performanceId, trackedMovieId, matchId;
 
         await using (var write = new CineScoutDbContext(options))
         {
-            var site = new Site
+            var cinema = new Cinema
             {
-                ExternalSiteId = "580",
+                ExternalCinemaId = "580",
                 Name = "HALL OF FAME - Kino in Kamp-Lintfort",
                 CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
                 IsActive = true,
             };
-            write.Sites.Add(site);
+            write.Cinemas.Add(cinema);
             await write.SaveChangesAsync();
-            siteId = site.Id;
+            cinemaId = cinema.Id;
 
             var film = new Film
             {
-                SiteId = siteId,
+                CinemaId = cinemaId,
                 ExternalFilmId = "401865",
                 Title = "Vaiana - Live Action",
             };
@@ -61,7 +61,7 @@ public class CineScoutDbContextTests : IAsyncLifetime
 
             var room = new Room
             {
-                SiteId = siteId,
+                CinemaId = cinemaId,
                 ExternalAuditoriumId = "8259",
                 Name = "Kino 3",
             };
@@ -72,7 +72,7 @@ public class CineScoutDbContextTests : IAsyncLifetime
             var performance = new Performance
             {
                 FilmId = filmId,
-                SiteId = siteId,
+                CinemaId = cinemaId,
                 RoomId = roomId,
                 SourcePerformanceId = "74705",
                 StartsAt = new DateTimeOffset(2026, 7, 17, 19, 50, 0, TimeSpan.Zero),
@@ -125,14 +125,14 @@ public class CineScoutDbContextTests : IAsyncLifetime
                 RightNeighborSeatId = "21353011007",
             });
 
-            var watchedMovie = new WatchedMovie
+            var trackedMovie = new TrackedMovie
             {
                 FilmId = filmId,
                 CreatedAt = new DateTimeOffset(2026, 7, 17, 9, 0, 0, TimeSpan.Zero),
             };
-            write.WatchedMovies.Add(watchedMovie);
+            write.TrackedMovies.Add(trackedMovie);
             await write.SaveChangesAsync();
-            watchedMovieId = watchedMovie.Id;
+            trackedMovieId = trackedMovie.Id;
 
             write.FavoriteTimeWindows.Add(new FavoriteTimeWindow
             {
@@ -157,7 +157,7 @@ public class CineScoutDbContextTests : IAsyncLifetime
             var match = new Match
             {
                 PerformanceId = performanceId,
-                WatchedMovieId = watchedMovieId,
+                TrackedMovieId = trackedMovieId,
                 MatchedAt = new DateTimeOffset(2026, 7, 17, 12, 5, 0, TimeSpan.Zero),
                 Status = MatchStatus.Active,
             };
@@ -182,14 +182,14 @@ public class CineScoutDbContextTests : IAsyncLifetime
         // verifies real persistence, not an in-memory identity map.
         await using var read = new CineScoutDbContext(options);
 
-        var readSite = await read.Sites.SingleAsync(s => s.Id == siteId);
-        Assert.Equal("HALL OF FAME - Kino in Kamp-Lintfort", readSite.Name);
-        Assert.Equal("580", readSite.ExternalSiteId);
-        Assert.True(readSite.IsActive);
+        var readCinema = await read.Cinemas.SingleAsync(s => s.Id == cinemaId);
+        Assert.Equal("HALL OF FAME - Kino in Kamp-Lintfort", readCinema.Name);
+        Assert.Equal("580", readCinema.ExternalCinemaId);
+        Assert.True(readCinema.IsActive);
 
         var readFilm = await read.Films.SingleAsync(f => f.Id == filmId);
         Assert.Equal("Vaiana - Live Action", readFilm.Title);
-        Assert.Equal(siteId, readFilm.SiteId);
+        Assert.Equal(cinemaId, readFilm.CinemaId);
 
         var readRoom = await read.Rooms.SingleAsync(r => r.Id == roomId);
         Assert.Equal("Kino 3", readRoom.Name);
@@ -217,8 +217,8 @@ public class CineScoutDbContextTests : IAsyncLifetime
         Assert.Equal("D", readSnapshotSeat.Row);
         Assert.Equal(SeatOccupancyStatus.Free, readSnapshotSeat.Status);
 
-        var readWatchedMovie = await read.WatchedMovies.SingleAsync(w => w.Id == watchedMovieId);
-        Assert.Equal(filmId, readWatchedMovie.FilmId);
+        var readTrackedMovie = await read.TrackedMovies.SingleAsync(w => w.Id == trackedMovieId);
+        Assert.Equal(filmId, readTrackedMovie.FilmId);
 
         var readTimeWindow = await read.FavoriteTimeWindows.SingleAsync();
         Assert.Equal(DaysOfWeekFlags.Saturday | DaysOfWeekFlags.Sunday, readTimeWindow.DaysOfWeek);
@@ -232,7 +232,7 @@ public class CineScoutDbContextTests : IAsyncLifetime
 
         var readMatch = await read.Matches.SingleAsync(m => m.Id == matchId);
         Assert.Equal(MatchStatus.Active, readMatch.Status);
-        Assert.Equal(watchedMovieId, readMatch.WatchedMovieId);
+        Assert.Equal(trackedMovieId, readMatch.TrackedMovieId);
 
         var readLog = await read.NotificationLogs.SingleAsync(n => n.MatchId == matchId);
         Assert.Equal(NotificationType.RulesMatched, readLog.NotificationType);

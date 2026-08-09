@@ -2,8 +2,8 @@ namespace cinescout.model;
 
 public enum NotificationType
 {
-    WatchStarted,
-    WatchStopped,
+    TrackStarted,
+    TrackStopped,
     RulesMatched,
     SeatAvailabilityChanged,
     NewFilmAdded,
@@ -17,7 +17,7 @@ public enum NotificationStatus
 
 /// <summary>
 /// A record of one attempt to notify the user. MatchId is only set for RulesMatched and
-/// SeatAvailabilityChanged — the watch-lifecycle types aren't tied to a specific Match.
+/// SeatAvailabilityChanged — the track-lifecycle types aren't tied to a specific Match.
 /// </summary>
 public class NotificationLog
 {

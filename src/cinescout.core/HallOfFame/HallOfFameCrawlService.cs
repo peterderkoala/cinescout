@@ -7,36 +7,36 @@ using Microsoft.EntityFrameworkCore;
 namespace cinescout.core.HallOfFame;
 
 /// <summary>
-/// Crawls a single site's Hall-of-Fame schedule and upserts Film/Performance rows, writes an
+/// Crawls a single cinema's Hall-of-Fame schedule and upserts Film/Performance rows, writes an
 /// unconditional PerformanceSnapshot per performance per crawl, and flips performances not
 /// seen for 2 consecutive crawls to Cancelled. Sends a NewFilmAdded notification the first time a
-/// film is ever seen at a site — deliberately unfiltered and un-gated against a site's first-ever
+/// film is ever seen at a cinema — deliberately unfiltered and un-gated against a cinema's first-ever
 /// crawl (accepted, one-time cost rather than new domain concepts; see issue #43).
 /// </summary>
 public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient client, IDiscordNotifier notifier)
 {
-    public async Task CrawlSiteAsync(Site site, TimeSpan crawlInterval, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task CrawlCinemaAsync(Cinema cinema, TimeSpan crawlInterval, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var schedule = await client.GetScheduleAsync(site.CrawlBaseUrl, cancellationToken);
+        var schedule = await client.GetScheduleAsync(cinema.CrawlBaseUrl, cancellationToken);
 
         // Films with a null detailId have no stable external id to upsert against (see #59) —
         // skip them rather than crash the whole crawl on them.
         foreach (var filmDto in schedule.Films.Where(f => f.DetailId is not null))
         {
-            var film = await UpsertFilmAsync(site.Id, filmDto, cancellationToken);
+            var film = await UpsertFilmAsync(cinema.Id, filmDto, cancellationToken);
 
             var performanceElements = filmDto.PerformanceGroups
                 .SelectMany(group => group.Performances.Values);
 
             foreach (var performanceElement in performanceElements)
             {
-                await UpsertPerformanceAsync(site.Id, film.Id, performanceElement, now, cancellationToken);
+                await UpsertPerformanceAsync(cinema.Id, film.Id, performanceElement, now, cancellationToken);
             }
         }
 
         var cancellationCutoff = now - (crawlInterval * 2);
         var missedPerformances = await db.Performances
-            .Where(p => p.SiteId == site.Id && p.Status == PerformanceStatus.Normal && p.LastSeenAt <= cancellationCutoff)
+            .Where(p => p.CinemaId == cinema.Id && p.Status == PerformanceStatus.Normal && p.LastSeenAt <= cancellationCutoff)
             .ToListAsync(cancellationToken);
 
         foreach (var missed in missedPerformances)
@@ -47,19 +47,19 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<Film> UpsertFilmAsync(int siteId, HallOfFameFilmDto filmDto, CancellationToken cancellationToken)
+    private async Task<Film> UpsertFilmAsync(int cinemaId, HallOfFameFilmDto filmDto, CancellationToken cancellationToken)
     {
         var externalFilmId = filmDto.DetailId!.Value.ToString();
 
         var film = await db.Films.SingleOrDefaultAsync(
-            f => f.SiteId == siteId && f.ExternalFilmId == externalFilmId,
+            f => f.CinemaId == cinemaId && f.ExternalFilmId == externalFilmId,
             cancellationToken);
 
         if (film is null)
         {
             film = new Film
             {
-                SiteId = siteId,
+                CinemaId = cinemaId,
                 ExternalFilmId = externalFilmId,
                 Title = filmDto.FilmTitle,
                 PosterUrl = filmDto.PosterUrl,
@@ -83,7 +83,7 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
             db, notifier, NotificationType.NewFilmAdded, matchId: null, $"New film added: **{film.Title}**.", cancellationToken);
 
     private async Task UpsertPerformanceAsync(
-        int siteId,
+        int cinemaId,
         int filmId,
         JsonElement performanceElement,
         DateTimeOffset now,
@@ -96,7 +96,7 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
         var sourcePerformanceId = performanceDto.PerformanceId.ToString();
 
         var performance = await db.Performances.SingleOrDefaultAsync(
-            p => p.SiteId == siteId && p.SourcePerformanceId == sourcePerformanceId,
+            p => p.CinemaId == cinemaId && p.SourcePerformanceId == sourcePerformanceId,
             cancellationToken);
 
         var isBookable = performanceDto.IsOnline == 1
@@ -109,7 +109,7 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
             performance = new Performance
             {
                 FilmId = filmId,
-                SiteId = siteId,
+                CinemaId = cinemaId,
                 SourcePerformanceId = sourcePerformanceId,
                 StartsAt = DateTimeOffset.FromUnixTimeSeconds(performanceDto.UnixDateTime),
                 BookingLink = performanceDto.BookingLink,

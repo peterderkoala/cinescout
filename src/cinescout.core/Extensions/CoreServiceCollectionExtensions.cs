@@ -5,7 +5,7 @@ using cinescout.core.HallOfFame;
 using cinescout.core.Kinoheld;
 using cinescout.core.Matching;
 using cinescout.core.Preferences;
-using cinescout.core.WatchedMovies;
+using cinescout.core.TrackedMovies;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
 
@@ -74,9 +74,9 @@ public static class CoreServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddWatchedMovies(this IServiceCollection services)
+    public static IServiceCollection AddTrackedMovies(this IServiceCollection services)
     {
-        services.AddScoped<WatchedMovieService>();
+        services.AddScoped<TrackedMovieService>();
 
         return services;
     }

@@ -56,7 +56,7 @@ builder.Services
     .AddDiscord()
     .AddEmail()
     .AddMatching()
-    .AddWatchedMovies()
+    .AddTrackedMovies()
     .AddPreferences();
 
 builder.Services.AddCineScoutAuthentication(builder.Configuration);

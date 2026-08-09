@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 namespace cinescout.core.HallOfFame;
 
 /// <summary>
-/// Hangfire recurring-job entry point: crawls every active Site's Hall-of-Fame schedule.
+/// Hangfire recurring-job entry point: crawls every active Cinema's Hall-of-Fame schedule.
 /// </summary>
 public class HallOfFameCrawlJob(CineScoutDbContext db, HallOfFameCrawlService crawlService, IConfiguration configuration)
 {
@@ -15,11 +15,11 @@ public class HallOfFameCrawlJob(CineScoutDbContext db, HallOfFameCrawlService cr
         var crawlInterval = TimeSpan.FromHours(crawlIntervalHours);
         var now = DateTimeOffset.UtcNow;
 
-        var activeSites = await db.Sites.Where(s => s.IsActive).ToListAsync(cancellationToken);
+        var activeCinemas = await db.Cinemas.Where(s => s.IsActive).ToListAsync(cancellationToken);
 
-        foreach (var site in activeSites)
+        foreach (var cinema in activeCinemas)
         {
-            await crawlService.CrawlSiteAsync(site, crawlInterval, now, cancellationToken);
+            await crawlService.CrawlCinemaAsync(cinema, crawlInterval, now, cancellationToken);
         }
     }
 }

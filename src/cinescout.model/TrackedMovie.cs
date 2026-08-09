@@ -4,7 +4,7 @@ namespace cinescout.model;
 /// A Film the user has marked as interesting. Whether it's still "active" (has upcoming
 /// performances) is a query-time filter, not a stored flag.
 /// </summary>
-public class WatchedMovie
+public class TrackedMovie
 {
     public int Id { get; set; }
     public int FilmId { get; set; }

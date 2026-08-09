@@ -7,8 +7,8 @@ namespace cinescout.core.Matching;
 /// <summary>
 /// Query-time capability (#24): does this performance currently have an open contiguous seat block
 /// satisfying its applicable FavoriteSeatMatrix? Works for any performance being browsed, not just
-/// ones tied to a watched movie — unlike MatchEvaluationService, which only persists a Match (and
-/// notifies) for watched films. Reuses SeatMatrixResolver/SeatBlockFinder, the same logic the
+/// ones tied to a tracked movie — unlike MatchEvaluationService, which only persists a Match (and
+/// notifies) for tracked films. Reuses SeatMatrixResolver/SeatBlockFinder, the same logic the
 /// crawl-time evaluation uses, so the two never disagree on what counts as "enough seats".
 /// </summary>
 public sealed class SeatAvailabilityQuery(CineScoutDbContext db)

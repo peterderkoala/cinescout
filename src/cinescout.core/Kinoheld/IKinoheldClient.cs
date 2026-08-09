@@ -18,7 +18,7 @@ public interface IKinoheldClient
     /// the caller can distinguish expected per-performance outcomes (400 not-bookable, 404 gone)
     /// from block/anomaly signals that must trip the circuit breaker.
     /// </summary>
-    /// <param name="cinemaId">Kinoheld's numeric cinema id (<see cref="cinescout.model.Site.KinoheldCinemaId"/>), sent as <c>cid</c>.</param>
+    /// <param name="cinemaId">Kinoheld's numeric cinema id (<see cref="cinescout.model.Cinema.KinoheldCinemaId"/>), sent as <c>cid</c>.</param>
     /// <param name="showId">Kinoheld's show id (<see cref="cinescout.model.Performance.SourcePerformanceId"/>), sent as <c>showId</c>.</param>
     Task<KinoheldSeatsResult> GetSeatsAsync(string cinemaId, string showId, CancellationToken cancellationToken);
 }

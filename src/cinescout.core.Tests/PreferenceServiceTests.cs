@@ -35,19 +35,19 @@ public class PreferenceServiceTests : IAsyncLifetime
         var options = BuildOptions();
         await using var db = new CineScoutDbContext(options);
 
-        var site = new Site
+        var cinema = new Cinema
         {
-            ExternalSiteId = "580",
+            ExternalCinemaId = "580",
             Name = "HALL OF FAME - Kino in Kamp-Lintfort",
             CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
             IsActive = true,
         };
-        db.Sites.Add(site);
+        db.Cinemas.Add(cinema);
         await db.SaveChangesAsync();
 
         var room = new Room
         {
-            SiteId = site.Id,
+            CinemaId = cinema.Id,
             ExternalAuditoriumId = "8255",
             Name = "Kino 1",
         };
@@ -55,7 +55,7 @@ public class PreferenceServiceTests : IAsyncLifetime
 
         var film = new Film
         {
-            SiteId = site.Id,
+            CinemaId = cinema.Id,
             ExternalFilmId = "401865",
             Title = "Vaiana - Live Action",
         };

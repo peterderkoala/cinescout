@@ -24,7 +24,7 @@ else
         <thead>
             <tr>
                 <th>Film</th>
-                <th>Site / Room</th>
+                <th>Cinema / Room</th>
                 <th>When</th>
                 <th>Sold out</th>
                 <th>Seats</th>
@@ -35,7 +35,7 @@ else
             {
                 <tr>
                     <td><a href="@($"/performances/{row.PerformanceId}")">@row.FilmTitle</a></td>
-                    <td>@row.SiteName / @row.RoomName</td>
+                    <td>@row.CinemaName / @row.RoomName</td>
                     <td>@CinemaTimeZone.ToLocal(row.StartsAt).ToString("g")</td>
                     <td>
                         @if (row.IsSoldOut)
@@ -66,7 +66,7 @@ else
             .ToListAsync();
 
         var filmTitles = await Db.Films.ToDictionaryAsync(f => f.Id, f => f.Title);
-        var siteNames = await Db.Sites.ToDictionaryAsync(s => s.Id, s => s.Name);
+        var cinemaNames = await Db.Cinemas.ToDictionaryAsync(s => s.Id, s => s.Name);
         var roomNames = await Db.Rooms.ToDictionaryAsync(r => r.Id, r => r.Name);
 
         var openSeatsByPerformance = await SeatAvailabilityQuery.HasOpenFavoriteMatrixSeatsAsync(upcoming, CancellationToken.None);
@@ -75,7 +75,7 @@ else
             .Select(p => new ScheduleRow(
                 p.Id,
                 filmTitles.GetValueOrDefault(p.FilmId, "Unknown"),
-                siteNames.GetValueOrDefault(p.SiteId, "Unknown"),
+                cinemaNames.GetValueOrDefault(p.CinemaId, "Unknown"),
                 p.RoomId is int roomId ? roomNames.GetValueOrDefault(roomId, "—") : "TBD",
                 p.StartsAt,
                 p.IsSoldOut,
@@ -84,5 +84,5 @@ else
     }
 
     private sealed record ScheduleRow(
-        int PerformanceId, string FilmTitle, string SiteName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut, bool HasOpenFavoriteMatrixSeats);
+        int PerformanceId, string FilmTitle, string CinemaName, string RoomName, DateTimeOffset StartsAt, bool IsSoldOut, bool HasOpenFavoriteMatrixSeats);
 }
