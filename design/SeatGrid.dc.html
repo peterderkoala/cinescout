@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+</helmet>
+<sc-if value="{{ isZone }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex; flex-direction:column; gap:2px; width:max-content;">
+    <sc-for list="{{ zoneRows }}" as="row" hint-placeholder-count="4">
+      <div style="display:flex; gap:2px;">
+        <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="10">
+          <div style="width:16px; height:16px; flex:none; border-radius:2px; background:var(--cinescout-accent-match); opacity:{{ cell.opacity }};"></div>
+        </sc-for>
+      </div>
+    </sc-for>
+    <sc-if value="{{ hasOverflow }}">
+      <div style="font-size:.72rem; font-weight:600; letter-spacing:.04em; color:var(--cinescout-accent-match); margin-top:6px;">{{ overflowText }}</div>
+    </sc-if>
+  </div>
+</sc-if>
+<sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+  <div>
+    <p class="small text-muted mb-2">{{ summaryText }}</p>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <sc-for list="{{ liveRows }}" as="row" hint-placeholder-count="4">
+        <div style="display:flex; gap:4px;">
+          <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="9">
+            <div style="width:26px; height:26px; border-radius:4px; {{ cell.style }}"></div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:220,&quot;height&quot;:140},&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;zone&quot;,&quot;live&quot;],&quot;default&quot;:&quot;zone&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;rows&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4,&quot;tsType&quot;:&quot;number&quot;},&quot;cols&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:10,&quot;tsType&quot;:&quot;number&quot;},&quot;seatGrid&quot;:{&quot;editor&quot;:null,&quot;default&quot;:[],&quot;tsType&quot;:&quot;string[][]&quot;},&quot;freeCount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;},&quot;totalCount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const mode = p.mode ?? "zone";
+    const rows = p.rows ?? 4;
+    const cols = p.cols ?? 10;
+    const cap = 15;
+    const cellSize = (rows > cap || cols > cap) ? Math.max(6, Math.floor(200 / Math.max(rows, cols))) : 18;
+    // Raster einheitlich deckeln: max. 5 Reihen x 16 Sitze, Überhang als
+    // transparente Geister-Reihe/-Spalte plus "+N"-Text.
+    const MAX_ROWS = 5, MAX_COLS = 25;
+    const rowsShown = Math.min(rows, MAX_ROWS);
+    const colsShown = Math.min(cols, MAX_COLS);
+    const extraRows = rows - rowsShown;
+    const extraCols = cols - colsShown;
+    const buildCells = (opacity) => {
+      const cells = Array.from({ length: colsShown }, () => ({ opacity }));
+      if (extraCols > 0) cells.push({ opacity: opacity * 0.35 });
+      return cells;
+    };
+    const zoneRows = Array.from({ length: rowsShown }, () => ({ cells: buildCells(1) }));
+    if (extraRows > 0) zoneRows.push({ cells: buildCells(0.35) });
+    const parts = [];
+    if (extraRows > 0) parts.push(`+${extraRows} row${extraRows > 1 ? "s" : ""}`);
+    if (extraCols > 0) parts.push(`+${extraCols} seat${extraCols > 1 ? "s" : ""}`);
+    const overflowText = parts.join(" · ");
+
+    let liveRows = [];
+    let summaryText = "";
+    if (mode === "live") {
+      const grid = p.seatGrid ?? [];
+      const styleFor = (status) => {
+        if (status === "free") return "background:transparent; border:2px solid var(--bs-success);";
+        if (status === "sold") return "background:var(--bs-secondary); border:2px solid var(--bs-secondary);";
+        if (status === "other") return "background:transparent; border:2px solid var(--bs-warning);";
+        return "visibility:hidden;";
+      };
+      liveRows = grid.map((r) => ({ cells: r.map((s) => ({ style: styleFor(s) })) }));
+      const free = p.freeCount ?? 0;
+      const total = p.totalCount ?? 0;
+      summaryText = `${free} of ${total} seats free`;
+    }
+
+    return {
+      isZone: mode === "zone",
+      isLive: mode === "live",
+      rows, cols, cellSize, zoneRows,
+      hasOverflow: parts.length > 0, overflowText,
+      liveRows, summaryText,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { margin:0; background:#f7f5f3; color:#212529; font-family:'Open Sans',sans-serif; -webkit-font-smoothing:antialiased; }
+    a { color:#7A1F2B; }
+    a:hover { color:#5C1720; }
+  </style>
+</helmet>
+
+<div style="max-width:1536px; margin-inline:auto; padding:56px 40px 96px; width:100%; box-sizing:border-box;">
+
+  <header style="border-bottom:1px solid #DEE2E6; padding-bottom:28px; margin-bottom:56px;">
+    <div style="font-family:'Montserrat',sans-serif; font-size:.72rem; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#8A6508; margin-bottom:12px;">CineScout · Design Manual</div>
+    <h1 style="font-family:'Montserrat',sans-serif; font-weight:700; font-size:2.6rem; line-height:1.1; margin:0 0 14px; color:#7A1F2B;">Farben &amp; Typografie</h1>
+    <p style="margin:0; max-width:60ch; font-size:1rem; line-height:1.6; color:#5c6167; text-wrap:pretty;">Vollständige Übersicht aller im Prototyp verwendeten Farbwerte, ihrer Abstufungen sowie der Schriftfamilien und -schnitte. Die Marken-Token existieren jeweils in einer Light- und einer Dark-Variante; die neutralen Werte stammen aus Bootstrap 5.3 und werden im Dark Mode überschrieben.</p>
+  </header>
+
+  <section style="margin-bottom:64px;">
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">1 · Markenfarben</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">CSS-Variablen mit dem Präfix <code style="font-family:ui-monospace,Menlo,monospace; background:#ece8e4; padding:1px 5px; border-radius:4px;">--cinescout-*</code></p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px;">
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+        <div style="height:88px; background:#7A1F2B;"></div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.95rem; margin-bottom:2px;">Primary</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.85rem; color:#7A1F2B; margin-bottom:8px;">#7A1F2B</div>
+          <div style="font-size:.8rem; color:#6c7278; line-height:1.5;">--cinescout-primary<br>Navigation, Überschriften, Buttons, Links, Badges</div>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+        <div style="height:88px; background:#5C1720;"></div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.95rem; margin-bottom:2px;">Primary Hover</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.85rem; color:#7A1F2B; margin-bottom:8px;">#5C1720</div>
+          <div style="font-size:.8rem; color:#6c7278; line-height:1.5;">--cinescout-primary-hover<br>Hover- und Pressed-Zustand</div>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+        <div style="height:88px; background:#2C161A;"></div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.95rem; margin-bottom:2px;">Navbar Dark</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.85rem; color:#7A1F2B; margin-bottom:8px;">#2C161A</div>
+          <div style="font-size:.8rem; color:#6c7278; line-height:1.5;">--cinescout-navbar-bg (Dark)<br>Navigationsleiste im Dark Mode</div>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+        <div style="height:88px; background:#B8860B;"></div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.95rem; margin-bottom:2px;">Match-Akzent</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.85rem; color:#7A1F2B; margin-bottom:8px;">#B8860B</div>
+          <div style="font-size:.8rem; color:#6c7278; line-height:1.5;">--cinescout-accent-match<br>Linker Kartenrand und Glow bei Treffern</div>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+        <div style="height:88px; background:#8A6508;"></div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.95rem; margin-bottom:2px;">Match-Akzent Text</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.85rem; color:#7A1F2B; margin-bottom:8px;">#8A6508</div>
+          <div style="font-size:.8rem; color:#6c7278; line-height:1.5;">--cinescout-accent-match-text<br>Abgedunkelt für lesbare Textkontraste</div>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+        <div style="height:88px; background:#f7f5f3; border-bottom:1px solid #DEE2E6;"></div>
+        <div style="padding:14px 16px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.95rem; margin-bottom:2px;">Seitenhintergrund</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.85rem; color:#7A1F2B; margin-bottom:8px;">#F7F5F3</div>
+          <div style="font-size:.8rem; color:#6c7278; line-height:1.5;">--cinescout-page-bg<br>Warmer Grundton hinter allen Karten</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="margin-bottom:64px;">
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">2 · Dark-Mode-Entsprechungen</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">Gesetzt über <code style="font-family:ui-monospace,Menlo,monospace; background:#ece8e4; padding:1px 5px; border-radius:4px;">@media (prefers-color-scheme: dark)</code> — dieselben Variablennamen, aufgehellte Werte.</p>
+
+    <div style="background:#16181A; border-radius:12px; padding:28px; display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px;">
+
+      <div style="background:#1E2124; border:1px solid #495057; border-radius:10px; overflow:hidden;">
+        <div style="height:72px; background:#7A1F2B;"></div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.9rem; color:#DEE2E6;">Primary</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#7A1F2B; margin:2px 0 6px;">#7A1F2B</div>
+          <div style="font-size:.78rem; color:#9aa1a8; line-height:1.5;">--cinescout-primary</div>
+        </div>
+      </div>
+
+      <div style="background:#1E2124; border:1px solid #495057; border-radius:10px; overflow:hidden;">
+        <div style="height:72px; background:#5C1720;"></div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.9rem; color:#DEE2E6;">Primary Hover</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#7A1F2B; margin:2px 0 6px;">#5C1720</div>
+          <div style="font-size:.78rem; color:#9aa1a8; line-height:1.5;">--cinescout-primary-hover</div>
+        </div>
+      </div>
+
+      <div style="background:#1E2124; border:1px solid #495057; border-radius:10px; overflow:hidden;">
+        <div style="height:72px; background:#FFFFFF;"></div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.9rem; color:#DEE2E6;">On Primary</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#7A1F2B; margin:2px 0 6px;">#FFFFFF</div>
+          <div style="font-size:.78rem; color:#9aa1a8; line-height:1.5;">--cinescout-on-primary</div>
+        </div>
+      </div>
+
+      <div style="background:#1E2124; border:1px solid #495057; border-radius:10px; overflow:hidden;">
+        <div style="height:72px; background:#D1AB5B;"></div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.9rem; color:#DEE2E6;">Match-Akzent</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#7A1F2B; margin:2px 0 6px;">#D1AB5B</div>
+          <div style="font-size:.78rem; color:#9aa1a8; line-height:1.5;">--cinescout-accent-match<br>+ -accent-match-text (identisch)</div>
+        </div>
+      </div>
+
+      <div style="background:#1E2124; border:1px solid #495057; border-radius:10px; overflow:hidden;">
+        <div style="height:72px; background:#2C161A;"></div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.9rem; color:#DEE2E6;">Navbar</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#7A1F2B; margin:2px 0 6px;">#2C161A</div>
+          <div style="font-size:.78rem; color:#9aa1a8; line-height:1.5;">--cinescout-navbar-bg</div>
+        </div>
+      </div>
+
+      <div style="background:#1E2124; border:1px solid #495057; border-radius:10px; overflow:hidden;">
+        <div style="height:72px; background:#16181A;"></div>
+        <div style="padding:12px 14px;">
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.9rem; color:#DEE2E6;">Seitenhintergrund</div>
+          <div style="font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#7A1F2B; margin:2px 0 6px;">#16181A</div>
+          <div style="font-size:.78rem; color:#9aa1a8; line-height:1.5;">--cinescout-page-bg</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="margin-bottom:64px;">
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">3 · Abstufungen &amp; Transparenzen</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">Nicht als volle 100–900-Rampe angelegt — im Einsatz sind diese Stufen:</p>
+
+    <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:28px;">
+      <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:#6c7278; margin-bottom:12px;">Primary-Rot</div>
+      <div style="display:flex; flex-wrap:wrap; gap:0; border-radius:8px; overflow:hidden; margin-bottom:8px;">
+        <div style="flex:1 1 140px; height:64px; background:rgba(122,31,43,.15);"></div>
+        <div style="flex:1 1 140px; height:64px; background:rgba(122,31,43,.4);"></div>
+        <div style="flex:1 1 140px; height:64px; background:#7A1F2B;"></div>
+        <div style="flex:1 1 140px; height:64px; background:#5C1720;"></div>
+        <div style="flex:1 1 140px; height:64px; background:#2C161A;"></div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:0; font-family:ui-monospace,Menlo,monospace; font-size:.72rem; color:#6c7278;">
+        <div style="flex:1 1 140px;">15 % — Focus-Ring</div>
+        <div style="flex:1 1 140px;">40 % — Schleier</div>
+        <div style="flex:1 1 140px;">100 % — Basis</div>
+        <div style="flex:1 1 140px;">Hover</div>
+        <div style="flex:1 1 140px;">Navbar Dark</div>
+      </div>
+
+      <div style="height:1px; background:#DEE2E6; margin:32px 0;"></div>
+
+      <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:#6c7278; margin-bottom:12px;">Match-Gold</div>
+      <div style="display:flex; flex-wrap:wrap; gap:0; border-radius:8px; overflow:hidden; margin-bottom:8px;">
+        <div style="flex:1 1 140px; height:64px; background:rgba(184,134,11,.2);"></div>
+        <div style="flex:1 1 140px; height:64px; background:#D1AB5B;"></div>
+        <div style="flex:1 1 140px; height:64px; background:#B8860B;"></div>
+        <div style="flex:1 1 140px; height:64px; background:#8A6508;"></div>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:0; font-family:ui-monospace,Menlo,monospace; font-size:.72rem; color:#6c7278;">
+        <div style="flex:1 1 140px;">20 % — Glow-Ring</div>
+        <div style="flex:1 1 140px;">Dark-Variante</div>
+        <div style="flex:1 1 140px;">Basis</div>
+        <div style="flex:1 1 140px;">Textvariante</div>
+      </div>
+
+      <div style="height:1px; background:#DEE2E6; margin:32px 0;"></div>
+
+      <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:#6c7278; margin-bottom:12px;">Schatten</div>
+      <div style="display:flex; flex-wrap:wrap; gap:24px; font-family:ui-monospace,Menlo,monospace; font-size:.78rem; color:#5c6167;">
+        <div style="background:#fff; border:1px solid #DEE2E6; border-radius:8px; padding:14px 18px; box-shadow:0 .25rem .6rem rgba(0,0,0,.08);">0 .25rem .6rem rgba(0,0,0,.08)</div>
+        <div style="background:#fff; border:1px solid #DEE2E6; border-radius:8px; padding:14px 18px; box-shadow:0 0 0 1px rgba(184,134,11,.2);">0 0 0 1px rgba(184,134,11,.2)</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-bottom:64px;">
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">4 · Neutrale &amp; UI-Farben</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">Bootstrap-5.3-Token — links die Light-Standardwerte, rechts die im Projekt gesetzten Dark-Werte.</p>
+
+    <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; overflow:hidden;">
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:0; font-family:'Montserrat',sans-serif; font-weight:600; font-size:.75rem; text-transform:uppercase; letter-spacing:.07em; color:#6c7278; background:#F8F9FA; border-bottom:1px solid #DEE2E6;">
+        <div style="padding:12px 18px;">Token</div>
+        <div style="padding:12px 18px;">Light</div>
+        <div style="padding:12px 18px;">Dark</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-bottom:1px solid #eceff1;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">--bs-body-color</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#212529; border:1px solid #DEE2E6;"></span>#212529</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#DEE2E6; border:1px solid #DEE2E6;"></span>#DEE2E6</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-bottom:1px solid #eceff1;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">--bs-body-bg</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#FFFFFF; border:1px solid #DEE2E6;"></span>#FFFFFF</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#1E2124; border:1px solid #DEE2E6;"></span>#1E2124</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-bottom:1px solid #eceff1;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">--bs-secondary-color</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:rgba(33,37,41,.75); border:1px solid #DEE2E6;"></span>rgba(33,37,41,.75)</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:rgba(222,226,230,.75); border:1px solid #DEE2E6;"></span>rgba(222,226,230,.75)</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-bottom:1px solid #eceff1;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">--bs-secondary-bg</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#E9ECEF; border:1px solid #DEE2E6;"></span>#E9ECEF</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#343A40; border:1px solid #DEE2E6;"></span>#343A40</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-bottom:1px solid #eceff1;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">--bs-tertiary-bg</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#F8F9FA; border:1px solid #DEE2E6;"></span>#F8F9FA</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#2B3035; border:1px solid #DEE2E6;"></span>#2B3035</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center; border-bottom:1px solid #eceff1;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">--bs-border-color</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#DEE2E6; border:1px solid #DEE2E6;"></span>#DEE2E6</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#495057; border:1px solid #DEE2E6;"></span>#495057</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1.4fr 1fr 1fr; align-items:center;">
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;">Outline-Button (nur Dark)</div>
+        <div style="padding:12px 18px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem; color:#9aa1a8;">—</div>
+        <div style="padding:12px 18px; display:flex; align-items:center; gap:10px; font-family:ui-monospace,Menlo,monospace; font-size:.82rem;"><span style="width:22px; height:22px; border-radius:5px; background:#ADB5BD; border:1px solid #DEE2E6;"></span>#ADB5BD<span style="width:22px; height:22px; border-radius:5px; background:#6C757D; border:1px solid #DEE2E6;"></span>#6C757D</div>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-bottom:64px;">
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">5 · Statusfarben</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">Bootstrap-Semantik, unverändert übernommen.</p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px;">
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:16px; display:flex; gap:14px; align-items:center;">
+        <span style="width:44px; height:44px; border-radius:8px; background:#328168; flex:none;"></span>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.92rem;">Success · #328168</div>
+          <div style="font-size:.8rem; color:#6c7278;">Freie Sitze, aktivierte Matrix</div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:16px; display:flex; gap:14px; align-items:center;">
+        <span style="width:44px; height:44px; border-radius:8px; background:#6C757D; flex:none;"></span>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.92rem;">Secondary · #6C757D</div>
+          <div style="font-size:.8rem; color:#6c7278;">Verkaufte Sitze, deaktiviert</div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:16px; display:flex; gap:14px; align-items:center;">
+        <span style="width:44px; height:44px; border-radius:8px; background:#DC3545; flex:none;"></span>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.92rem;">Danger · #DC3545</div>
+          <div style="font-size:.8rem; color:#6c7278;">Fehler-Alerts in Formularen</div>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:16px; display:flex; gap:14px; align-items:center;">
+        <span style="width:44px; height:44px; border-radius:8px; background:#FFF3CD; border:1px solid #FFE69C; flex:none;"></span>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.92rem;">Warning Subtle · #FFF3CD</div>
+          <div style="font-size:.8rem; color:#6c7278;">Fehlerleiste am Seitenfuß</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="margin-bottom:64px;">
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">6 · Schriften</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">Zwei Familien, vier aktiv genutzte Schnitte.</p>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:20px;">
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:28px;">
+        <div style="font-family:'Montserrat',sans-serif; font-size:4rem; font-weight:700; line-height:1; color:#7A1F2B; margin-bottom:16px;">Aa</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.15rem; margin-bottom:4px;">Montserrat</div>
+        <div style="font-size:.85rem; color:#6c7278; margin-bottom:20px; line-height:1.5;">Überschriften h1–h6, Buttons, Navigation, Card-Header, Klasse <code style="font-family:ui-monospace,Menlo,monospace;">.cs-heading</code></div>
+        <div style="display:flex; flex-direction:column; gap:12px; border-top:1px solid #eceff1; padding-top:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:16px;"><span style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.25rem;">Semibold 600</span><span style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278;">Standard-Schnitt</span></div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:16px;"><span style="font-family:'Montserrat',sans-serif; font-weight:700; font-size:1.25rem;">Bold 700</span><span style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278;">Wortmarke, H1</span></div>
+        </div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:28px;">
+        <div style="font-family:'Open Sans',sans-serif; font-size:4rem; font-weight:400; line-height:1; color:#212529; margin-bottom:16px;">Aa</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.15rem; margin-bottom:4px;">Open Sans</div>
+        <div style="font-size:.85rem; color:#6c7278; margin-bottom:20px; line-height:1.5;">Fließtext, Formular-Labels, Tabellen, Meta-Angaben — die Basisschrift des <code style="font-family:ui-monospace,Menlo,monospace;">body</code></div>
+        <div style="display:flex; flex-direction:column; gap:12px; border-top:1px solid #eceff1; padding-top:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:16px;"><span style="font-family:'Open Sans',sans-serif; font-weight:400; font-size:1.25rem;">Regular 400</span><span style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278;">Fließtext</span></div>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; gap:16px;"><span style="font-family:'Open Sans',sans-serif; font-weight:600; font-size:1.25rem;">Semibold 600</span><span style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278;">Hervorhebung, .fw-semibold</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2 style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.4rem; margin:0 0 6px; color:#7A1F2B;">7 · Typografische Skala</h2>
+    <p style="margin:0 0 24px; font-size:.9rem; color:#6c7278;">Bootstrap-Basis 16 px; Zeilenhöhe 1.5 im Fließtext.</p>
+
+    <div style="background:#fff; border:1px solid #DEE2E6; border-radius:10px; padding:8px 28px 28px;">
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; border-bottom:1px solid #eceff1; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">h1 · 2.5rem / 40px · 700</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:700; font-size:2.5rem; line-height:1.15; color:#7A1F2B;">CineScout</div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; border-bottom:1px solid #eceff1; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">h3 · 1.75rem / 28px · 600</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.75rem; color:#7A1F2B;">Seitenüberschrift</div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; border-bottom:1px solid #eceff1; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">h5 · 1.25rem / 20px · 600</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1.25rem;">Kartentitel</div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; border-bottom:1px solid #eceff1; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">h6 · 1rem / 16px · 600</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:1rem;">Abschnittstitel</div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; border-bottom:1px solid #eceff1; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">body · 1rem / 16px · 400</div>
+        <div style="font-family:'Open Sans',sans-serif; font-size:1rem;">Fließtext und Standardinhalte</div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; border-bottom:1px solid #eceff1; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">.small · .875rem / 14px</div>
+        <div style="font-family:'Open Sans',sans-serif; font-size:.875rem; color:#6c7278;">Meta-Angaben, Labels, Hilfetexte</div>
+      </div>
+
+      <div style="display:flex; align-items:baseline; gap:24px; padding:18px 0; flex-wrap:wrap;">
+        <div style="font-family:ui-monospace,Menlo,monospace; font-size:.75rem; color:#6c7278; width:180px; flex:none;">Micro-Label · .7rem · 600</div>
+        <div style="font-family:'Montserrat',sans-serif; font-weight:600; font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:#8A6508;">Match — Laufweite .08em (Tagesüberschriften .06em)</div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+</x-dc>
+</body>
+</html>
