@@ -134,6 +134,13 @@ app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUse
     return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
 }).AllowAnonymous();
 
+app.MapPost("/account/logout", async (HttpContext context) =>
+{
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+    return Results.Redirect("/login");
+});
+
 app.MapPost("/account/setup", async (HttpContext context, IPasswordHasher<AppUser> hasher, CineScoutDbContext db, FirstRunTokenStore tokenStore) =>
 {
     var user = await db.Users.FirstOrDefaultAsync();

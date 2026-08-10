@@ -10,8 +10,9 @@
 
 <PageTitle>Time Preferences</PageTitle>
 
-<div class="container-fluid">
-    <h2>Favorite Time Windows</h2>
+@* MainLayout already wraps every page body in its own container-fluid (issue #88) — no inner
+   wrapper needed here, or the two would nest and double the horizontal gutters. *@
+<h2>Favorite Time Windows</h2>
 
     @if (_error is not null)
     {
@@ -94,7 +95,6 @@
             </EditForm>
         </div>
     </div>
-</div>
 
 @code {
     private static readonly (DaysOfWeekFlags Flag, string Label)[] OrderedDays =
