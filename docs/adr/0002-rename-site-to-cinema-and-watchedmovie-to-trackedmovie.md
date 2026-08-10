@@ -1,0 +1,15 @@
+# Rename `Site` to `Cinema` and `WatchedMovie` to `TrackedMovie`
+
+CineScout's two most-used domain nouns are renamed everywhere — model, DB schema, routes, UI copy, and design docs: `Site` becomes `Cinema`, and `WatchedMovie` becomes `TrackedMovie`. `Site` is overloaded in web development (website, deployment site, static site) in a way that kept colliding with the actual domain, which always meant one physical cinema location. `WatchedMovie` reads as a film the user has already attended; the domain actually means a film the user wants match alerts for, which "tracked" says without the ambiguity. `Cinema.KinoheldCinemaId` keeps its name — it becomes more accurate under the new type name, not less, since Kinoheld's own field is literally called `cinema.id`. `NotificationType.WatchStarted`/`WatchStopped` are renamed in place to `TrackStarted`/`TrackStopped`, preserving ordinal order (the column is `integer`, not a string, so this is a safe symbol-only rename). The DB migration uses `RenameTable`/`RenameColumn`/`RenameIndex` plus raw-SQL `RENAME CONSTRAINT` rather than drop-and-recreate, since Postgres tracks tables, columns, and constraints by OID rather than name — a straight rename preserves all existing data and every dependent foreign key without ever dropping them.
+
+This reverses a decision this project made once already. `Technical Design Spec.md` §1 previously stated the UI word for `Site` is "Site" everywhere, noting "earlier drafts said 'Cinema'; that has been removed." That removal is the thing being undone here, on the operator's explicit direction: choosing "Site" over "Cinema" was the mistake, not the other way around. A future reader who finds "Cinema" and is tempted to rename it back to "Site" for consistency with some older reference should read this ADR first — "Cinema" is the settled, permanent vocabulary going forward, not a draft in progress.
+
+## Considered Options
+
+- **Keep `Site`, rename only `WatchedMovie`** (rejected): would have fixed one ambiguity while leaving the other — the more disruptive of the two overloads — in place. The operator judged both worth fixing in the same pass rather than leaving the vocabulary half-corrected.
+- **Drop-and-recreate the `Sites`/`WatchedMovies` tables** (rejected): this is what `dotnet ef migrations add` scaffolds by default, since it has no way to know a table was renamed rather than removed-and-added. Would have destroyed every existing row. Hand-edited into pure renames instead.
+
+## Consequences
+
+- Routes changed: `/watched-movies` → `/tracked-movies`. The not-yet-built Cinemas screen gets `/cinemas` (not `/sites`), and the design's nav table — which had already drifted from the app's actual `/watched-movies` route to a stale `/watched` — was corrected to `/tracked-movies` in the same pass.
+- Every future wayfinder ticket on [map #71](https://github.com/peterderkoala/cinescout/issues/71) can now write `Cinema`/`TrackedMovie` into new endpoint routes, DTOs, and component parameters without immediately being wrong.
