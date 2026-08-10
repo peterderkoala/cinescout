@@ -3,30 +3,31 @@
 @using Microsoft.AspNetCore.Authorization
 @using cinescout.persistence
 @using Microsoft.EntityFrameworkCore
+@layout AuthLayout
 @inject CineScoutDbContext Db
 @inject NavigationManager NavigationManager
 
 <PageTitle>Log in</PageTitle>
 
-<div class="row">
-    <div class="col-lg-6">
-        <h1>Log in</h1>
+<h5 class="card-title mb-3">Log in</h5>
 
-        @if (!string.IsNullOrEmpty(Error))
-        {
-            <p class="text-danger" role="alert">Incorrect password.</p>
-        }
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="alert alert-danger py-2 small" role="alert">Invalid password.</div>
+}
 
-        <form method="post" action="/account/login">
-            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
-            <div class="form-floating mb-3">
-                <input type="password" name="password" id="password" class="form-control" autocomplete="current-password" required autofocus />
-                <label for="password" class="form-label">Password</label>
-            </div>
-            <button type="submit" class="btn btn-primary">Log in</button>
-        </form>
+<form method="post" action="/account/login">
+    <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+    <div class="mb-3 form-floating position-relative">
+        <input type="password" name="password" id="password" class="form-control" autocomplete="current-password" required autofocus />
+        <label for="password" class="form-label">Password</label>
+        <button type="button" class="btn btn-sm position-absolute top-50 end-0 translate-middle-y me-2 border-0 text-secondary password-toggle" data-target="password" aria-label="Show password">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+        </button>
     </div>
-</div>
+    <button type="submit" class="btn w-100 cs-btn-primary">Log in</button>
+    <p class="text-center small mt-3 mb-0"><a href="/setup">First run? Set up CineScout</a></p>
+</form>
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]

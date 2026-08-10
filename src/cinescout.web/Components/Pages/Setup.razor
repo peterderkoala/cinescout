@@ -3,42 +3,46 @@
 @using Microsoft.AspNetCore.Authorization
 @using cinescout.persistence
 @using Microsoft.EntityFrameworkCore
+@layout AuthLayout
 @inject CineScoutDbContext Db
 @inject NavigationManager NavigationManager
 
 <PageTitle>First-run setup</PageTitle>
 
-<div class="row">
-    <div class="col-lg-6">
-        <h1>Set up CineScout</h1>
-        <p class="text-muted">Enter the token printed to the application's startup logs, then choose a password.</p>
+<h5 class="card-title mb-1">Set up CineScout</h5>
+<p class="text-muted small mb-3">Enter the setup token printed in your server logs to create the admin account.</p>
 
-        @if (Error == "token")
-        {
-            <p class="text-danger" role="alert">Incorrect or missing token.</p>
-        }
-        else if (Error == "password")
-        {
-            <p class="text-danger" role="alert">Passwords must match and cannot be empty.</p>
-        }
+@if (Error == "token")
+{
+    <div class="alert alert-danger py-2 small" role="alert">Incorrect or missing token.</div>
+}
+else if (Error == "password")
+{
+    <div class="alert alert-danger py-2 small" role="alert">Passwords must match.</div>
+}
 
-        <form method="post" action="/account/setup">
-            <div class="form-floating mb-3">
-                <input type="text" name="token" id="token" class="form-control" autocomplete="off" required autofocus />
-                <label for="token" class="form-label">Startup-log token</label>
-            </div>
-            <div class="form-floating mb-3">
-                <input type="password" name="password" id="password" class="form-control" autocomplete="new-password" required />
-                <label for="password" class="form-label">Password</label>
-            </div>
-            <div class="form-floating mb-3">
-                <input type="password" name="confirmPassword" id="confirmPassword" class="form-control" autocomplete="new-password" required />
-                <label for="confirmPassword" class="form-label">Confirm password</label>
-            </div>
-            <button type="submit" class="btn btn-primary">Complete setup</button>
-        </form>
+<form method="post" action="/account/setup">
+    <div class="mb-3 form-floating">
+        <input type="text" name="token" id="token" class="form-control" autocomplete="off" required autofocus />
+        <label for="token" class="form-label">Setup token</label>
     </div>
-</div>
+    <div class="mb-3 form-floating position-relative">
+        <input type="password" name="password" id="password" class="form-control" autocomplete="new-password" required />
+        <label for="password" class="form-label">Password</label>
+        <button type="button" class="btn btn-sm position-absolute top-50 end-0 translate-middle-y me-2 border-0 text-secondary password-toggle" data-target="password" aria-label="Show password">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="mb-3 form-floating position-relative">
+        <input type="password" name="confirmPassword" id="confirmPassword" class="form-control" autocomplete="new-password" required />
+        <label for="confirmPassword" class="form-label">Confirm password</label>
+        <button type="button" class="btn btn-sm position-absolute top-50 end-0 translate-middle-y me-2 border-0 text-secondary password-toggle" data-target="confirmPassword" aria-label="Show password">
+            <i class="bi bi-eye" aria-hidden="true"></i>
+        </button>
+    </div>
+    <button type="submit" class="btn w-100 cs-btn-primary">Complete setup</button>
+    <p class="text-center small mt-3 mb-0"><a href="/login">Already set up? Log in</a></p>
+</form>
 
 @code {
     [SupplyParameterFromQuery(Name = "error")]

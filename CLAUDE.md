@@ -73,6 +73,14 @@ Current projects:
   POST-redirect-GET via `NavigationManager.NavigateTo`, validation failures re-render with a Bootstrap alert.
   The Seat Matrices General tab shows at most one `FilmId`-null matrix per room, so the editor blocks creating
   a second one (it would be unreachable in the UI — not editable, toggleable, or deletable).
+  `Login.razor`/`Setup.razor` (#99) opt into `AuthLayout.razor` (`cinescout.web.Client/Layout/`) via `@layout`
+  instead of silently inheriting `MainLayout`'s navbar — there's no "you're not signed in yet" nav to show on
+  either page. The password show/hide eye toggle (`wwwroot/js/password-toggle.js`, referenced once from
+  `App.razor`) is plain JS with `document`-level click delegation on `.password-toggle`/`data-target`, not a
+  Blazor interactive island — #72's islands research ruled that out (any one island pulls the whole WASM
+  runtime onto an otherwise-static-SSR page). `/account/login`/`/account/setup` themselves are untouched by
+  #99 — same redirects, same query-param error codes; only the *rendered copy* for those states changed to
+  match Technical Design Spec.md §5.8 exactly ("Invalid password." / "Passwords must match.").
 - `src/cinescout.core` — domain services: `HallOfFame/` (schedule crawl — `IHallOfFameClient`, upsert/
   cancellation-by-absence logic, the Hangfire recurring job), `Kinoheld/` (room seeding — `IKinoheldClient`,
   parses the widget page's inline `dataLayer.push({...})` JSON via `Utf8JsonReader` token-matching, not a naive
