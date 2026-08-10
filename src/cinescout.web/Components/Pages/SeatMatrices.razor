@@ -9,8 +9,9 @@
 
 <PageTitle>Seat Matrices</PageTitle>
 
-<div class="container-fluid">
-    <h2>Favorite Seat Matrices</h2>
+@* MainLayout already wraps every page body in its own container-fluid (issue #88) — no inner
+   wrapper needed here, or the two would nest and double the horizontal gutters. *@
+<h2>Favorite Seat Matrices</h2>
 
     <ul class="nav nav-pills mb-3">
         <li class="nav-item">
@@ -166,7 +167,6 @@
             </EditForm>
         </div>
     </div>
-</div>
 
 @code {
     private List<Room> _rooms = [];

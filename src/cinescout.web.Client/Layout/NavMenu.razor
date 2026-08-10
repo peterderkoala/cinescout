@@ -1,42 +1,59 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@* Full-width bordeaux top navbar — Technical Design Spec.md §3. Replaces the stock left sidebar;
+   this is a rewrite, not a retrofit of the old NavMenu (see issue #76's resolution, rule 5).
+   Fixed nav order: Schedule · Tracked Movies · Time Preferences · Seat Matrices · Cinemas, with
+   Logout pinned right and the brand mark linking Home. Collapse behavior needs Bootstrap's JS
+   bundle, wired up in App.razor (issue #76's consequence-found item 6). *@
+
+<nav class="navbar navbar-expand-md">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">cinescout.web</a>
+        <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="/">
+            <i class="bi bi-film" aria-hidden="true"></i> CineScout
+        </a>
+
+        <div class="d-flex align-items-center order-md-last gap-2">
+            @* A plain HTML form posting to a minimal-API endpoint — the same shape Login.razor
+               uses, not Blazor's antiforgery-protected EditForm; ending a session carries none of
+               the write-risk that pattern exists to defend (see CLAUDE.md's Login vs. TrackedMovies
+               rationale). No AllowAnonymous on /account/logout: the fallback auth policy already
+               gates it to signed-in operators. *@
+            <form method="post" action="/account/logout" class="d-flex">
+                <button type="submit" class="nav-link logout-link d-flex align-items-center gap-1">
+                    <i class="bi bi-box-arrow-right" aria-hidden="true"></i> <span class="d-none d-sm-inline">Logout</span>
+                </button>
+            </form>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-controls="navMain" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+
+        <div class="collapse navbar-collapse" id="navMain">
+            <ul class="navbar-nav me-auto" style="gap: 12px;">
+                <li class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center gap-1" href="schedule">
+                        <i class="bi bi-calendar3" aria-hidden="true"></i> Schedule
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center gap-1" href="tracked-movies">
+                        <i class="bi bi-bookmark-star" aria-hidden="true"></i> Tracked Movies
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center gap-1" href="time-preferences">
+                        <i class="bi bi-clock" aria-hidden="true"></i> Time Preferences
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center gap-1" href="seat-matrices">
+                        <i class="bi bi-grid-3x3" aria-hidden="true"></i> Seat Matrices
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center gap-1" href="cinemas">
+                        <i class="bi bi-building" aria-hidden="true"></i> Cinemas
+                    </NavLink>
+                </li>
+            </ul>
+        </div>
     </div>
-</div>
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="schedule">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Schedule
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="tracked-movies">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Tracked Movies
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="time-preferences">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Time Preferences
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="seat-matrices">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Seat Matrices
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
+</nav>
