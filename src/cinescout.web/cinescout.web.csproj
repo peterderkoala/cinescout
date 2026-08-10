@@ -12,6 +12,7 @@
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
     <!-- Not used directly: pins past Hangfire.Core's vulnerable transitive floor (GHSA-5crp-9r3c-p9vr). -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Riok.Mapperly" Version="4.3.1" PrivateAssets="all" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <ProjectReference Include="..\cinescout.web.Client\cinescout.web.Client.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.9" />
@@ -20,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\cinescout.core\cinescout.core.csproj" />
     <ProjectReference Include="..\cinescout.persistence\cinescout.persistence.csproj" />
+    <ProjectReference Include="..\cinescout.contracts\cinescout.contracts.csproj" />
   </ItemGroup>
 
 </Project>

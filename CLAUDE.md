@@ -77,7 +77,24 @@ Current projects:
   converts `Performance.StartsAt` — persisted as a UTC-offset instant via `DateTimeOffset.FromUnixTimeSeconds`
   but actually a Europe/Berlin wall-clock time — before comparing against `FavoriteTimeWindow`, which is why
   `Schedule.razor`/`PerformanceDetail.razor` also route their display through it now instead of the raw value).
-  Mapping via Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
+  `src/cinescout.web/Mapping/RoomMapper.cs` (#89) is Mapperly's first real use — a `[Mapper]` static partial
+  class mapping `Room` (`cinescout.model`) to `RoomDto` (`cinescout.contracts`); it lives in `cinescout.web`,
+  not `cinescout.contracts`, because `cinescout.contracts` is a true leaf that can never see `Room`, and
+  `cinescout.web` already references both. Later entity→DTO bridges should add further `[Mapper]` classes here
+  following the same shape. Plain hand-written mapping code remains the rule for anything that isn't
+  genuinely 1:1 (a join, or one of §6's derived values in `docs/design/Technical Design Spec.md`).
+- `src/cinescout.contracts` (#89) — the shared DTO project: a true leaf referenced by `cinescout.web` and
+  `cinescout.web.Client`, itself never referencing `cinescout.model`/`cinescout.persistence`/`cinescout.core`.
+  Holds `RoomDto` (the 1:1 Mapperly proof), `FilmPerformanceCardModel` (Technical Design Spec §4.1's shared
+  card shape — deliberately omits `variant`/`onSelect` from the prop table, since neither is server data: the
+  former is a rendering choice the calling page makes, the latter a UI callback that can't cross the wire),
+  `Weekday`/`DayCodeConverter` (the §6.3 day-code convention — a self-contained `[Flags]` enum mirroring
+  `cinescout.model.DaysOfWeekFlags` bit-for-bit, since this project can't reference that type directly; callers
+  that can see both convert with a plain `(Weekday)(int)value` cast), and `PerformanceDateTimeFormatting` (the
+  timestamp convention: DTOs carry `DateTime` with `Kind=Unspecified`, Berlin-local, never `DateTimeOffset`,
+  since Blazor WASM's "local time zone" is the visitor's browser, not the server's — the UTC→Berlin conversion
+  itself stays the caller's job, done via `cinescout.core`'s `CinemaTimeZone`, since this project can't
+  reference `cinescout.core` either).
 - `src/cinescout.model` — the EF Core entity set (`Cinema`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
 - `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
 - `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
@@ -85,6 +102,9 @@ Current projects:
   crawl/seeding services, same pattern as `cinescout.persistence.Tests`.
 - `src/cinescout.web.Tests` — xUnit + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory<Program>`)
   integration tests for the web host, e.g. the login/auth gate.
+- `src/cinescout.contracts.Tests` — plain xUnit, no I/O: day-code round-trip tests, a `Weekday` ↔
+  `DaysOfWeekFlags` bit-layout parity pin, and `RoomMapperTests`, which references `cinescout.web` (the same
+  way `cinescout.web.Tests` does) purely to exercise the real `RoomMapper` rather than a test-only stand-in.
 
 Build: `dotnet build src/cinescout.slnx`. Run the web app: `dotnet run --project src/cinescout.web` (serves on
 `http://localhost:5100` by default). Run tests: `./run-tests.sh` (repo root) — a thin wrapper around `dotnet

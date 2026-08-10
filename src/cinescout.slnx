@@ -4,7 +4,9 @@
   <Project Path="cinescout.core/cinescout.core.csproj" />
   <Project Path="cinescout.model/cinescout.model.csproj" />
   <Project Path="cinescout.persistence/cinescout.persistence.csproj" />
+  <Project Path="cinescout.contracts/cinescout.contracts.csproj" />
   <Project Path="cinescout.core.Tests/cinescout.core.Tests.csproj" />
   <Project Path="cinescout.persistence.Tests/cinescout.persistence.Tests.csproj" />
   <Project Path="cinescout.web.Tests/cinescout.web.Tests.csproj" />
+  <Project Path="cinescout.contracts.Tests/cinescout.contracts.Tests.csproj" />
 </Solution>
