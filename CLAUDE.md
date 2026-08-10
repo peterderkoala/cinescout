@@ -16,12 +16,43 @@ Current projects:
   default (`AuthorizationOptions.FallbackPolicy`); render mode is set **per page** (`@rendermode
   InteractiveWebAssembly`), not globally — the `/login` page must render as static SSR so its POST handler can
   call `HttpContext.SignInAsync` directly, and a global render mode on `<Routes>` would force every page
-  (including login) into WASM with no way to opt a single page back out.
+  (including login) into WASM with no way to opt a single page back out. `Endpoints/ApiEndpoints.cs` (#90) is
+  the `/api` `MapGroup` convention ADR 0004 mandates: `AntiforgeryEndpointFilter` validates every non-GET/HEAD/
+  OPTIONS request under that group by default, so an endpoint mapped later needs no per-endpoint boilerplate;
+  `MapPingEndpoint`'s `POST /api/ping` is the worked example proving it end-to-end, not a real screen endpoint
+  (#92–#98 add those). The auth cookie is `SameSite=Strict`, and `AddCineScoutAuthentication`'s
+  `Events.OnRedirectToLogin`/`OnRedirectToAccessDenied` return `401`/`403` for `/api`-prefixed paths instead of
+  redirecting — the WASM client needs a status code it can branch on, not a `200` login-page body. **Gotcha**:
+  `UseStatusCodePagesWithReExecute` had to move behind `app.UseWhen(path doesn't start with /api, ...)` —
+  left unscoped, it re-executes the pipeline against `/not-found` on that same 401/403, and the re-executed
+  request's `HttpContext.Request.Path` is `/not-found`, not `/api/...` anymore, so the override above would
+  silently miss it and fall back to redirecting (caught by an integration test expecting `401`, not `302`, that
+  failed until this was added — see `cinescout.web.Tests/ApiHardeningTests.cs`). `IAntiforgery` is registered
+  with an explicit `HeaderName` (`X-CSRF-TOKEN`) — required because the WASM client sends JSON, not
+  form-encoded bodies, and `ValidateRequestAsync` only reads a header-carried token if one is configured.
+  `Components/App.razor` embeds the antiforgery token as a `<meta name="antiforgery-token">` tag via
+  `IAntiforgery.GetAndStoreTokens(HttpContext)` (the `HttpContext` cascading parameter, same pattern
+  `TimePreferences.razor`/`SeatMatrices.razor` use) — no separate bootstrap endpoint.
 - `src/cinescout.web.Client` — the WASM client project; interactive pages/layout live here. Pages that need
   direct server-side access (`CineScoutDbContext`, `HttpContext`) instead live in
   `src/cinescout.web/Components/Pages` as static-SSR-only components (no `@rendermode`) — `Login.razor`,
   `Setup.razor`, `Schedule.razor`, and `TrackedMovies.razor` are the examples so far; `cinescout.web.Client` deliberately never
   references `cinescout.persistence` (EF Core/Npgsql aren't WASM-appropriate to ship to the browser).
+  `Api/` (#90) holds the WASM data-access plumbing every screen ticket builds against: one shared
+  `HttpClient` registered in `Program.cs` (`BaseAddress` = the host origin), constructor-injected into
+  lightweight per-screen client wrapper classes — `PingApiClient` (calling the worked-example `POST
+  /api/ping` endpoint) is the one concrete pattern this ticket produced, not a real screen client.
+  `AntiforgeryTokenStore` holds the token `Program.cs` reads once via JS interop
+  (`wwwroot/js/antiforgery.js`) at WASM startup from `App.razor`'s server-rendered `<meta
+  name="antiforgery-token">` tag — no separate bootstrap endpoint. `KinoheldStatusParser` is the pure,
+  directly-tested mapping from the `kinoheldStatus` `ProblemDetails` extension member (`"breaker-open"`
+  \| `"not-bookable"` \| `"gone"` \| `"cooldown"`, per issue #83's resolution) to Technical Design
+  Spec.md §5.7's exact alert-class/copy table, with a generic fallback for anything without that
+  member; reading the actual HTTP response is left to each caller, kept out of this pure function per
+  #81's testing convention. `Shared/CardSkeleton.razor` is the shared loading-skeleton component (built
+  on Bootstrap's `placeholder`/`placeholder-glow` utilities) every screen renders during the
+  static-prerender pass, gated on `RendererInfo.IsInteractive` per issue #86's resolution — skip the API
+  fetch while prerendering, fetch once the component goes interactive.
   `TrackedMovies.razor` is also the first page that *mutates* data from a static-SSR page — it uses Blazor's
   native `<EditForm Model="this" FormName="...">` + `[SupplyParameterFromForm]` (not a plain HTML form posting
   to a separate minimal-API endpoint, which is what `Login.razor` does) since this is an authenticated,
@@ -101,10 +132,13 @@ Current projects:
 - `src/cinescout.core.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for `cinescout.core`'s
   crawl/seeding services, same pattern as `cinescout.persistence.Tests`.
 - `src/cinescout.web.Tests` — xUnit + `Microsoft.AspNetCore.Mvc.Testing` (`WebApplicationFactory<Program>`)
-  integration tests for the web host, e.g. the login/auth gate.
+  integration tests for the web host, e.g. the login/auth gate, and (#90) `ApiHardeningTests` covering the
+  `/api` antiforgery convention, the `401`/`403`-not-redirect overrides, and `SameSite=Strict`.
 - `src/cinescout.contracts.Tests` — plain xUnit, no I/O: day-code round-trip tests, a `Weekday` ↔
   `DaysOfWeekFlags` bit-layout parity pin, and `RoomMapperTests`, which references `cinescout.web` (the same
   way `cinescout.web.Tests` does) purely to exercise the real `RoomMapper` rather than a test-only stand-in.
+- `src/cinescout.web.Client.Tests` (#90) — plain xUnit, no I/O, no bUnit (per #81's convention): currently just
+  `KinoheldStatusParserTests`, exercising all four §5.7 outcomes plus the generic fallback.
 
 Build: `dotnet build src/cinescout.slnx`. Run the web app: `dotnet run --project src/cinescout.web` (serves on
 `http://localhost:5100` by default). Run tests: `./run-tests.sh` (repo root) — a thin wrapper around `dotnet

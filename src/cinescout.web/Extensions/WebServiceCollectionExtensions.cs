@@ -25,6 +25,37 @@ public static class WebServiceCollectionExtensions
                 options.LoginPath = "/login";
                 options.SlidingExpiration = true;
                 options.ExpireTimeSpan = TimeSpan.FromDays(configuration.GetValue("Auth:SessionLifetimeDays", 30));
+
+                // Same-origin app, no legitimate cross-site entry point — ADR 0004. Was an
+                // unrecorded Lax default before.
+                options.Cookie.SameSite = SameSiteMode.Strict;
+
+                // Plain AddCookie()'s default Events unconditionally 302-redirect on challenge/
+                // forbid, which a fetch() call follows transparently and lands on the /login HTML
+                // with a 200 — ADR 0004's "opaque garbage" outcome. /api callers need a real status
+                // code they can branch on instead.
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/api"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    }
+
+                    context.Response.Redirect(context.RedirectUri);
+                    return Task.CompletedTask;
+                };
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/api"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return Task.CompletedTask;
+                    }
+
+                    context.Response.Redirect(context.RedirectUri);
+                    return Task.CompletedTask;
+                };
             });
 
         services.AddAuthorization(options =>

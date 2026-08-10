@@ -4,8 +4,10 @@ using cinescout.persistence;
 using cinescout.persistence.Extensions;
 using cinescout.web.Auth;
 using cinescout.web.Components;
+using cinescout.web.Endpoints;
 using cinescout.web.Extensions;
 using cinescout.web.HealthChecks;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -61,6 +63,12 @@ builder.Services
 
 builder.Services.AddCineScoutAuthentication(builder.Configuration);
 
+// HeaderName must be set explicitly: IAntiforgery.ValidateRequestAsync only reads the request
+// token from a form field unless a header name is configured too — the WASM client sends JSON, not
+// form-encoded bodies, so without this every /api mutation would fail antiforgery validation no
+// matter what it sends (ADR 0004).
+builder.Services.AddAntiforgery(options => options.HeaderName = "X-CSRF-TOKEN");
+
 // TLS terminates at the operator's own externally-managed Nginx Proxy Manager, not here (#46/#51)
 // — trust its X-Forwarded-For/X-Forwarded-Proto headers so the app sees the real client IP/scheme.
 // KnownIPNetworks comes from config, not hardcoded: the real subnet isn't knowable until the
@@ -101,7 +109,13 @@ else
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+// /api excluded: re-executing a 401/403 against /not-found would run that re-executed request's
+// own auth challenge, whose HttpContext.Request.Path is now "/not-found" — not "/api/..." anymore
+// — so ADR 0004's status-code override below would never see the original path and would fall back
+// to redirecting, silently reintroducing the "opaque garbage" outcome the override exists to avoid.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true));
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -133,6 +147,8 @@ app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUse
 
     return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
 }).AllowAnonymous();
+
+app.MapApiGroup().MapPingEndpoint();
 
 app.MapPost("/account/logout", async (HttpContext context) =>
 {

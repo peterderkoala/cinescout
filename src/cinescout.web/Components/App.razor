@@ -1,4 +1,7 @@
-﻿<!DOCTYPE html>
+﻿@using Microsoft.AspNetCore.Antiforgery
+@inject IAntiforgery Antiforgery
+
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -6,6 +9,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
+    @* Embedded here, not fetched from a bootstrap endpoint — ADR 0004: App.razor's static-SSR pass
+       already runs on every request (even for InteractiveWebAssembly pages, before the runtime
+       boots), so IAntiforgery.GetAndStoreTokens(HttpContext) has a real HttpContext to work with
+       for free. cinescout.web.Client reads this via JS interop at WASM startup (Program.cs) and
+       attaches it as the X-CSRF-TOKEN header (matching AddAntiforgery's HeaderName) on mutating
+       /api requests. *@
+    <meta name="antiforgery-token" content="@_antiforgeryToken" />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["lib/bootstrap-icons/bootstrap-icons.css"]" />
     <link rel="stylesheet" href="@Assets["lib/fonts/fonts.css"]" />
@@ -24,3 +34,18 @@
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? _antiforgeryToken;
+
+    protected override void OnInitialized()
+    {
+        if (HttpContext is not null)
+        {
+            _antiforgeryToken = Antiforgery.GetAndStoreTokens(HttpContext).RequestToken;
+        }
+    }
+}
