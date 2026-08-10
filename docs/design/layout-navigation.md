@@ -21,13 +21,13 @@ anywhere in the project** — those classes are dead.
 choice between two layouts:
 
 - **`MainLayout`** — the authenticated app shell (navbar + content), used by every page except
-  Login/Setup: `Home`, `Schedule`, `WatchedMovies`, `TimePreferences`, `SeatMatrices`,
+  Login/Setup: `Home`, `Schedule`, `TrackedMovies`, `TimePreferences`, `SeatMatrices`,
   `PerformanceDetail`.
 - **`MinimalLayout`** (new) — no navbar, no nav links to protected pages. Just the app
   wordmark/brand and the page's content, centered on the page. Used by `Login`/`Setup` via an
   explicit `@layout MinimalLayout` directive on each.
 
-Rationale: an unauthenticated visitor seeing a navbar full of links to "Watched Movies"/"Time
+Rationale: an unauthenticated visitor seeing a navbar full of links to "Tracked Movies"/"Time
 Preferences" before logging in is mostly harmless for a single-user tool, but it's visual noise on
 the one screen where focus matters most — and `Login`/`Setup` are already static-SSR-only while
 the shell itself renders as interactive WASM, so a lighter layout for those two is the simpler
@@ -54,7 +54,7 @@ top-level pages.
 2. **Nav items** (collapse into the hamburger menu below `md`):
    - Schedule — icon `bi-calendar3` (or `bi-film` if a calendar reads as scheduling-app-generic;
      pick whichever pairs better against the brand icon once both are placed together)
-   - Watched Movies — icon `bi-bookmark-star`
+   - Tracked Movies — icon `bi-bookmark-star`
    - Time Preferences — icon `bi-clock`
    - Seat Matrices — icon `bi-grid-3x3`
 3. **Logout** (right-aligned, outside the collapsing nav-item group so it stays reachable even

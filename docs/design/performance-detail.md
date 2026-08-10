@@ -9,7 +9,7 @@ variant), and [`components/seat-grid.md`](components/seat-grid.md) for the seat 
 mode, confirmed by this ticket).
 
 **Current state**: `PerformanceDetail.razor` renders a plain `<h1>` + text header (film title,
-Site/Room, date/time, sold-out badge — no poster or price), a direct "Book on Kinoheld" link
+Cinema/Room, date/time, sold-out badge — no poster or price), a direct "Book on Kinoheld" link
 (already `target="_blank"`, matching `film-performance-card.md`'s existing spec), four possible
 outcome messages (circuit-breaker tripped, not bookable, not found, cooldown active — only the
 circuit-breaker one is a styled `.alert`, the rest are plain `<em>` text), a **per-row seat-count
@@ -25,16 +25,16 @@ Replace the plain `<h1>` + text block with the
 price, and the booking CTA all come with it "for free" (one extra query each), context this page
 currently lacks entirely despite being the single most detail-rich screen in the app.
 
-**Match/Watching state**, since this page shows *any* performance, not just Matches like Home's
+**Match/Tracking state**, since this page shows *any* performance, not just Matches like Home's
 hero:
 
 - If the viewed performance is currently an active `Match` → show the **match-reason badges**
   (gold-accented), same as Home's hero.
-- Else if the film is on the Watched list (but this specific performance isn't a `Match`) → show
-  just the **`Watching` indicator** (burgundy bookmark), same as the compact-row card.
-- Else (unwatched film, browsed casually) → neither.
+- Else if the film is on the Tracked list (but this specific performance isn't a `Match`) → show
+  just the **`Tracking` indicator** (burgundy bookmark), same as the compact-row card.
+- Else (untracked film, browsed casually) → neither.
 
-These are mutually exclusive in practice — an active `Match` implies the film is watched, so at
+These are mutually exclusive in practice — an active `Match` implies the film is tracked, so at
 most one of the two ever shows.
 
 ## Seat map: live-availability grid, not the count table

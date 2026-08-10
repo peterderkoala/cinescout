@@ -11,13 +11,13 @@ film/performance content rather than each re-deriving it. See
 
 - [`home.md`](../home.md) — featured variant, Active Matches hero.
 - [`schedule.md`](../schedule.md) — compact-row variant, grouped by day.
-- [`watched-movies.md`](../watched-movies.md) — compact-row variant, one card per upcoming
-  performance of each watched film (all of them, not just the next one).
+- [`tracked-movies.md`](../tracked-movies.md) — compact-row variant, one card per upcoming
+  performance of each tracked film (all of them, not just the next one).
 - [`performance-detail.md`](../performance-detail.md) — featured variant, as the page's own header
   — confirmed while resolving [wayfinder ticket #70](https://github.com/peterderkoala/cinescout/issues/70).
-  Match-reason badges shown only when the viewed performance is an active `Match`; the `Watching`
-  indicator shown instead when the film is watched but this performance isn't a `Match`; neither
-  shown for an unwatched film browsed casually.
+  Match-reason badges shown only when the viewed performance is an active `Match`; the `Tracking`
+  indicator shown instead when the film is tracked but this performance isn't a `Match`; neither
+  shown for an untracked film browsed casually.
 
 ## Two variants, one data model
 
@@ -26,7 +26,7 @@ what data exists to show.
 
 ### Compact row
 
-For dense browsing contexts with many performances at once (Schedule's full listing, Watched
+For dense browsing contexts with many performances at once (Schedule's full listing, Tracked
 Movies' per-film performance list). No poster — image weight doesn't scale to a long list.
 
 Content, single line (wrapping to two on narrow viewports per the design system's mobile-first
@@ -39,13 +39,13 @@ breakpoints):
   1. `Cancelled` (`.badge.text-bg-secondary`), if the performance is cancelled
   2. else `Sold out` (`.badge.text-bg-danger`), if sold out
   3. else `Seats available` (`.badge.text-bg-success`), if `HasOpenFavoriteMatrixSeats` is true
-     (the browse-any-performance seat indicator from #24 — not gated on watched status)
+     (the browse-any-performance seat indicator from #24 — not gated on tracked status)
   4. else no badge (the default/expected bookable-but-not-yet-evaluated state doesn't need a badge)
-- A separate **`Watching` indicator** — `bi-bookmark-star-fill`, colored with the design system's
+- A separate **`Tracking` indicator** — `bi-bookmark-star-fill`, colored with the design system's
   burgundy primary (**not** the gold Match-accent, which stays reserved for an actual `Match`),
   shown independently alongside the status badge whenever the performance's film is on the user's
-  active Watched list. Independent of the status badge above — both can appear together (e.g. a
-  watched film's sold-out showing still shows `Sold out` *and* the bookmark icon).
+  active Tracked list. Independent of the status badge above — both can appear together (e.g. a
+  tracked film's sold-out showing still shows `Sold out` *and* the bookmark icon).
 
 ### Featured card
 
@@ -60,7 +60,7 @@ Content:
   ratio) when Hall-of-Fame/Kinoheld has no poster image for that film — not a broken-image icon or
   blank space.
 - Film title (Montserrat, per the design system's heading treatment)
-- `Site` / `Room`, date/time
+- `Cinema` / `Room`, date/time
 - Price (the cheapest matching Kinoheld price category, per the notification content CLAUDE.md
   already documents for `RulesMatched` Discord embeds — this card reuses that same field, not a
   new one)

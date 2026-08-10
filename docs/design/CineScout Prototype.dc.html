@@ -107,10 +107,10 @@
       <div class="collapse navbar-collapse" id="navMain" data-comment-anchor="d8add1a21e-div">
         <ul class="navbar-nav me-auto" style="gap: 12px">
           <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goSchedule }}" style="{{ scheduleLinkStyle }}"><i class="bi bi-calendar3"></i> Schedule</a></li>
-          <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goWatched }}" style="{{ watchedLinkStyle }}"><i class="bi bi-bookmark-star" data-comment-anchor="6964088a39-i"></i> Watched Movies</a></li>
+          <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goTracked }}" style="{{ trackedLinkStyle }}"><i class="bi bi-bookmark-star" data-comment-anchor="6964088a39-i"></i> Tracked Movies</a></li>
           <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goTimePrefs }}" style="{{ timePrefsLinkStyle }}"><i class="bi bi-clock"></i> Time Preferences</a></li>
           <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goSeatMatrices }}" style="{{ seatMatricesLinkStyle }}"><i class="bi bi-grid-3x3"></i> Seat Matrices</a></li>
-          <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goSites }}" style="{{ sitesLinkStyle }}"><i class="bi bi-building"></i> Sites</a></li>
+          <li class="nav-item"><a class="nav-link d-flex align-items-center gap-1" href="#" onClick="{{ goCinemas }}" style="{{ cinemasLinkStyle }}"><i class="bi bi-building"></i> Cinemas</a></li>
         </ul>
       </div>
     </div>
@@ -124,25 +124,25 @@
       <div class="row g-3 mb-5">
         <sc-for list="{{ activeMatches }}" as="m" hint-placeholder-count="2">
           <div class="col-lg-6">
-            <dc-import name="FilmPerformanceCard" variant="featured" title="{{ m.title }}" site="{{ m.site }}" room="{{ m.room }}" datetime="{{ m.datetime }}" price="{{ m.price }}" poster-slot="{{ m.posterSlot }}" booking-link="{{ m.bookingLink }}" match-reasons="{{ m.matchReasons }}" is-match="{{ true }}" hint-size="100%,220px"></dc-import>
+            <dc-import name="FilmPerformanceCard" variant="featured" title="{{ m.title }}" cinema="{{ m.cinema }}" room="{{ m.room }}" datetime="{{ m.datetime }}" price="{{ m.price }}" poster-slot="{{ m.posterSlot }}" booking-link="{{ m.bookingLink }}" match-reasons="{{ m.matchReasons }}" is-match="{{ true }}" hint-size="100%,220px"></dc-import>
           </div>
         </sc-for>
       </div>
     </sc-if>
-    <sc-if value="{{ noMatchesNoWatched }}">
-      <div class="alert alert-light border mb-5">No matches yet — <a href="#" onClick="{{ goWatched }}">start by marking a film as watched</a>.</div>
+    <sc-if value="{{ noMatchesNoTracked }}">
+      <div class="alert alert-light border mb-5">No matches yet — <a href="#" onClick="{{ goTracked }}">start by marking a film as tracked</a>.</div>
     </sc-if>
-    <sc-if value="{{ noMatchesHasWatched }}">
-      <div class="alert alert-light border mb-5">No matches yet — you'll see them here the moment a watched film's screening fits your preferences.</div>
+    <sc-if value="{{ noMatchesHasTracked }}">
+      <div class="alert alert-light border mb-5">No matches yet — you'll see them here the moment a tracked film's screening fits your preferences.</div>
     </sc-if>
 
     <div class="row g-3">
       <div class="col-md-6">
         <div class="card h-100">
-          <div class="card-header bg-white cs-heading fw-semibold" style="font-size:1rem;">Watched Movies</div>
-          <sc-for list="{{ watchedHome }}" as="w" hint-placeholder-count="3">
+          <div class="card-header bg-white cs-heading fw-semibold" style="font-size:1rem;">Tracked Movies</div>
+          <sc-for list="{{ trackedHome }}" as="w" hint-placeholder-count="3">
             <sc-if value="{{ w.hasNext }}" hint-placeholder-val="{{ true }}">
-              <dc-import name="FilmPerformanceCard" variant="compact" title="{{ w.title }}" datetime="{{ w.datetime }}" room="{{ w.room }}" status="{{ w.status }}" watching="{{ true }}" on-select="{{ w.select }}" hint-size="100%,44px"></dc-import>
+              <dc-import name="FilmPerformanceCard" variant="compact" title="{{ w.title }}" datetime="{{ w.datetime }}" room="{{ w.room }}" status="{{ w.status }}" tracking="{{ true }}" on-select="{{ w.select }}" hint-size="100%,44px"></dc-import>
             </sc-if>
             <sc-if value="{{ w.noNext }}">
               <div class="d-flex align-items-center gap-2 py-2 px-3 border-bottom">
@@ -152,7 +152,7 @@
               </div>
             </sc-if>
           </sc-for>
-          <div class="card-body py-2"><a href="#" onClick="{{ goWatched }}" class="small">View all →</a></div>
+          <div class="card-body py-2"><a href="#" onClick="{{ goTracked }}" class="small">View all →</a></div>
         </div>
       </div>
       <div class="col-md-6">
@@ -186,7 +186,7 @@
         <h6 class="text-uppercase text-muted small mb-2" style="letter-spacing:.06em;">{{ day.label }}</h6>
         <div class="border rounded bg-white overflow-hidden">
           <sc-for list="{{ day.performances }}" as="perf" hint-placeholder-count="2">
-            <dc-import name="FilmPerformanceCard" variant="compact" title="{{ perf.title }}" datetime="{{ perf.datetime }}" room="{{ perf.room }}" status="{{ perf.status }}" watching="{{ perf.watching }}" on-select="{{ perf.select }}" hint-size="100%,44px"></dc-import>
+            <dc-import name="FilmPerformanceCard" variant="compact" title="{{ perf.title }}" datetime="{{ perf.datetime }}" room="{{ perf.room }}" status="{{ perf.status }}" tracking="{{ perf.tracking }}" on-select="{{ perf.select }}" hint-size="100%,44px"></dc-import>
           </sc-for>
         </div>
       </div>
@@ -194,19 +194,19 @@
   </div>
 </sc-if>
 
-<sc-if value="{{ isWatched }}" hint-placeholder-val="{{ false }}">
-  <div class="container-fluid py-4" style="max-width:1536px; margin-inline:auto; width:100%;" data-screen-label="Watched Movies" data-entity="WatchedMovie">
-    <h3 class="mb-3" style="color: var(--bs-body-color);">Your Watched Films</h3>
-    <sc-for list="{{ watchedFilms }}" as="f" hint-placeholder-count="3">
+<sc-if value="{{ isTracked }}" hint-placeholder-val="{{ false }}">
+  <div class="container-fluid py-4" style="max-width:1536px; margin-inline:auto; width:100%;" data-screen-label="Tracked Movies" data-entity="TrackedMovie">
+    <h3 class="mb-3" style="color: var(--bs-body-color);">Your Tracked Films</h3>
+    <sc-for list="{{ trackedFilms }}" as="f" hint-placeholder-count="3">
       <div class="mb-4">
         <div class="d-flex align-items-center gap-2 mb-2">
           <h5 class="mb-0">{{ f.title }}</h5>
-          <button class="btn btn-sm btn-outline-danger" style="font-size:.75rem; padding:.2rem .5rem;">Unwatch</button>
+          <button class="btn btn-sm btn-outline-danger" style="font-size:.75rem; padding:.2rem .5rem;">Untrack</button>
         </div>
         <sc-if value="{{ f.hasPerf }}" hint-placeholder-val="{{ true }}">
           <div class="border rounded bg-white overflow-hidden">
             <sc-for list="{{ f.performances }}" as="perf" hint-placeholder-count="2">
-              <dc-import name="FilmPerformanceCard" variant="compact" title="{{ f.title }}" datetime="{{ perf.datetime }}" room="{{ perf.room }}" status="{{ perf.status }}" watching="{{ true }}" on-select="{{ perf.select }}" hint-size="100%,44px"></dc-import>
+              <dc-import name="FilmPerformanceCard" variant="compact" title="{{ f.title }}" datetime="{{ perf.datetime }}" room="{{ perf.room }}" status="{{ perf.status }}" tracking="{{ true }}" on-select="{{ perf.select }}" hint-size="100%,44px"></dc-import>
             </sc-for>
           </div>
         </sc-if>
@@ -219,7 +219,7 @@
       <sc-for list="{{ allFilms }}" as="film" hint-placeholder-count="4">
         <li class="list-group-item d-flex justify-content-between align-items-center">
           {{ film.title }}
-          <button class="btn btn-sm cs-btn-outline">Watch</button>
+          <button class="btn btn-sm cs-btn-outline">Track</button>
         </li>
       </sc-for>
     </ul>
@@ -270,25 +270,25 @@
   </div>
 </sc-if>
 
-<sc-if value="{{ isSites }}" hint-placeholder-val="{{ false }}">
-  <div class="container-fluid py-4" style="max-width:1536px; margin-inline:auto; width:100%;" data-screen-label="Sites" data-entity="Site">
+<sc-if value="{{ isCinemas }}" hint-placeholder-val="{{ false }}">
+  <div class="container-fluid py-4" style="max-width:1536px; margin-inline:auto; width:100%;" data-screen-label="Cinemas" data-entity="Cinema">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-      <h3 class="mb-0" style="color: var(--bs-body-color);">Sites</h3>
-      <button class="btn btn-sm cs-btn-primary" onClick="{{ addSite }}"><i class="bi bi-plus-lg"></i> Add site</button>
+      <h3 class="mb-0" style="color: var(--bs-body-color);">Cinemas</h3>
+      <button class="btn btn-sm cs-btn-primary" onClick="{{ addCinema }}"><i class="bi bi-plus-lg"></i> Add cinema</button>
     </div>
-    <p class="small mb-4" style="color:var(--bs-secondary-color); max-width:52rem;">Cinemas CineScout crawls. Each site is identified by its external site id and crawled from its base URL; the Kinoheld cinema id is resolved automatically on the first successful widget-config fetch and is needed for seat availability.</p>
+    <p class="small mb-4" style="color:var(--bs-secondary-color); max-width:52rem;">Cinemas CineScout crawls. Each cinema is identified by its external cinema id and crawled from its base URL; the Kinoheld cinema id is resolved automatically on the first successful widget-config fetch and is needed for seat availability.</p>
 
     <div class="row g-4">
       <div class="col-12 col-lg-4">
         <div class="list-group">
-          <sc-for list="{{ siteList }}" as="s" hint-placeholder-count="3">
+          <sc-for list="{{ cinemaList }}" as="s" hint-placeholder-count="3">
             <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-2" style="{{ s.rowStyle }}" onClick="{{ s.select }}">
               <div style="min-width:0;">
                 <div class="d-flex align-items-center gap-2">
                   <span style="width:8px; height:8px; border-radius:50%; background:{{ s.dotColor }}; flex:none;"></span>
                   <span style="font-weight:600; color:var(--bs-body-color);">{{ s.name }}</span>
                 </div>
-                <div class="text-truncate" style="font-size:.78rem; color:var(--bs-secondary-color); margin-top:2px;">{{ s.externalSiteId }}</div>
+                <div class="text-truncate" style="font-size:.78rem; color:var(--bs-secondary-color); margin-top:2px;">{{ s.externalCinemaId }}</div>
               </div>
               <span class="badge {{ s.roomsBadgeClass }} flex-none">{{ s.roomsText }}</span>
             </a>
@@ -300,43 +300,43 @@
         <div class="card mb-4">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
-              <h6 class="card-title mb-0">{{ siteEditorTitle }}</h6>
-              <span class="badge {{ siteBadgeClass }}">{{ siteBadgeText }}</span>
+              <h6 class="card-title mb-0">{{ cinemaEditorTitle }}</h6>
+              <span class="badge {{ cinemaBadgeClass }}">{{ cinemaBadgeText }}</span>
             </div>
             <div class="row g-3">
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted" for="stName">Name</label>
-                <input type="text" class="form-control form-control-sm" id="stName" data-field="Site.Name" value="{{ siteName }}" onChange="{{ setSiteName }}">
+                <input type="text" class="form-control form-control-sm" id="stName" data-field="Cinema.Name" value="{{ cinemaName }}" onChange="{{ setCinemaName }}">
               </div>
               <div class="col-12 col-md-6">
-                <label class="form-label small text-muted" for="stExternalId">External site id</label>
-                <input type="text" class="form-control form-control-sm" id="stExternalId" data-field="Site.ExternalSiteId" value="{{ siteExternalId }}" onChange="{{ setSiteExternalId }}">
+                <label class="form-label small text-muted" for="stExternalId">External cinema id</label>
+                <input type="text" class="form-control form-control-sm" id="stExternalId" data-field="Cinema.ExternalCinemaId" value="{{ cinemaExternalId }}" onChange="{{ setCinemaExternalId }}">
                 <div style="font-size:.72rem; color:var(--bs-secondary-color); margin-top:4px;">Slug used by the Hall-of-Fame schedule API.</div>
               </div>
               <div class="col-12">
                 <label class="form-label small text-muted" for="stCrawlUrl">Crawl base URL</label>
-                <input type="url" class="form-control form-control-sm" id="stCrawlUrl" data-field="Site.CrawlBaseUrl" value="{{ siteCrawlUrl }}" onChange="{{ setSiteCrawlUrl }}">
+                <input type="url" class="form-control form-control-sm" id="stCrawlUrl" data-field="Cinema.CrawlBaseUrl" value="{{ cinemaCrawlUrl }}" onChange="{{ setCinemaCrawlUrl }}">
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted" for="stKinoheldId">Kinoheld cinema id</label>
-                <input type="text" class="form-control form-control-sm" id="stKinoheldId" data-field="Site.KinoheldCinemaId" value="{{ siteKinoheldId }}" readonly disabled>
-                <div class="d-flex align-items-center gap-1" style="font-size:.72rem; color:{{ siteKinoheldHintColor }}; margin-top:4px;">
-                  <i class="bi {{ siteKinoheldIcon }}"></i> {{ siteKinoheldHint }}
+                <input type="text" class="form-control form-control-sm" id="stKinoheldId" data-field="Cinema.KinoheldCinemaId" value="{{ cinemaKinoheldId }}" readonly disabled>
+                <div class="d-flex align-items-center gap-1" style="font-size:.72rem; color:{{ cinemaKinoheldHintColor }}; margin-top:4px;">
+                  <i class="bi {{ cinemaKinoheldIcon }}"></i> {{ cinemaKinoheldHint }}
                 </div>
               </div>
               <div class="col-12 col-md-6">
                 <label class="form-label small text-muted d-block">Crawling</label>
                 <div class="form-check form-switch" style="padding-top:.2rem;">
-                  <input class="form-check-input" type="checkbox" role="switch" id="stActive" data-field="Site.IsActive" checked="{{ siteActive }}" onChange="{{ toggleSiteActive }}">
-                  <label class="form-check-label small" for="stActive" style="color:var(--bs-body-color);">{{ siteActiveLabel }}</label>
+                  <input class="form-check-input" type="checkbox" role="switch" id="stActive" data-field="Cinema.IsActive" checked="{{ cinemaActive }}" onChange="{{ toggleCinemaActive }}">
+                  <label class="form-check-label small" for="stActive" style="color:var(--bs-body-color);">{{ cinemaActiveLabel }}</label>
                 </div>
-                <div style="font-size:.72rem; color:var(--bs-secondary-color); margin-top:4px;">Last crawl: {{ siteLastCrawl }}</div>
+                <div style="font-size:.72rem; color:var(--bs-secondary-color); margin-top:4px;">Last crawl: {{ cinemaLastCrawl }}</div>
               </div>
             </div>
             <div class="d-flex gap-2 flex-wrap mt-4">
-              <button class="btn btn-sm cs-btn-primary">Save site</button>
+              <button class="btn btn-sm cs-btn-primary">Save cinema</button>
               <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-repeat"></i> Re-seed rooms</button>
-              <button class="btn btn-sm btn-outline-danger ms-auto"><i class="bi bi-trash"></i> Delete site</button>
+              <button class="btn btn-sm btn-outline-danger ms-auto"><i class="bi bi-trash"></i> Delete cinema</button>
             </div>
           </div>
         </div>
@@ -347,7 +347,7 @@
               <h6 class="card-title mb-0">Rooms</h6>
               <span class="small" style="color:var(--bs-secondary-color);">Seeded from Kinoheld's widget config</span>
             </div>
-            <sc-if value="{{ siteHasRooms }}" hint-placeholder-val="{{ true }}">
+            <sc-if value="{{ cinemaHasRooms }}" hint-placeholder-val="{{ true }}">
               <table class="table table-sm align-middle mb-0">
                 <thead>
                   <tr>
@@ -357,7 +357,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <sc-for list="{{ siteRooms }}" as="r" hint-placeholder-count="3">
+                  <sc-for list="{{ cinemaRooms }}" as="r" hint-placeholder-count="3">
                     <tr>
                       <td data-field="Room.Name" style="color:var(--bs-body-color);">{{ r.name }}</td>
                       <td data-field="Room.ExternalAuditoriumId" style="color:var(--bs-secondary-color); font-size:.85rem;">{{ r.externalAuditoriumId }}</td>
@@ -367,7 +367,7 @@
                 </tbody>
               </table>
             </sc-if>
-            <sc-if value="{{ siteNoRooms }}">
+            <sc-if value="{{ cinemaNoRooms }}">
               <p class="small mb-0" style="color:var(--bs-secondary-color);">No rooms seeded yet — rooms appear after the first successful widget-config fetch.</p>
             </sc-if>
           </div>
@@ -387,10 +387,10 @@
 
     <div class="d-flex align-items-end flex-wrap gap-3 mb-4">
       <div style="min-width:15rem;">
-        <label class="form-label small text-muted mb-1" for="mxFilterSite">Site</label>
-        <select class="form-select form-select-sm" id="mxFilterSite" value="{{ filterSite }}" onChange="{{ setFilterSite }}">
-          <option value="all">All sites</option>
-          <sc-for list="{{ sites }}" as="site" hint-placeholder-count="2"><option value="{{ site }}">{{ site }}</option></sc-for>
+        <label class="form-label small text-muted mb-1" for="mxFilterCinema">Cinema</label>
+        <select class="form-select form-select-sm" id="mxFilterCinema" value="{{ filterCinema }}" onChange="{{ setFilterCinema }}">
+          <option value="all">All cinemas</option>
+          <sc-for list="{{ cinemas }}" as="cinema" hint-placeholder-count="2"><option value="{{ cinema }}">{{ cinema }}</option></sc-for>
         </select>
       </div>
       <div style="min-width:13rem;">
@@ -414,7 +414,7 @@
               <div class="card-body d-flex flex-column">
                 <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
                   <div>
-                    <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">{{ m.site }} · {{ m.room }}</div>
+                    <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">{{ m.cinema }} · {{ m.room }}</div>
                     <h6 class="mb-0">{{ m.headingText }}</h6>
                   </div>
                   <div class="d-flex align-items-center gap-2 flex-none">
@@ -465,7 +465,7 @@
               <div class="card-body d-flex flex-column">
                 <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
                   <div>
-                    <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">{{ m.site }} · {{ m.room }}</div>
+                    <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">{{ m.cinema }} · {{ m.room }}</div>
                     <h6 class="mb-1">{{ m.film }}</h6>
                     <span class="badge text-bg-light border">{{ m.name }}</span>
                   </div>
@@ -501,7 +501,7 @@
     <sc-if value="{{ noResults }}">
       <div class="card mb-4">
         <div class="card-body text-center py-5">
-          <p class="mb-3" style="color:var(--bs-secondary-color);">No seat matrices match the selected site and room.</p>
+          <p class="mb-3" style="color:var(--bs-secondary-color);">No seat matrices match the selected cinema and room.</p>
           <button class="btn btn-sm cs-btn-outline" onClick="{{ clearFilters }}">Clear filters</button>
         </div>
       </div>
@@ -520,9 +520,9 @@
             </div>
           </sc-if>
           <div class="col-12 col-md-7">
-            <label class="form-label small text-muted" for="mxSite">Site</label>
-            <select class="form-select form-select-sm" id="mxSite" data-field="Room.SiteId" value="{{ editorSite }}" onChange="{{ setMatrixSite }}">
-              <sc-for list="{{ sites }}" as="site" hint-placeholder-count="2"><option>{{ site }}</option></sc-for>
+            <label class="form-label small text-muted" for="mxCinema">Cinema</label>
+            <select class="form-select form-select-sm" id="mxCinema" data-field="Room.CinemaId" value="{{ editorCinema }}" onChange="{{ setMatrixCinema }}">
+              <sc-for list="{{ cinemas }}" as="cinema" hint-placeholder-count="2"><option>{{ cinema }}</option></sc-for>
             </select>
           </div>
           <div class="col-12 col-md-5">
@@ -551,7 +551,7 @@
   <div class="container-fluid py-4" style="max-width:1536px; margin-inline:auto; width:100%;" data-screen-label="Performance Detail" data-entity="Performance">
     <a href="#" onClick="{{ goSchedule }}" class="small d-inline-block mb-3">← Back to schedule</a>
     <div style="max-width:60rem;">
-      <dc-import name="FilmPerformanceCard" variant="featured" title="{{ pdTitle }}" site="{{ pdSite }}" room="{{ pdRoom }}" datetime="{{ pdDatetime }}" price="{{ pdPrice }}" poster-slot="{{ pdPosterSlot }}" booking-link="{{ pdBookingLink }}" match-reasons="{{ pdMatchReasons }}" watching="{{ pdWatching }}" is-match="{{ pdIsMatch }}" hint-size="100%,220px"></dc-import>
+      <dc-import name="FilmPerformanceCard" variant="featured" title="{{ pdTitle }}" cinema="{{ pdCinema }}" room="{{ pdRoom }}" datetime="{{ pdDatetime }}" price="{{ pdPrice }}" poster-slot="{{ pdPosterSlot }}" booking-link="{{ pdBookingLink }}" match-reasons="{{ pdMatchReasons }}" tracking="{{ pdTracking }}" is-match="{{ pdIsMatch }}" hint-size="100%,220px"></dc-import>
       <sc-if value="{{ pdHasOutcome }}"><div class="alert {{ pdOutcomeClass }} mt-3 mb-0" role="alert">{{ pdOutcomeText }}</div></sc-if>
       <div class="d-flex justify-content-between align-items-center mt-4 mb-2 flex-wrap gap-2">
         <h5 class="mb-0">Seats</h5>
@@ -627,7 +627,7 @@
   </div>
 </sc-if>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;homeState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;matches&quot;,&quot;empty-waiting&quot;,&quot;empty-no-watched&quot;],&quot;default&quot;:&quot;matches&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype states&quot;},&quot;perfOutcome&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;breaker&quot;,&quot;unbookable&quot;,&quot;unavailable&quot;,&quot;cooldown&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype states&quot;},&quot;showErrorStates&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype states&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;homeState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;matches&quot;,&quot;empty-waiting&quot;,&quot;empty-no-tracked&quot;],&quot;default&quot;:&quot;matches&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype states&quot;},&quot;perfOutcome&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;breaker&quot;,&quot;unbookable&quot;,&quot;unavailable&quot;,&quot;cooldown&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Prototype states&quot;},&quot;showErrorStates&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype states&quot;}}">
 class Component extends DCLogic {
   state = {
     page: "home",
@@ -638,10 +638,10 @@ class Component extends DCLogic {
     endTime: "23:00",
     editingId: null,
     seatTab: "general",
-    filterSite: "all",
+    filterCinema: "all",
     filterRoom: "all",
-    selectedSiteId: 1,
-    siteEdits: {},
+    selectedCinemaId: 1,
+    cinemaEdits: {},
     selectedPerf: null,
     loginPwVisible: false,
     setupPw1Visible: false,
@@ -679,15 +679,15 @@ class Component extends DCLogic {
     const homeState = this.props.homeState ?? "matches";
     const allMatches = d.ACTIVE_MATCHES || [];
     const activeMatches = homeState === "matches" ? allMatches : [];
-    const homeWatchedRaw = homeState === "empty-no-watched" ? [] : (d.WATCHED_MOVIES_HOME || []);
-    const watchedHome = homeWatchedRaw.slice(0, 5).map((w) => ({
+    const homeTrackedRaw = homeState === "empty-no-tracked" ? [] : (d.TRACKED_MOVIES_HOME || []);
+    const trackedHome = homeTrackedRaw.slice(0, 5).map((w) => ({
       title: w.title,
       hasNext: !!w.next,
       noNext: !w.next,
       datetime: w.next ? w.next.datetime : "",
       room: w.next ? w.next.room : "",
       status: w.next ? st(w.next.status) : "none",
-      select: w.next ? this.openPerf({ title: w.title, datetime: w.next.datetime, room: w.next.room, site: "Kino am Rathaus", status: st(w.next.status), watching: true }) : null,
+      select: w.next ? this.openPerf({ title: w.title, datetime: w.next.datetime, room: w.next.room, cinema: "Kino am Rathaus", status: st(w.next.status), tracking: true }) : null,
     }));
 
     // --- Schedule
@@ -696,18 +696,18 @@ class Component extends DCLogic {
       label: day.label,
       performances: day.performances.map((p) => ({
         ...p, status: st(p.status),
-        select: this.openPerf({ title: p.title, datetime: p.fullDatetime, room: p.room, site: p.site, status: st(p.status), watching: p.watching }),
+        select: this.openPerf({ title: p.title, datetime: p.fullDatetime, room: p.room, cinema: p.cinema, status: st(p.status), tracking: p.tracking }),
       })),
     }));
 
-    // --- Watched Movies
-    const watchedFilms = (d.WATCHED_FILMS || []).map((f) => ({
+    // --- Tracked Movies
+    const trackedFilms = (d.TRACKED_FILMS || []).map((f) => ({
       title: f.title,
       hasPerf: f.performances.length > 0,
       noPerf: f.performances.length === 0,
       performances: f.performances.map((p) => ({
         ...p, status: st(p.status),
-        select: this.openPerf({ title: f.title, datetime: p.datetime, room: p.room, site: p.site, status: st(p.status), watching: true }),
+        select: this.openPerf({ title: f.title, datetime: p.datetime, room: p.room, cinema: p.cinema, status: st(p.status), tracking: true }),
       })),
     }));
 
@@ -735,21 +735,21 @@ class Component extends DCLogic {
     const enabledBadge = (on) => (on ? ["text-bg-success", "Enabled"] : ["text-bg-secondary", "Disabled"]);
     const span = (a, b) => b.charCodeAt(0) - a.charCodeAt(0) + 1;
     const generalByRoom = {};
-    (d.SEAT_MATRICES_GENERAL || []).forEach((m) => { generalByRoom[`${m.site}|${m.room}`] = m; });
+    (d.SEAT_MATRICES_GENERAL || []).forEach((m) => { generalByRoom[`${m.cinema}|${m.room}`] = m; });
     const overridesByRoom = {};
     (d.SEAT_MATRICES_OVERRIDES || []).forEach((m) => {
-      const k = `${m.site}|${m.room}`;
+      const k = `${m.cinema}|${m.room}`;
       (overridesByRoom[k] = overridesByRoom[k] || []).push(m.film);
     });
-    const fSite = this.state.filterSite, fRoom = this.state.filterRoom;
-    const passFilter = (site, room) => (fSite === "all" || site === fSite) && (fRoom === "all" || room === fRoom);
-    const generalMatrices = (d.ROOMS || []).filter((r) => passFilter(r.site, r.room)).map(({ site, room }) => {
-      const m = generalByRoom[`${site}|${room}`];
-      const films = overridesByRoom[`${site}|${room}`] || [];
-      if (!m) return { site, room, headingText: room, hasMatrix: false, noMatrix: true, badgeClass: "text-bg-light border", badgeText: "None", opacityClass: "" };
+    const fCinema = this.state.filterCinema, fRoom = this.state.filterRoom;
+    const passFilter = (cinema, room) => (fCinema === "all" || cinema === fCinema) && (fRoom === "all" || room === fRoom);
+    const generalMatrices = (d.ROOMS || []).filter((r) => passFilter(r.cinema, r.room)).map(({ cinema, room }) => {
+      const m = generalByRoom[`${cinema}|${room}`];
+      const films = overridesByRoom[`${cinema}|${room}`] || [];
+      if (!m) return { cinema, room, headingText: room, hasMatrix: false, noMatrix: true, badgeClass: "text-bg-light border", badgeText: "None", opacityClass: "" };
       const [badgeClass, badgeText] = enabledBadge(m.enabled);
       return {
-        site, room, name: m.name, headingText: m.name || room,
+        cinema, room, name: m.name, headingText: m.name || room,
         hasOverrides: films.length > 0,
         overrideHint: `Overridden by a film-specific matrix for: ${films.join(", ")}`,
         hasMatrix: true, noMatrix: false,
@@ -761,10 +761,10 @@ class Component extends DCLogic {
         opacityClass: m.enabled ? "" : "opacity-50",
       };
     });
-    const overrideMatrices = (d.SEAT_MATRICES_OVERRIDES || []).filter((m) => passFilter(m.site, m.room)).map((m) => {
+    const overrideMatrices = (d.SEAT_MATRICES_OVERRIDES || []).filter((m) => passFilter(m.cinema, m.room)).map((m) => {
       const [badgeClass, badgeText] = enabledBadge(m.enabled);
       return {
-        film: m.film, site: m.site, room: m.room, name: m.name,
+        film: m.film, cinema: m.cinema, room: m.room, name: m.name,
         rows: span(m.rowStart, m.rowEnd), cols: m.seatEnd - m.seatStart + 1,
         rowStart: m.rowStart, seatStart: m.seatStart,
         rowsText: `${m.rowStart}–${m.rowEnd}`, seatsText: `${m.seatStart}–${m.seatEnd}`,
@@ -774,45 +774,45 @@ class Component extends DCLogic {
       };
     });
 
-    const sites = d.SITES || [];
-    const editorSite = this.state.matrixSite ?? sites[0];
-    const editorRooms = (d.ROOMS || []).filter((r) => r.site === editorSite).map((r) => r.room);
-    const setMatrixSite = (e) => this.setState({ matrixSite: e.target.value });
+    const cinemas = d.CINEMAS || [];
+    const editorCinema = this.state.matrixCinema ?? cinemas[0];
+    const editorRooms = (d.ROOMS || []).filter((r) => r.cinema === editorCinema).map((r) => r.room);
+    const setMatrixCinema = (e) => this.setState({ matrixCinema: e.target.value });
 
-    const filterRooms = (d.ROOMS || []).filter((r) => fSite === "all" || r.site === fSite).map((r) => r.room);
-    const setFilterSite = (e) => {
+    const filterRooms = (d.ROOMS || []).filter((r) => fCinema === "all" || r.cinema === fCinema).map((r) => r.room);
+    const setFilterCinema = (e) => {
       const v = e.target.value;
-      const stillValid = (d.ROOMS || []).some((r) => (v === "all" || r.site === v) && r.room === this.state.filterRoom);
-      this.setState({ filterSite: v, filterRoom: stillValid ? this.state.filterRoom : "all" });
+      const stillValid = (d.ROOMS || []).some((r) => (v === "all" || r.cinema === v) && r.room === this.state.filterRoom);
+      this.setState({ filterCinema: v, filterRoom: stillValid ? this.state.filterRoom : "all" });
     };
     const setFilterRoom = (e) => this.setState({ filterRoom: e.target.value });
-    const clearFilters = () => this.setState({ filterSite: "all", filterRoom: "all" });
+    const clearFilters = () => this.setState({ filterCinema: "all", filterRoom: "all" });
     const shownCount = this.state.seatTab === "general" ? generalMatrices.length : overrideMatrices.length;
     const totalCount = this.state.seatTab === "general" ? (d.ROOMS || []).length : (d.SEAT_MATRICES_OVERRIDES || []).length;
     const noResults = shownCount === 0;
 
-    // --- Sites (Site.cs / Room.cs)
-    const siteCfg = (d.SITE_CONFIG || []).map((s) => ({ ...s, ...(this.state.siteEdits[s.id] || {}) }));
-    const activeSite = siteCfg.find((s) => s.id === this.state.selectedSiteId) || siteCfg[0] || null;
-    const siteList = siteCfg.map((s) => ({
-      name: s.name, externalSiteId: s.externalSiteId,
+    // --- Cinemas (Cinema.cs / Room.cs)
+    const cinemaCfg = (d.CINEMA_CONFIG || []).map((s) => ({ ...s, ...(this.state.cinemaEdits[s.id] || {}) }));
+    const activeCinema = cinemaCfg.find((s) => s.id === this.state.selectedCinemaId) || cinemaCfg[0] || null;
+    const cinemaList = cinemaCfg.map((s) => ({
+      name: s.name, externalCinemaId: s.externalCinemaId,
       dotColor: s.isActive ? "var(--bs-success)" : "var(--bs-border-color)",
       roomsText: s.rooms.length ? `${s.rooms.length} rooms` : "No rooms",
       roomsBadgeClass: s.rooms.length ? "text-bg-light border" : "text-bg-light border opacity-75",
-      rowStyle: activeSite && s.id === activeSite.id
+      rowStyle: activeCinema && s.id === activeCinema.id
         ? "background:rgba(122,31,43,.06); border-left:3px solid var(--cinescout-primary);"
         : "border-left:3px solid transparent;",
-      select: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ selectedSiteId: s.id }); },
+      select: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ selectedCinemaId: s.id }); },
     }));
-    const editSite = (patch) => this.setState((st) => ({
-      siteEdits: { ...st.siteEdits, [activeSite.id]: { ...(st.siteEdits[activeSite.id] || {}), ...patch } },
+    const editCinema = (patch) => this.setState((st) => ({
+      cinemaEdits: { ...st.cinemaEdits, [activeCinema.id]: { ...(st.cinemaEdits[activeCinema.id] || {}), ...patch } },
     }));
-    const resolved = !!(activeSite && activeSite.kinoheldCinemaId);
+    const resolved = !!(activeCinema && activeCinema.kinoheldCinemaId);
 
     // --- Performance Detail
     const base = d.PERFORMANCE_DETAIL || {};
     const sel = this.state.selectedPerf;
-    const pd = sel ? { ...base, ...sel, isWatched: !!sel.watching, isMatch: false, matchReasons: [] } : base;
+    const pd = sel ? { ...base, ...sel, isTracked: !!sel.tracking, isMatch: false, matchReasons: [] } : base;
     const outcomeMap = {
       breaker: ["alert-warning", "Live seat data is temporarily unavailable — the Kinoheld connection's circuit breaker is open. Retrying automatically."],
       unbookable: ["alert-secondary", "This performance isn't currently bookable on Kinoheld."],
@@ -826,26 +826,26 @@ class Component extends DCLogic {
 
     return {
       showNavbar: page !== "login" && page !== "setup",
-      isHome: page === "home", isSchedule: page === "schedule", isWatched: page === "watched",
+      isHome: page === "home", isSchedule: page === "schedule", isTracked: page === "tracked",
       isTimePrefs: page === "time-prefs", isSeatMatrices: page === "seat-matrices",
-      isSites: page === "sites",
-      sitesLinkStyle: page === "sites" ? navActive : navIdle,
-      goSites: this.go("sites"),
+      isCinemas: page === "cinemas",
+      cinemasLinkStyle: page === "cinemas" ? navActive : navIdle,
+      goCinemas: this.go("cinemas"),
       isPerfDetail: page === "perf-detail", isLogin: page === "login", isSetup: page === "setup",
 
       scheduleLinkStyle: page === "schedule" ? navActive : navIdle,
-      watchedLinkStyle: page === "watched" ? navActive : navIdle,
+      trackedLinkStyle: page === "tracked" ? navActive : navIdle,
       timePrefsLinkStyle: page === "time-prefs" ? navActive : navIdle,
       seatMatricesLinkStyle: page === "seat-matrices" ? navActive : navIdle,
 
-      goHome: this.go("home"), goSchedule: this.go("schedule"), goWatched: this.go("watched"),
+      goHome: this.go("home"), goSchedule: this.go("schedule"), goTracked: this.go("tracked"),
       goTimePrefs: this.go("time-prefs"), goSeatMatrices: this.go("seat-matrices"),
       goLogin: this.go("login"), goSetup: this.go("setup"),
 
       hasMatches: activeMatches.length > 0,
-      noMatchesNoWatched: activeMatches.length === 0 && watchedHome.length === 0,
-      noMatchesHasWatched: activeMatches.length === 0 && watchedHome.length > 0,
-      activeMatches, watchedHome,
+      noMatchesNoTracked: activeMatches.length === 0 && trackedHome.length === 0,
+      noMatchesHasTracked: activeMatches.length === 0 && trackedHome.length > 0,
+      activeMatches, trackedHome,
       recentActivity: (d.RECENT_ACTIVITY || []).slice(0, 5),
 
       weekLabel: d.windowLabel ? `${d.windowLabel(offset)} · next 14 days` : "",
@@ -853,34 +853,34 @@ class Component extends DCLogic {
       nextWeek: () => this.setState((s) => ({ weekOffset: s.weekOffset + 1 })),
       scheduleDays,
 
-      watchedFilms,
+      trackedFilms,
       allFilms: d.ALL_FILMS || [],
-      sites, editorSite, editorRooms, setMatrixSite,
+      cinemas, editorCinema, editorRooms, setMatrixCinema,
 
-      siteList,
-      siteEditorTitle: activeSite ? activeSite.name : "New site",
-      siteBadgeClass: activeSite && activeSite.isActive ? "text-bg-success" : "text-bg-secondary",
-      siteBadgeText: activeSite && activeSite.isActive ? "Active" : "Inactive",
-      siteName: activeSite ? activeSite.name : "",
-      siteExternalId: activeSite ? activeSite.externalSiteId : "",
-      siteCrawlUrl: activeSite ? activeSite.crawlBaseUrl : "",
-      siteKinoheldId: resolved ? activeSite.kinoheldCinemaId : "Not resolved yet",
-      siteKinoheldHint: resolved ? "Resolved from the widget config — used as cid for seat availability." : "Resolves on the first successful widget-config fetch.",
-      siteKinoheldIcon: resolved ? "bi-check-circle-fill" : "bi-hourglass-split",
-      siteKinoheldHintColor: resolved ? "var(--bs-success)" : "var(--bs-secondary-color)",
-      siteActive: !!(activeSite && activeSite.isActive),
-      siteActiveLabel: activeSite && activeSite.isActive ? "Crawling enabled" : "Crawling paused",
-      siteLastCrawl: activeSite ? activeSite.lastCrawlAt : "—",
-      siteRooms: activeSite ? activeSite.rooms : [],
-      siteHasRooms: !!(activeSite && activeSite.rooms.length),
-      siteNoRooms: !!(activeSite && activeSite.rooms.length === 0),
-      setSiteName: (e) => editSite({ name: e.target.value }),
-      setSiteExternalId: (e) => editSite({ externalSiteId: e.target.value }),
-      setSiteCrawlUrl: (e) => editSite({ crawlBaseUrl: e.target.value }),
-      toggleSiteActive: (e) => editSite({ isActive: e.target.checked }),
-      addSite: () => {},
-      filterSite: fSite, filterRoom: fRoom, filterRooms, setFilterSite, setFilterRoom, clearFilters,
-      filterActive: fSite !== "all" || fRoom !== "all",
+      cinemaList,
+      cinemaEditorTitle: activeCinema ? activeCinema.name : "New cinema",
+      cinemaBadgeClass: activeCinema && activeCinema.isActive ? "text-bg-success" : "text-bg-secondary",
+      cinemaBadgeText: activeCinema && activeCinema.isActive ? "Active" : "Inactive",
+      cinemaName: activeCinema ? activeCinema.name : "",
+      cinemaExternalId: activeCinema ? activeCinema.externalCinemaId : "",
+      cinemaCrawlUrl: activeCinema ? activeCinema.crawlBaseUrl : "",
+      cinemaKinoheldId: resolved ? activeCinema.kinoheldCinemaId : "Not resolved yet",
+      cinemaKinoheldHint: resolved ? "Resolved from the widget config — used as cid for seat availability." : "Resolves on the first successful widget-config fetch.",
+      cinemaKinoheldIcon: resolved ? "bi-check-circle-fill" : "bi-hourglass-split",
+      cinemaKinoheldHintColor: resolved ? "var(--bs-success)" : "var(--bs-secondary-color)",
+      cinemaActive: !!(activeCinema && activeCinema.isActive),
+      cinemaActiveLabel: activeCinema && activeCinema.isActive ? "Crawling enabled" : "Crawling paused",
+      cinemaLastCrawl: activeCinema ? activeCinema.lastCrawlAt : "—",
+      cinemaRooms: activeCinema ? activeCinema.rooms : [],
+      cinemaHasRooms: !!(activeCinema && activeCinema.rooms.length),
+      cinemaNoRooms: !!(activeCinema && activeCinema.rooms.length === 0),
+      setCinemaName: (e) => editCinema({ name: e.target.value }),
+      setCinemaExternalId: (e) => editCinema({ externalCinemaId: e.target.value }),
+      setCinemaCrawlUrl: (e) => editCinema({ crawlBaseUrl: e.target.value }),
+      toggleCinemaActive: (e) => editCinema({ isActive: e.target.checked }),
+      addCinema: () => {},
+      filterCinema: fCinema, filterRoom: fRoom, filterRooms, setFilterCinema, setFilterRoom, clearFilters,
+      filterActive: fCinema !== "all" || fRoom !== "all",
       filterCountText: `Showing ${shownCount} of ${totalCount}`,
       noResults,
 
@@ -902,12 +902,12 @@ class Component extends DCLogic {
       generalMatrices, overrideMatrices,
       matrixEditorTitle: this.state.seatTab === "general" ? "Add general matrix" : "Add film-specific override",
 
-      pdTitle: pd.title, pdSite: pd.site, pdRoom: pd.room, pdDatetime: pd.datetime,
+      pdTitle: pd.title, pdCinema: pd.cinema, pdRoom: pd.room, pdDatetime: pd.datetime,
       pdPrice: pd.price || "€9.00",
       pdPosterSlot: sel ? "" : (base.posterSlot || ""),
       pdBookingLink: pd.bookingLink || "#",
       pdMatchReasons: pd.matchReasons || [],
-      pdWatching: !!pd.isWatched && !pd.isMatch,
+      pdTracking: !!pd.isTracked && !pd.isMatch,
       pdIsMatch: !!pd.isMatch,
       pdHasOutcome: !!outcome,
       pdOutcomeClass: outcome ? outcome[0] : "",

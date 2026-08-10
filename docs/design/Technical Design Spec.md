@@ -18,24 +18,28 @@ Every screen root and every data-bound form field in the prototype carries machi
 
 | Attribute | Meaning | Example |
 |---|---|---|
-| `data-screen-label` | Human name of the screen | `data-screen-label="Sites"` |
-| `data-entity` | Primary model class the screen edits/displays | `data-entity="Site"` |
-| `data-field` | `Class.Property` this control binds to | `data-field="Site.CrawlBaseUrl"` |
+| `data-screen-label` | Human name of the screen | `data-screen-label="Cinemas"` |
+| `data-entity` | Primary model class the screen edits/displays | `data-entity="Cinema"` |
+| `data-field` | `Class.Property` this control binds to | `data-field="Cinema.CrawlBaseUrl"` |
 
 `data-field` values use the **exact C# property names** from `src/cinescout.model/`. When implementing,
 grep the design for `data-field="FavoriteSeatMatrix.` to find every control bound to that entity.
 Visible labels are the *user-facing* wording and deliberately differ from property names
 (e.g. label “Seat from” ↔ `SeatNumberStart`); the mapping tables below are authoritative.
 
-**Vocabulary rule:** the UI word for `Site` is **“Site”** everywhere (nav item, filters, editor labels).
-Earlier drafts said “Cinema”; that has been removed. `Room` is “Room” (sample data shows German room
-names “Saal 1…”, which is content, not vocabulary).
+**Vocabulary rule:** the UI word for `Cinema` is **“Cinema”** everywhere (nav item, filters, editor labels).
+This has changed twice: the earliest draft said “Cinema”, a later draft removed it in favor of “Site” (recorded
+here at the time as final), and the operator has now reversed that removal — “Site” is overloaded in web
+development (website, deployment site, static site) where the domain always meant one physical cinema, so the
+removal of “Cinema” was itself the mistake. “Cinema” is the permanent vocabulary; do not re-introduce “Site”.
+See [ADR 0002](../adr/0002-rename-site-to-cinema-and-watchedmovie-to-trackedmovie.md) for the full reasoning.
+`Room` is “Room” (sample data shows German room names “Saal 1…”, which is content, not vocabulary).
 
 ---
 
 ## 2. Design tokens
 
-Defined once in the root `<helmet><style>` of the prototype; mirror them into the app's site stylesheet.
+Defined once in the root `<helmet><style>` of the prototype; mirror them into the app's stylesheet.
 Bootstrap 5.3 + Bootstrap Icons 1.11 are the base; dark mode is **CSS-only** via
 `@media (prefers-color-scheme: dark)` overriding Bootstrap's `--bs-*` variables (no JS toggle, so
 static/SSR rendering is identical).
@@ -45,11 +49,11 @@ static/SSR rendering is identical).
 | `--cinescout-primary` | `#7A1F2B` | `#7A1F2B` | Primary buttons, navbar, active pill, selected row accent |
 | `--cinescout-primary-hover` | `#5C1720` | `#5C1720` | Primary hover |
 | `--cinescout-on-primary` | `#fff` | `#fff` | Text on primary |
-| `--cinescout-accent-match` | `#B8860B` | `#D1AB5B` | Match accent, watching star, zone seats, override hint icon, focus ring |
+| `--cinescout-accent-match` | `#B8860B` | `#D1AB5B` | Match accent, tracking star, zone seats, override hint icon, focus ring |
 | `--cinescout-accent-match-text` | `#8A6508` | `#D1AB5B` | “MATCH” kicker text (contrast-safe) |
 | `--cinescout-navbar-bg` | `#7A1F2B` | `#2C161A` | Navbar |
 | `--cinescout-page-bg` | `#f7f5f3` | `#16181A` | Page ground |
-| `--bs-success` | `#328168` | `#328168` | Free seats, “Seats available”, active site dot |
+| `--bs-success` | `#328168` | `#328168` | Free seats, “Seats available”, active cinema dot |
 
 Type: `Montserrat` 600/700 for headings, `.btn`, `.nav-link`, `.navbar-brand`, `.card-header`, `.cs-heading`;
 `Open Sans` 400/600 for body. Utility classes to port verbatim: `.cs-btn-primary`, `.cs-btn-outline`,
@@ -66,17 +70,17 @@ gold hover; the light-mode `.cs-btn-outline` is bordeaux. Port both blocks or th
 
 ## 3. Navigation
 
-Order is fixed: **Schedule · Watched Movies · Time Preferences · Seat Matrices · Sites**, with Logout pinned
+Order is fixed: **Schedule · Tracked Movies · Time Preferences · Seat Matrices · Cinemas**, with Logout pinned
 right. Brand mark links to Home.
 
 | Item | Icon | Route | Entity |
 |---|---|---|---|
 | (brand) CineScout | `bi-film` | `/` | `Match` |
 | Schedule | `bi-calendar3` | `/schedule` | `Performance` |
-| Watched Movies | `bi-bookmark-star` | `/watched` | `WatchedMovie` |
+| Tracked Movies | `bi-bookmark-star` | `/tracked-movies` | `TrackedMovie` |
 | Time Preferences | `bi-clock` | `/time-preferences` | `FavoriteTimeWindow` |
 | Seat Matrices | `bi-grid-3x3` | `/seat-matrices` | `FavoriteSeatMatrix` |
-| Sites | `bi-building` | `/sites` | `Site`, `Room` |
+| Cinemas | `bi-building` | `/cinemas` | `Cinema`, `Room` |
 | Logout | `bi-box-arrow-right` | `/login` | `User` |
 
 Active item: white, `font-weight:600`, 2px bottom border in `--cinescout-accent-match`. Idle: `rgba(255,255,255,.78)`.
@@ -93,12 +97,12 @@ One component, two variants. Suggested Blazor name `FilmPerformanceCard.razor` w
 |---|---|---|
 | `variant` | `compact` \| `featured` | caller |
 | `title` | string | `Film.Title` |
-| `site` | string | `Site.Name` (featured only) |
+| `cinema` | string | `Cinema.Name` (featured only) |
 | `room` | string | `Room.Name` |
 | `datetime` | string | `Performance.StartsAt`, pre-formatted (§7) |
 | `price` | string | cheapest `PerformancePriceArea.OrderPrice` for the performance, currency-formatted |
 | `status` | `none` \| `available` \| `soldout` \| `cancelled` | derived (§6.1) |
-| `watching` | bool | a `WatchedMovie` row exists for `Performance.FilmId` |
+| `tracking` | bool | a `TrackedMovie` row exists for `Performance.FilmId` |
 | `isMatch` | bool | an **Active** `Match` exists for this performance |
 | `matchReasons` | string[] | derived (§6.2) |
 | `posterSlot` / poster image | string | `Film.PosterUrl` (design uses a drop-slot placeholder; implementation uses the URL, falls back to the `bi-film` tile when null) |
@@ -107,7 +111,7 @@ One component, two variants. Suggested Blazor name `FilmPerformanceCard.razor` w
 
 Rules: the featured card's CTA **“Book on Kinoheld”** is always the filled primary style (never outline);
 `target="_blank" rel="noopener"`. A match card gets a 4px gold left border plus a gold-tinted ring and the
-uppercase “MATCH” kicker. The watching star (`bi-bookmark-star-fill`, gold) shows on compact rows and on
+uppercase “MATCH” kicker. The tracking star (`bi-bookmark-star-fill`, gold) shows on compact rows and on
 featured cards that are *not* matches.
 
 ### 4.2 `SeatGrid` (`SeatGrid.dc.html`)
@@ -135,35 +139,35 @@ A seat not present in the payload renders `visibility:hidden` (keeps the grid re
 
 ## 5. Screens
 
-### 5.1 Sites — `data-entity="Site"`
+### 5.1 Cinemas — `data-entity="Cinema"`
 
-Master/detail: site list (`col-lg-4`) + detail card and rooms card (`col-lg-8`).
+Master/detail: cinema list (`col-lg-4`) + detail card and rooms card (`col-lg-8`).
 
-**List row** — per `Site`, ordered by `Name`:
+**List row** — per `Cinema`, ordered by `Name`:
 | Element | Source |
 |---|---|
-| Status dot | `Site.IsActive` → `--bs-success` : `--bs-border-color` |
-| Bold line | `Site.Name` |
-| Muted line | `Site.ExternalSiteId` |
-| Right badge | `Room` count for the site → `“{n} rows”`-style text `“{n} rooms”` / `“No rooms”` |
+| Status dot | `Cinema.IsActive` → `--bs-success` : `--bs-border-color` |
+| Bold line | `Cinema.Name` |
+| Muted line | `Cinema.ExternalCinemaId` |
+| Right badge | `Room` count for the cinema → `“{n} rows”`-style text `“{n} rooms”` / `“No rooms”` |
 | Selected style | 3px left border `--cinescout-primary` + `rgba(122,31,43,.06)` background |
 
 **Detail form**:
 | Control | `data-field` | Notes |
 |---|---|---|
-| Name | `Site.Name` | required |
-| External site id | `Site.ExternalSiteId` | required; helper text “Slug used by the Hall-of-Fame schedule API.” |
-| Crawl base URL | `Site.CrawlBaseUrl` | required, `type=url` |
-| Kinoheld cinema id | `Site.KinoheldCinemaId` | **read-only** — set by the widget-config fetch. Non-null → value + green `bi-check-circle-fill` hint “Resolved from the widget config — used as cid for seat availability.” Null → placeholder text “Not resolved yet” + muted `bi-hourglass-split` hint “Resolves on the first successful widget-config fetch.” |
-| Crawling switch | `Site.IsActive` | label “Crawling enabled” / “Crawling paused” |
-| Header badge | `Site.IsActive` | `text-bg-success` “Active” / `text-bg-secondary` “Inactive” |
+| Name | `Cinema.Name` | required |
+| External cinema id | `Cinema.ExternalCinemaId` | required; helper text “Slug used by the Hall-of-Fame schedule API.” |
+| Crawl base URL | `Cinema.CrawlBaseUrl` | required, `type=url` |
+| Kinoheld cinema id | `Cinema.KinoheldCinemaId` | **read-only** — set by the widget-config fetch. Non-null → value + green `bi-check-circle-fill` hint “Resolved from the widget config — used as cid for seat availability.” Null → placeholder text “Not resolved yet” + muted `bi-hourglass-split` hint “Resolves on the first successful widget-config fetch.” |
+| Crawling switch | `Cinema.IsActive` | label “Crawling enabled” / “Crawling paused” |
+| Header badge | `Cinema.IsActive` | `text-bg-success` “Active” / `text-bg-secondary` “Inactive” |
 | “Last crawl” caption | *not in model* — see §9 |
 
-Actions: **Save site** (primary), **Re-seed rooms** (`bi-arrow-repeat`, re-runs the widget-config fetch →
-upserts `Room` rows and `Site.KinoheldCinemaId`), **Delete site** (outline danger, right-aligned).
-**Add site** (primary, screen header) opens the same form empty.
+Actions: **Save cinema** (primary), **Re-seed rooms** (`bi-arrow-repeat`, re-runs the widget-config fetch →
+upserts `Room` rows and `Cinema.KinoheldCinemaId`), **Delete cinema** (outline danger, right-aligned).
+**Add cinema** (primary, screen header) opens the same form empty.
 
-**Rooms card** — read-only table of `Room` where `Room.SiteId == Site.Id`:
+**Rooms card** — read-only table of `Room` where `Room.CinemaId == Cinema.Id`:
 columns `Room.Name`, `Room.ExternalAuditoriumId`, plus a per-row **Rename** action (only `Name` is user-editable;
 `ExternalAuditoriumId` is provider-owned). Empty state: “No rooms seeded yet — rooms appear after the first
 successful widget-config fetch.”
@@ -174,15 +178,15 @@ Two pills: **General (per room)** = `FilmId is null`; **Film-specific overrides*
 Both share one filter bar and one editor card.
 
 **Filter bar** (client-side, applies to both tabs):
-`Site` select (`all` + every `Site.Name`) · `Room` select (`all` + `Room.Name` of the selected site;
-resets to `all` when the site changes and the room no longer exists) · **Clear filters** (only while a filter
+`Cinema` select (`all` + every `Cinema.Name`) · `Room` select (`all` + `Room.Name` of the selected cinema;
+resets to `all` when the cinema changes and the room no longer exists) · **Clear filters** (only while a filter
 is set) · right-aligned count “Showing {n} of {total}”. Zero results renders the centered empty card
-“No seat matrices match the selected site and room.” with a Clear-filters button.
+“No seat matrices match the selected cinema and room.” with a Clear-filters button.
 
 **General tab** iterates **every `Room`**, not every matrix — a room without a matrix still gets a card:
 | Element | Source |
 |---|---|
-| Kicker | `Site.Name` · `Room.Name` |
+| Kicker | `Cinema.Name` · `Room.Name` |
 | Heading | `FavoriteSeatMatrix.Name` |
 | Gold `bi-info-circle-fill` | shown when ≥1 override exists for the room; `title` = “Overridden by a film-specific matrix for: {film titles}” — this is the visual carrier of the *film-specific-beats-general* precedence rule |
 | Badge | `IsEnabled` → `text-bg-success` “Enabled” / `text-bg-secondary` “Disabled”; whole card `opacity-50` when disabled |
@@ -198,7 +202,7 @@ as a light badge, and there is no override-hint icon.
 | Control | `data-field` | Notes |
 |---|---|---|
 | Film (overrides tab only) | `FavoriteSeatMatrix.FilmId` | absent on the General tab → `null` |
-| Site | `Room.SiteId` | narrows the Room list; not persisted on the matrix itself |
+| Cinema | `Room.CinemaId` | narrows the Room list; not persisted on the matrix itself |
 | Room | `FavoriteSeatMatrix.RoomId` | |
 | Name | `FavoriteSeatMatrix.Name` | **required** (model is `required string`); placeholder “e.g. Sweet spot” |
 | Row from / Row to | `RowStart` / `RowEnd` | free text, single letters, compared lexicographically |
@@ -224,18 +228,18 @@ Days are grouped by date (uppercase muted heading; “Today”/“Tomorrow” fo
 performances are omitted entirely**, and each group is a bordered rounded panel of compact cards.
 Query: `Performance` joined to `Film`/`Room`, `StartsAt` inside the window, ordered by `StartsAt`.
 
-### 5.5 Watched Movies — `data-entity="WatchedMovie"`
+### 5.5 Tracked Movies — `data-entity="TrackedMovie"`
 
-Per `WatchedMovie` (joined to `Film`): title + **Unwatch** (outline danger), then its upcoming performances
+Per `TrackedMovie` (joined to `Film`): title + **Untrack** (outline danger), then its upcoming performances
 as compact cards, or “No upcoming performances”. Below, **All films** — `Film` rows with at least one
-upcoming performance and no `WatchedMovie` — each with a **Watch** button.
+upcoming performance and no `TrackedMovie` — each with a **Track** button.
 
 ### 5.6 Home — `data-entity="Match"`
 
 Featured cards for `Match.Status == Active` (two-column). Empty states, exactly as worded:
-no matches and nothing watched → “No matches yet — start by marking a film as watched.” (link to Watched);
-no matches but films watched → “No matches yet — you'll see them here the moment a watched film's screening
-fits your preferences.” Below: **Watched Movies** panel (max 5, compact rows, “View all →”) and
+no matches and nothing tracked → “No matches yet — start by marking a film as tracked.” (link to Tracked);
+no matches but films tracked → “No matches yet — you'll see them here the moment a tracked film's screening
+fits your preferences.” Below: **Tracked Movies** panel (max 5, compact rows, “View all →”) and
 **Recent Activity** (last 5 `NotificationLog` rows → `{Film.Title}` + relative `SentAt`).
 
 ### 5.7 Performance Detail — `data-entity="Performance"`
@@ -300,7 +304,7 @@ crawl yet) no matrix applies and no seat badge is shown.
 | Party size | `of {n}` | `of 4` |
 | Price | currency with symbol | `€9.50` |
 | Relative activity time | “2 hours ago”, “1 day ago” | |
-| Separator between site and room | ` · ` (middle dot, spaced) | `Kino am Rathaus · Saal 2` |
+| Separator between cinema and room | ` · ` (middle dot, spaced) | `Kino am Rathaus · Saal 2` |
 
 ---
 
@@ -314,8 +318,8 @@ and the `#blazor-error-ui` bar which is themed with the warning-subtle tokens.
 
 ## 9. Known design ↔ model gaps
 
-1. **“Last crawl” on the Sites screen** has no model field. Derive it as the newest
-   `PerformanceSnapshot.CrawledAt` for performances of the site, or add `Site.LastCrawlAt`. Design expects a
+1. **“Last crawl” on the Cinemas screen** has no model field. Derive it as the newest
+   `PerformanceSnapshot.CrawledAt` for performances of the cinema, or add `Cinema.LastCrawlAt`. Design expects a
    short string plus the literal `Never`.
 2. **Prices** are per price area (`PerformancePriceArea.OrderPrice`), not per performance. The card shows one
    value — implement as the minimum `OrderPrice` for the performance; show nothing if no areas were crawled.
@@ -323,12 +327,12 @@ and the `#blazor-error-ui` bar which is themed with the warning-subtle tokens.
    `--bs-secondary-bg`.
 4. **`FavoriteSeatMatrix.Name` is required** in the model; the earlier design draft marked it optional. The
    editor now treats it as required — validate accordingly.
-5. **Sites screen has no room-create action** — rooms come only from the widget-config seeding
+5. **Cinemas screen has no room-create action** — rooms come only from the widget-config seeding
    (`Re-seed rooms`); do not add a manual “Add room” button.
-6. **Prototype `Site`/`Room` are strings**, matched by name in `data.js`. In the app they are ids
-   (`Room.SiteId`, `Performance.SiteId`/`RoomId`); the “Site” select in the matrix editor is a *filter* for the
+6. **Prototype `Cinema`/`Room` are strings**, matched by name in `data.js`. In the app they are ids
+   (`Room.CinemaId`, `Performance.CinemaId`/`RoomId`); the “Cinema” select in the matrix editor is a *filter* for the
    Room list and is not persisted on `FavoriteSeatMatrix`.
-7. **Multi-user is out of scope**: `FavoriteTimeWindow`, `FavoriteSeatMatrix`, `WatchedMovie` carry no
+7. **Multi-user is out of scope**: `FavoriteTimeWindow`, `FavoriteSeatMatrix`, `TrackedMovie` carry no
    `UserId`, and the design shows a single-user admin app (one `User`, setup-token flow).
 8. **`NotificationLog` is only surfaced as “Recent Activity”** — there is no notification settings screen in
    the design. `NotificationType`/`Channel` are not exposed yet.
@@ -339,8 +343,8 @@ and the `#blazor-error-ui` bar which is themed with the warning-subtle tokens.
 
 1. Tokens + layout shell (navbar, 1536px container, dark-mode block, `.cs-*` utilities).
 2. `SeatGrid` and `FilmPerformanceCard` — every other screen consumes them.
-3. Sites (pure CRUD over `Site`/`Room`, no derived data) — the cheapest end-to-end vertical slice.
+3. Cinemas (pure CRUD over `Cinema`/`Room`, no derived data) — the cheapest end-to-end vertical slice.
 4. Seat Matrices (filter bar, both tabs, precedence hint), Time Preferences.
-5. Schedule / Watched Movies (read models over `Performance`, `Film`, `WatchedMovie`).
+5. Schedule / Tracked Movies (read models over `Performance`, `Film`, `TrackedMovie`).
 6. Home + Performance Detail (need `Match`, `SeatStatus`, `PerformancePriceArea`).
 7. Login / Setup.

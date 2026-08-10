@@ -31,7 +31,7 @@
 <sc-if value="{{ isCompact }}" hint-placeholder-val="{{ true }}">
   <div class="d-flex align-items-center justify-content-between gap-3 px-3 border-bottom flex-wrap" style="padding-top:10px; padding-bottom:10px; transition:background-color .12s ease;" style-hover="background-color:var(--bs-tertiary-bg);">
     <div class="d-flex align-items-center gap-2 flex-wrap">
-      <sc-if value="{{ watchingBool }}"><i class="bi bi-bookmark-star-fill" title="Watching" style="color:var(--cinescout-accent-match);"></i></sc-if>
+      <sc-if value="{{ trackingBool }}"><i class="bi bi-bookmark-star-fill" title="Tracking" style="color:var(--cinescout-accent-match);"></i></sc-if>
       <a href="#" onClick="{{ select }}" class="fw-semibold text-decoration-none cs-heading" style="color:var(--bs-body-color);">{{ title }}</a>
       <span class="text-muted small">{{ datetime }}</span>
       <span class="text-muted small">{{ room }}</span>
@@ -60,7 +60,7 @@
             <div class="text-uppercase fw-semibold mb-1 cs-heading" style="font-size:.7rem; letter-spacing:.08em; color:var(--cinescout-accent-match-text,#8A6508);">Match</div>
           </sc-if>
           <h5 class="card-title mb-1" style="{{ titleStyle }}">{{ title }}</h5>
-          <p class="card-text text-muted mb-1 small">{{ siteRoom }}</p>
+          <p class="card-text text-muted mb-1 small">{{ cinemaRoom }}</p>
           <p class="card-text mb-2 small">{{ datetime }} · <strong>{{ price }}</strong></p>
           <sc-if value="{{ hasReasons }}">
             <div class="d-flex gap-1 flex-wrap mb-3">
@@ -69,8 +69,8 @@
               </sc-for>
             </div>
           </sc-if>
-          <sc-if value="{{ watchingOnlyBool }}">
-            <div class="mb-3 small text-muted"><i class="bi bi-bookmark-star-fill" style="color:var(--cinescout-accent-match);"></i> Watching</div>
+          <sc-if value="{{ trackingOnlyBool }}">
+            <div class="mb-3 small text-muted"><i class="bi bi-bookmark-star-fill" style="color:var(--cinescout-accent-match);"></i> Tracking</div>
           </sc-if>
           <a href="{{ bookingLink }}" target="_blank" rel="noopener" class="btn btn-sm d-inline-block mt-3" style="{{ ctaStyle }}">Book on Kinoheld</a>
         </div>
@@ -79,7 +79,7 @@
   </div>
 </sc-if>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:90},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;featured&quot;],&quot;default&quot;:&quot;compact&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Perfect Days&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;datetime&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Fri, Aug 1 · 20:15&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;room&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Saal 2&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;site&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Kino am Rathaus&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;price&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;€9.50&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;status&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;available&quot;,&quot;soldout&quot;,&quot;cancelled&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;watching&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;isMatch&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;matchReasons&quot;:{&quot;editor&quot;:null,&quot;default&quot;:[],&quot;tsType&quot;:&quot;string[]&quot;},&quot;posterSlot&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;#&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onSelect&quot;:{&quot;editor&quot;:null,&quot;default&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:90},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;compact&quot;,&quot;featured&quot;],&quot;default&quot;:&quot;compact&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Perfect Days&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;datetime&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Fri, Aug 1 · 20:15&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;room&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Saal 2&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;cinema&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Kino am Rathaus&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;price&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;€9.50&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;status&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;available&quot;,&quot;soldout&quot;,&quot;cancelled&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tracking&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;isMatch&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;matchReasons&quot;:{&quot;editor&quot;:null,&quot;default&quot;:[],&quot;tsType&quot;:&quot;string[]&quot;},&quot;posterSlot&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;bookingLink&quot;:{&quot;editor&quot;:null,&quot;default&quot;:&quot;#&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;onSelect&quot;:{&quot;editor&quot;:null,&quot;default&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
 class Component extends DCLogic {
   renderVals() {
     const p = this.props;
@@ -103,15 +103,15 @@ class Component extends DCLogic {
       title: p.title ?? "Untitled",
       datetime: p.datetime ?? "",
       room: p.room ?? "",
-      siteRoom: [p.site, p.room].filter(Boolean).join(" · "),
+      cinemaRoom: [p.cinema, p.room].filter(Boolean).join(" · "),
       price: p.price ?? "",
       posterSlot: poster,
       hasPoster: !!poster,
       noPoster: !poster,
       bookingLink: p.bookingLink ?? "#",
       select: (e) => { e.preventDefault(); if (p.onSelect) p.onSelect(); },
-      watchingBool: !!p.watching,
-      watchingOnlyBool: !!p.watching && !isMatch,
+      trackingBool: !!p.tracking,
+      trackingOnlyBool: !!p.tracking && !isMatch,
       hasBadge: !!badge,
       badgeClass: badge ? badge[0] : "",
       badgeText: badge ? badge[1] : "",

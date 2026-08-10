@@ -29,7 +29,7 @@ redundant), and the existing Edit/Enable-Disable/Delete actions.
 Replace the current disabled, non-interactive `<input type="checkbox" checked disabled>` — which
 visually implies you can click it, but can't — with a plain `Enabled`/`Disabled` badge
 (`.badge.text-bg-success` / `.badge.text-bg-secondary`), consistent with the badge language used
-throughout the other page docs (status badges on Schedule/Watched Movies, match-reason badges on
+throughout the other page docs (status badges on Schedule/Tracked Movies, match-reason badges on
 Home). The actual toggle stays the existing `Enable`/`Disable` submit button below — this only
 changes the passive display element, not the mutation mechanism.
 

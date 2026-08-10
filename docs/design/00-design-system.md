@@ -62,7 +62,7 @@ starting points, not final-checked tokens.
 Both light and dark are supported, selected automatically from the OS/browser's
 `prefers-color-scheme` — no in-app toggle, no stored preference. This matters for CineScout
 specifically because several pages are **static-SSR-only** (`Login`, `Setup`, `Schedule`,
-`WatchedMovies`, `TimePreferences`, `SeatMatrices`, `PerformanceDetail` — no `@onclick`, no client
+`TrackedMovies`, `TimePreferences`, `SeatMatrices`, `PerformanceDetail` — no `@onclick`, no client
 interactivity per root `CLAUDE.md`), so a manual toggle would need a POST round-trip or a
 stored-preference cookie read on every static-SSR request. A pure-CSS approach avoids that
 entirely and works identically regardless of a page's render mode.

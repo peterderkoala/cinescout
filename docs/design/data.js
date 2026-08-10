@@ -4,7 +4,7 @@ export const ACTIVE_MATCHES = [
   {
     id: 1,
     title: "Perfect Days",
-    site: "Kino am Rathaus", room: "Saal 2",
+    cinema: "Kino am Rathaus", room: "Saal 2",
     datetime: "Fri, Aug 1 · 20:15",
     price: "€9.50",
     matchReasons: ["4 seats free", "Fri evening"],
@@ -14,7 +14,7 @@ export const ACTIVE_MATCHES = [
   {
     id: 2,
     title: "The Zone of Interest",
-    site: "Lichtspielhaus Altstadt", room: "Saal 1",
+    cinema: "Lichtspielhaus Altstadt", room: "Saal 1",
     datetime: "Sat, Aug 2 · 19:00",
     price: "€8.00",
     matchReasons: ["2 seats free", "Sat evening"],
@@ -23,7 +23,7 @@ export const ACTIVE_MATCHES = [
   },
 ];
 
-export const WATCHED_MOVIES_HOME = [
+export const TRACKED_MOVIES_HOME = [
   { id: 11, title: "Anatomy of a Fall", next: { id: 201, datetime: "Sun, Aug 3 · 18:30", room: "Saal 3", status: null } },
   { id: 12, title: "Past Lives", next: null },
   { id: 13, title: "Poor Things", next: { id: 203, datetime: "Mon, Aug 4 · 21:00", room: "Saal 1", status: "soldout" } },
@@ -36,7 +36,7 @@ export const RECENT_ACTIVITY = [
   { film: "The Holdovers", when: "5 days ago" },
 ];
 
-const WATCHED_TITLES = ["Anatomy of a Fall", "Poor Things", "Perfect Days"];
+const TRACKED_TITLES = ["Anatomy of a Fall", "Poor Things", "Perfect Days"];
 
 const FILM_POOL = [
   { title: "Perfect Days", room: "Saal 2", time: "18:00", status: "available" },
@@ -73,10 +73,10 @@ export function scheduleWindow(offset) {
         title: f.title,
         datetime: f.time,
         fullDatetime: `${fmtDay(day)} · ${f.time}`,
-        site: k % 2 === 0 ? "Kino am Rathaus" : "Lichtspielhaus Altstadt",
+        cinema: k % 2 === 0 ? "Kino am Rathaus" : "Lichtspielhaus Altstadt",
         room: f.room,
         status: f.status,
-        watching: WATCHED_TITLES.includes(f.title),
+        tracking: TRACKED_TITLES.includes(f.title),
       });
     }
     performances.sort((a, b) => a.datetime.localeCompare(b.datetime));
@@ -98,20 +98,20 @@ export function windowLabel(offset) {
   return `${fmtShort(start)} – ${fmtShort(end)}`;
 }
 
-export const WATCHED_FILMS = [
+export const TRACKED_FILMS = [
   {
     id: 11, title: "Anatomy of a Fall",
     performances: [
-      { id: 201, datetime: "Sun, Aug 3 · 18:30", site: "Kino am Rathaus", room: "Saal 3", status: null },
-      { id: 202, datetime: "Tue, Aug 5 · 20:00", site: "Kino am Rathaus", room: "Saal 1", status: "available" },
-      { id: 205, datetime: "Thu, Aug 7 · 17:15", site: "Lichtspielhaus Altstadt", room: "Saal 2", status: "available" },
+      { id: 201, datetime: "Sun, Aug 3 · 18:30", cinema: "Kino am Rathaus", room: "Saal 3", status: null },
+      { id: 202, datetime: "Tue, Aug 5 · 20:00", cinema: "Kino am Rathaus", room: "Saal 1", status: "available" },
+      { id: 205, datetime: "Thu, Aug 7 · 17:15", cinema: "Lichtspielhaus Altstadt", room: "Saal 2", status: "available" },
     ],
   },
   { id: 12, title: "Past Lives", performances: [] },
   {
     id: 13, title: "Poor Things",
     performances: [
-      { id: 203, datetime: "Mon, Aug 4 · 21:00", site: "Lichtspielhaus Altstadt", room: "Saal 1", status: "soldout" },
+      { id: 203, datetime: "Mon, Aug 4 · 21:00", cinema: "Lichtspielhaus Altstadt", room: "Saal 1", status: "soldout" },
     ],
   },
 ];
@@ -129,13 +129,13 @@ export const TIME_WINDOWS = [
   { id: 2, days: ["Su"], start: "14:00", end: "20:00" },
 ];
 
-export const SITES = ["Kino am Rathaus", "Lichtspielhaus Altstadt"];
+export const CINEMAS = ["Kino am Rathaus", "Lichtspielhaus Altstadt"];
 
-// Site.cs / Room.cs — Konfiguration der gecrawlten Kinos.
-export const SITE_CONFIG = [
+// Cinema.cs / Room.cs — Konfiguration der gecrawlten Kinos.
+export const CINEMA_CONFIG = [
   {
     id: 1,
-    externalSiteId: "kino-am-rathaus",
+    externalCinemaId: "kino-am-rathaus",
     name: "Kino am Rathaus",
     crawlBaseUrl: "https://www.kino-am-rathaus.de",
     isActive: true,
@@ -149,7 +149,7 @@ export const SITE_CONFIG = [
   },
   {
     id: 2,
-    externalSiteId: "lichtspielhaus-altstadt",
+    externalCinemaId: "lichtspielhaus-altstadt",
     name: "Lichtspielhaus Altstadt",
     crawlBaseUrl: "https://www.lichtspielhaus-altstadt.de",
     isActive: true,
@@ -162,7 +162,7 @@ export const SITE_CONFIG = [
   },
   {
     id: 3,
-    externalSiteId: "traumpalast-nord",
+    externalCinemaId: "traumpalast-nord",
     name: "Traumpalast Nord",
     crawlBaseUrl: "https://www.traumpalast-nord.de",
     isActive: false,
@@ -174,22 +174,22 @@ export const SITE_CONFIG = [
 
 // Ein Saal ist nur innerhalb seines Kinos eindeutig — deshalb immer als Paar.
 export const ROOMS = [
-  { site: "Kino am Rathaus", room: "Saal 1" },
-  { site: "Kino am Rathaus", room: "Saal 2" },
-  { site: "Kino am Rathaus", room: "Saal 3" },
-  { site: "Lichtspielhaus Altstadt", room: "Saal 1" },
-  { site: "Lichtspielhaus Altstadt", room: "Saal 2" },
+  { cinema: "Kino am Rathaus", room: "Saal 1" },
+  { cinema: "Kino am Rathaus", room: "Saal 2" },
+  { cinema: "Kino am Rathaus", room: "Saal 3" },
+  { cinema: "Lichtspielhaus Altstadt", room: "Saal 1" },
+  { cinema: "Lichtspielhaus Altstadt", room: "Saal 2" },
 ];
 
 export const SEAT_MATRICES_GENERAL = [
-  { site: "Kino am Rathaus", room: "Saal 1", name: "Sweet spot", rowStart: "A", rowEnd: "D", seatStart: 1, seatEnd: 10, partySize: 4, enabled: true },
-  { site: "Kino am Rathaus", room: "Saal 2", name: "Back rows", rowStart: "A", rowEnd: "F", seatStart: 1, seatEnd: 14, partySize: 2, enabled: false },
-  { site: "Lichtspielhaus Altstadt", room: "Saal 1", name: "Centre block", rowStart: "C", rowEnd: "O", seatStart: 1, seatEnd: 20, partySize: 6, enabled: true },
+  { cinema: "Kino am Rathaus", room: "Saal 1", name: "Sweet spot", rowStart: "A", rowEnd: "D", seatStart: 1, seatEnd: 10, partySize: 4, enabled: true },
+  { cinema: "Kino am Rathaus", room: "Saal 2", name: "Back rows", rowStart: "A", rowEnd: "F", seatStart: 1, seatEnd: 14, partySize: 2, enabled: false },
+  { cinema: "Lichtspielhaus Altstadt", room: "Saal 1", name: "Centre block", rowStart: "C", rowEnd: "O", seatStart: 1, seatEnd: 20, partySize: 6, enabled: true },
 ];
 
 export const SEAT_MATRICES_OVERRIDES = [
-  { id: 1, film: "Poor Things", site: "Lichtspielhaus Altstadt", room: "Saal 1", name: "Premiere seats", rowStart: "B", rowEnd: "C", seatStart: 4, seatEnd: 8, partySize: 4, enabled: true },
-  { id: 2, film: "Perfect Days", site: "Kino am Rathaus", room: "Saal 2", name: "Quiet corner", rowStart: "D", rowEnd: "F", seatStart: 2, seatEnd: 9, partySize: 2, enabled: false },
+  { id: 1, film: "Poor Things", cinema: "Lichtspielhaus Altstadt", room: "Saal 1", name: "Premiere seats", rowStart: "B", rowEnd: "C", seatStart: 4, seatEnd: 8, partySize: 4, enabled: true },
+  { id: 2, film: "Perfect Days", cinema: "Kino am Rathaus", room: "Saal 2", name: "Quiet corner", rowStart: "D", rowEnd: "F", seatStart: 2, seatEnd: 9, partySize: 2, enabled: false },
 ];
 
 // Live-availability grid — per-seat status, gaps where the adjacency chain breaks.
@@ -204,12 +204,12 @@ export const LIVE_SEAT_SUMMARY = { free: 19, total: 32 };
 export const PERFORMANCE_DETAIL = {
   id: 203,
   title: "Poor Things",
-  site: "Lichtspielhaus Altstadt", room: "Saal 1",
+  cinema: "Lichtspielhaus Altstadt", room: "Saal 1",
   datetime: "Mon, Aug 4 · 21:00",
   price: "€9.00",
   posterSlot: "poster-detail",
   bookingLink: "#",
   isMatch: false,
-  isWatched: true,
+  isTracked: true,
   matchReasons: [],
 };

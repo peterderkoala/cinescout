@@ -1,8 +1,8 @@
 # CineScout
 
 CineScout automates movie-going logistics for a local cinema: it crawls the cinema's schedule and
-Kinoheld's seat-availability data, lets you mark movies as "watched", and alerts you when a
-watched movie's screening matches your preferred time/room/seating — with a direct link straight
+Kinoheld's seat-availability data, lets you mark movies as "tracked", and alerts you when a
+tracked movie's screening matches your preferred time/room/seating — with a direct link straight
 into the booking flow. See [IDEA.md](IDEA.md) for the original concept and
 [CONTEXT.md](CONTEXT.md) for the domain glossary.
 

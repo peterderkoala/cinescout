@@ -9,7 +9,7 @@ card this page's listing uses (compact-row variant).
 
 **Current state**: `Schedule.razor` renders a single flat HTML `<table>` — one row per upcoming
 performance, sorted purely chronologically across every film mixed together, no grouping, no date
-cap, no filters. Columns: Film / Site-Room / When / Sold out / Seats. This doc replaces the table
+cap, no filters. Columns: Film / Cinema-Room / When / Sold out / Seats. This doc replaces the table
 with a grouped, capped, card-based listing.
 
 **Render mode**: static-SSR-only (no `@onclick`, no client interactivity) — navigation between date
@@ -41,9 +41,9 @@ predictable in size regardless of how far out Hall-of-Fame's crawl horizon exten
 Each performance uses the [compact-row card](components/film-performance-card.md#compact-row)
 as-is: film title (linking through to `/performances/{id}`, unchanged from today's behavior),
 date/time, room, the mutually-exclusive status badge (`Cancelled`/`Sold out`/`Seats available`),
-and the `Watching` indicator when the film is on the active Watched list. Both of the last two were
+and the `Tracking` indicator when the film is on the active Tracked list. Both of the last two were
 added to the shared component while resolving this ticket — Schedule was the page that surfaced
-the need for them (mixing watched and unwatched films together in one list, and already showing a
+the need for them (mixing tracked and untracked films together in one list, and already showing a
 seat-availability badge in the current implementation), so they're now part of the component's
 spec, not one-off Schedule-only markup.
 

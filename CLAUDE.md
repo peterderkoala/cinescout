@@ -20,20 +20,20 @@ Current projects:
 - `src/cinescout.web.Client` — the WASM client project; interactive pages/layout live here. Pages that need
   direct server-side access (`CineScoutDbContext`, `HttpContext`) instead live in
   `src/cinescout.web/Components/Pages` as static-SSR-only components (no `@rendermode`) — `Login.razor`,
-  `Setup.razor`, `Schedule.razor`, and `WatchedMovies.razor` are the examples so far; `cinescout.web.Client` deliberately never
+  `Setup.razor`, `Schedule.razor`, and `TrackedMovies.razor` are the examples so far; `cinescout.web.Client` deliberately never
   references `cinescout.persistence` (EF Core/Npgsql aren't WASM-appropriate to ship to the browser).
-  `WatchedMovies.razor` is also the first page that *mutates* data from a static-SSR page — it uses Blazor's
+  `TrackedMovies.razor` is also the first page that *mutates* data from a static-SSR page — it uses Blazor's
   native `<EditForm Model="this" FormName="...">` + `[SupplyParameterFromForm]` (not a plain HTML form posting
   to a separate minimal-API endpoint, which is what `Login.razor` does) since this is an authenticated,
   state-mutating action where the framework's built-in antiforgery protection is worth having; `Login.razor`'s
   plain-form approach was a deliberate exception for that one anonymous, low-risk action, not the default
   pattern to copy. `Setup.razor` (#41) reuses Login's plain-form/separate-minimal-API shape rather than
-  WatchedMovies's `EditForm`, even though setup *does* mutate the `User` row: antiforgery tokens defend a
+  TrackedMovies's `EditForm`, even though setup *does* mutate the `User` row: antiforgery tokens defend a
   mutation an attacker rides via a victim's ambient authenticated-session cookies, and setup has neither an
   authenticated session nor any ambient cookie to ride — it's gated by its own out-of-band secret instead (the
   startup-log first-run token), which is a stronger, purpose-built control than a generic antiforgery token
-  would be here. Multiple per-row actions (Watch/Unwatch) share one `EditForm` via two differently-named
-  submit buttons (`name="watchFilmId"` / `name="unwatchFilmId"`, each carrying the film id as its `value`) bound
+  would be here. Multiple per-row actions (Track/Untrack) share one `EditForm` via two differently-named
+  submit buttons (`name="trackFilmId"` / `name="untrackFilmId"`, each carrying the film id as its `value`) bound
   to two separate nullable `[SupplyParameterFromForm]` int properties, rather than a dynamic `FormName` per row.
   `TimePreferences.razor`, `SeatMatrices.razor`, and `PerformanceDetail.razor` (#21/#22) extend the same
   static-SSR patterns: in-page tabs are plain links carrying a query param (`?tab=overrides`) since static SSR
@@ -46,19 +46,19 @@ Current projects:
   cancellation-by-absence logic, the Hangfire recurring job), `Kinoheld/` (room seeding — `IKinoheldClient`,
   parses the widget page's inline `dataLayer.push({...})` JSON via `Utf8JsonReader` token-matching, not a naive
   brace-counting scan, since the blob embeds raw SVG markup with braces/parens inside string values — the same
-  fetch also captures `cinema.id` into `Site.KinoheldCinemaId`, which the seat crawl needs as its `cid`; plus,
+  fetch also captures `cinema.id` into `Cinema.KinoheldCinemaId`, which the seat crawl needs as its `cid`; plus,
   since #22, the seat crawl itself: `GetSeatsAsync` returns a typed `KinoheldSeatsResult`
   (Success/NotBookable/NotFound/Blocked/Anomalous — 400/404 are *expected* per-performance outcomes, never
-  thrown), `KinoheldSeatCrawlService` runs the recurring watched-films-only crawl and the on-demand/
+  thrown), `KinoheldSeatCrawlService` runs the recurring tracked-films-only crawl and the on-demand/
   force-refresh path, and `KinoheldCircuitBreaker` is a deliberately in-memory singleton that trips on any
   403/429/anomalous response and stops **all** Kinoheld polling until an app restart (the v1 "manual reset");
   the 30s `KinoheldFetchCooldownTracker` applies to force-refresh only — routine stale-cache fetches are
   bounded by the freshness window instead, per #14's double-click-guard-only rationale; the HttpClient sends an
   honest `CineScout/1.0 (personal-use)` UA and its resilience retry deliberately excludes 403/429 so the
   breaker, not a retry loop, handles being blocked),
-  `WatchedMovies/` (`WatchedMovieService` — watch/unwatch is a plain insert/delete of a `WatchedMovie` row, not
-  a soft-delete/status flag; the model has no such field and `FilmId` carries a unique index, so re-watching an
-  already-watched film or unwatching one that isn't watched are both defensive no-ops, not errors), and
+  `TrackedMovies/` (`TrackedMovieService` — track/untrack is a plain insert/delete of a `TrackedMovie` row, not
+  a soft-delete/status flag; the model has no such field and `FilmId` carries a unique index, so re-tracking an
+  already-tracked film or untracking one that isn't tracked are both defensive no-ops, not errors), and
   `Discord/` (`IDiscordNotifier` — a thin outgoing-webhook-only wrapper, never throws, always returns a
   `NotificationResult` so callers can log the attempt regardless of outcome; the webhook URL is read from
   config at call time, not baked into `HttpClient.BaseAddress` at DI-registration time, and an unconfigured URL
@@ -71,14 +71,14 @@ Current projects:
   feature": `TimeWindowMatcher`/`SeatBlockFinder` are pure, no-I/O logic per #14's testing decision (the latter
   walks true seat adjacency via `SeatStatus.LeftNeighborSeatId`/`RightNeighborSeatId`, not merely consecutive
   seat numbers); `MatchEvaluationService` is the I/O orchestrator, hooked into `KinoheldSeatCrawlService` right
-  after each seat crawl, creating an `Active` `Match` once per `(Performance, WatchedMovie)` pair and firing
+  after each seat crawl, creating an `Active` `Match` once per `(Performance, TrackedMovie)` pair and firing
   `RulesMatched`/`SeatAvailabilityChanged` (the latter only when `Match.HasSufficientSeats` flips, not on every
-  seat-count change) via the same notify-and-log pattern `WatchedMovieService` established; `CinemaTimeZone`
+  seat-count change) via the same notify-and-log pattern `TrackedMovieService` established; `CinemaTimeZone`
   converts `Performance.StartsAt` — persisted as a UTC-offset instant via `DateTimeOffset.FromUnixTimeSeconds`
   but actually a Europe/Berlin wall-clock time — before comparing against `FavoriteTimeWindow`, which is why
   `Schedule.razor`/`PerformanceDetail.razor` also route their display through it now instead of the raw value).
   Mapping via Mapperly hasn't been needed yet — the DTO→entity shapes so far are simple enough for plain code.
-- `src/cinescout.model` — the EF Core entity set (`Site`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
+- `src/cinescout.model` — the EF Core entity set (`Cinema`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
 - `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
 - `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
 - `src/cinescout.core.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for `cinescout.core`'s
@@ -169,8 +169,8 @@ CineScout's purpose is to automate movie-going logistics:
 - Store each crawl result in a database.
 - Support user-defined room rules (e.g. best rows in a specific theater room).
 - Support favorite times and theater rooms.
-- Allow marking specific movies as "watched" (i.e. movies to track).
-- Alert on "watched" movies when a screening matches the defined preferences (time, room, seating).
+- Allow marking specific movies as "tracked" (i.e. movies to track).
+- Alert on "tracked" movies when a screening matches the defined preferences (time, room, seating).
 - Provide a redirect link straight to the booking flow for a matching screening.
 
 This implies the eventual system will need: scheduled/periodic crawlers or scrapers, persistent storage,
