@@ -266,3 +266,65 @@ Issues are tracked as GitHub Issues on peterderkoala/cinescout via the `gh` CLI.
 ### Domain docs
 
 Single-context layout: CONTEXT.md + docs/adr/ at the repo root. See `docs/agents/domain.md`.
+
+<!-- code-review-graph MCP tools -->
+## MCP Tools: code-review-graph
+
+**IMPORTANT: This project has a knowledge graph. ALWAYS use the
+code-review-graph MCP tools BEFORE using Grep/Glob/Read to explore
+the codebase.** The graph is faster, cheaper (fewer tokens), and gives
+you structural context (callers, dependents, test coverage) that file
+scanning cannot.
+
+**Code review start rule**: whenever a code review begins in this repo — via the `code-review`/
+`review-changes` skill, `/code-review`, or an ad hoc "review this" request — the *first* tool call
+must be `mcp__code-review-graph__detect_changes_tool`, followed by
+`mcp__code-review-graph__get_review_context_tool` for source context, before any Grep/Glob/Read or
+plain `git diff` reading. This applies regardless of which agent or skill is driving the review.
+
+**Implementation rule (`/implement` and equivalent)**: when implementing a ticket or feature in this
+repo — `mattpocock-skills:implement` or any ad hoc "build/implement X" request — query the graph for
+context before writing code: `semantic_search_nodes_tool`/`query_graph_tool` to locate the existing
+code being extended, and `get_impact_radius_tool` to see what else depends on it, instead of guessing
+from Grep/Read alone. **After the implementation finishes** (all edits made, before handing off or
+summarizing), run `code-review-graph update --brief` from the repo root (Bash, not the MCP tool) to
+re-parse the changed files into the graph and print the risk-summary/token-savings panel — this keeps
+the graph current for whatever review or session comes next, and is required even if the session also
+ran its own `/code-review` pass (which only reads the graph, it doesn't re-parse).
+
+**Wayfinder rule**: a `/wayfinder`-style mapping/spec session should use the graph for code awareness
+whenever it needs to understand *existing* code, not just greenfield spec — `get_architecture_overview_tool`,
+`list_communities_tool`, and `semantic_search_nodes_tool` are the ones most likely to matter when the
+wayfinder map touches an area of the codebase that already exists, rather than pure new-feature design
+space. Not every wayfinder session needs this (a map for a brand-new subsystem has nothing in the graph
+yet to query) — use judgment, but default to checking rather than skipping.
+
+### When to use graph tools FIRST
+
+- **Exploring code**: `semantic_search_nodes_tool` or `query_graph_tool` instead of Grep
+- **Understanding impact**: `get_impact_radius_tool` instead of manually tracing imports
+- **Code review**: `detect_changes_tool` + `get_review_context_tool` instead of reading entire files
+- **Finding relationships**: `query_graph_tool` with callers_of/callees_of/imports_of/tests_for
+- **Architecture questions**: `get_architecture_overview_tool` + `list_communities_tool`
+
+Fall back to Grep/Glob/Read **only** when the graph doesn't cover what you need.
+
+### Key Tools
+
+| Tool | Use when |
+| ------ | ---------- |
+| `detect_changes_tool` | Reviewing code changes — gives risk-scored analysis |
+| `get_review_context_tool` | Need source snippets for review — token-efficient |
+| `get_impact_radius_tool` | Understanding blast radius of a change |
+| `get_affected_flows_tool` | Finding which execution paths are impacted |
+| `query_graph_tool` | Tracing callers, callees, imports, tests, dependencies |
+| `semantic_search_nodes_tool` | Finding functions/classes by name or keyword |
+| `get_architecture_overview_tool` | Understanding high-level codebase structure |
+| `refactor_tool` | Planning renames, finding dead code |
+
+### Workflow
+
+1. The graph auto-updates on file changes (via hooks).
+2. Use `detect_changes_tool` for code review.
+3. Use `get_affected_flows_tool` to understand impact.
+4. Use `query_graph_tool` pattern="tests_for" to check coverage.

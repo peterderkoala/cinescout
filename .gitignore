@@ -430,3 +430,5 @@ FodyWeavers.xsd
 
 # Session handoff docs (agent-generated, throwaway — see CLAUDE.md)
 /handoff/
+# Added by code-review-graph
+.code-review-graph/
