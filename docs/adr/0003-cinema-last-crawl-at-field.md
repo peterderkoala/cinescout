@@ -1,0 +1,20 @@
+# Add `Cinema.LastCrawlAt` instead of deriving it from `PerformanceSnapshot`
+
+The Sites/Cinemas screen (`Technical Design Spec.md` §5.1) shows a "Last crawl" caption with no model field behind it (§9.1). `Cinema.LastCrawlAt` (nullable `DateTimeOffset`) is added, written by `HallOfFameCrawlService.CrawlCinemaAsync` only, stamped to `now` immediately **after** `IHallOfFameClient.GetScheduleAsync` returns without throwing — not before the call, and not derived from `PerformanceSnapshot`. Deriving it from the newest `PerformanceSnapshot.CrawledAt` for the cinema's performances was rejected: snapshots are written per performance, unconditionally, but only for performances the schedule response actually contains — a cinema whose fetched schedule is genuinely empty that round (nothing currently showing, not a failure) writes zero snapshot rows, indistinguishable from the HTTP call having failed outright. The field instead answers the operator's real question — "is crawling working for this cinema?" — directly: it goes stale the moment `GetScheduleAsync` starts throwing, and stays fresh whenever Hall-of-Fame is reachable, independent of whether the response happened to contain any films.
+
+Only `HallOfFameCrawlService` writes it, matching the "Crawling enabled/paused" toggle it sits beside on the same form — that toggle is `Cinema.IsActive`, which gates exactly this crawler (`HallOfFameCrawlJob.RunAsync` filters `Where(s => s.IsActive)`). Kinoheld room seeding and the Kinoheld seat crawl have different scope (tracked-films-only, not per-cinema wholesale) and different cadence; folding their activity into the same timestamp would make it answer an ambiguous question, repeating the derived approach's own flaw one level up.
+
+Implementing the field also requires wrapping each cinema's crawl in `HallOfFameCrawlJob.RunAsync` in its own `try`/`catch` (log and continue). Today the `foreach` over active cinemas has no per-iteration exception handling — one cinema's `GetScheduleAsync` throwing aborts the loop, silently skipping every cinema that sorts after it for that cycle. That's a pre-existing bug, but without fixing it `LastCrawlAt` would lie: a cinema that was never actually attempted that cycle (because an earlier cinema in the list threw) would show a stale timestamp with no indication it wasn't even tried.
+
+## Considered Options
+
+- **Derive from `PerformanceSnapshot.CrawledAt`** (rejected): the spec's other offered option. Blind to any crawl of a cinema with a genuinely empty current schedule — indistinguishable from a failed crawl. Also indistinguishable is "haven't checked in a while" and "checked, upstream says nothing showing right now."
+- **Stamp the field before calling `GetScheduleAsync` (true "attempt" semantics)** (rejected): fires every cycle regardless of outcome, so it stays fresh even during an ongoing outage — the opposite of what the operator needs from this caption.
+- **Written by all three crawlers touching a `Cinema`** (Hall-of-Fame schedule, Kinoheld room seeding, Kinoheld seat crawl) (rejected): different scopes (per-cinema wholesale vs. tracked-films-only) and different cadences (recurring vs. one-time bootstrap). One shared timestamp would conflate them the same way the rejected derived approach conflated "empty schedule" with "failed crawl."
+- **Full crawl-health state now** (last error message, consecutive-failure count) (rejected, not blocked): nothing in the design or current backlog asks for more than a relative-time caption plus "Never." A later ticket can add `LastCrawlError`/`ConsecutiveFailureCount` alongside this field without conflict if that need materializes.
+
+## Consequences
+
+- `HallOfFameCrawlJob.RunAsync`'s per-cinema loop gains a `try`/`catch` around each cinema's crawl — a correctness prerequisite for this field, not a separate follow-up.
+- A new EF Core migration adds the nullable `LastCrawlAt` column to `Cinemas`.
+- §9.1 is closed. The Sites/Cinemas screen ticket ([Sites screen: service seam, re-seed trigger, and delete semantics](https://github.com/peterderkoala/cinescout/issues/79)) can render the "Last crawl" caption directly from this field.
