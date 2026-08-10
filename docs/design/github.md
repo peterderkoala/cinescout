@@ -6,6 +6,21 @@ path: docs/design
 date: 2026-08-09T17:40:00Z
 commit: eba2e617236d
 
+## Known divergence (unsynced)
+
+[Wayfinder ticket #87](https://github.com/peterderkoala/cinescout/issues/87) renamed `Site` →
+`Cinema` and `WatchedMovie` → `TrackedMovie` throughout this project (data-entity/data-field
+annotations, visible labels, routes, `data.js`, and this file's own screen map, all below) as
+part of a repo-wide rename that also touched the DB schema and `src/`. **This rename was not
+pushed back to the upstream claude.ai/design project** (id `f08e059c-3282-4e1f-899c-068ade536952`)
+— the `DesignSync` tool was not available in the session that did this rename, so there was no
+mechanism to push from here. The repo (`docs/design/`) is therefore currently *ahead* of the
+upstream design project on this specific rename: a future re-sync from claude.ai/design would
+pull the old "Site"/"WatchedMovie" wording back in and silently clobber this rename unless the
+upstream project is updated first (manually, or by whatever session next has `DesignSync`
+access) to match. Until that happens, treat this repo's `docs/design/` as the source of truth for
+this vocabulary, not the upstream project.
+
 ### Updated in this project
 - Technical Design Spec.md ergänzt: Design-zu-Code-Vertrag (Tokens, Screens, Komponenten, abgeleitete Werte, bekannte Modell-Lücken) gegen src/cinescout.model/*.cs.
 - Prototyp konsistent an das Modell benannt: „Cinema" durchgehend zu „Cinema", Matrix-Name als Pflichtfeld; alle Screens und Formularfelder tragen data-entity / data-field mit exakten C#-Property-Namen.
