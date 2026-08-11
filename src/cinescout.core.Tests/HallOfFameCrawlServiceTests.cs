@@ -586,4 +586,149 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
         Assert.Equal(NotificationStatus.Failed, log.Status);
         Assert.Equal("Discord webhook URL not configured.", log.ResponseDetail);
     }
+
+    [Fact]
+    public async Task LastCrawlAt_is_stamped_after_a_successful_crawl_even_with_an_empty_schedule()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int cinemaId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var cinema = MakeCinema();
+            setup.Cinemas.Add(cinema);
+            await setup.SaveChangesAsync();
+            cinemaId = cinema.Id;
+        }
+
+        // A genuinely empty schedule (nothing currently showing) is a success, not a failure —
+        // ADR 0003's whole point is that LastCrawlAt must still be stamped here.
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new HallOfFameScheduleResponse { Films = [] });
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+            await service.CrawlCinemaAsync(cinema, TimeSpan.FromHours(1), now, CancellationToken.None);
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var persisted = await read.Cinemas.SingleAsync(s => s.Id == cinemaId);
+        Assert.Equal(now, persisted.LastCrawlAt);
+    }
+
+    [Fact]
+    public async Task LastCrawlAt_is_not_stamped_when_GetScheduleAsync_throws()
+    {
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int cinemaId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var cinema = MakeCinema();
+            setup.Cinemas.Add(cinema);
+            await setup.SaveChangesAsync();
+            cinemaId = cinema.Id;
+        }
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<HallOfFameScheduleResponse>(_ => throw new HttpRequestException("simulated failure"));
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+            await Assert.ThrowsAsync<HttpRequestException>(
+                () => service.CrawlCinemaAsync(cinema, TimeSpan.FromHours(1), now, CancellationToken.None));
+        }
+
+        await using var read = new CineScoutDbContext(options);
+        var persisted = await read.Cinemas.SingleAsync(s => s.Id == cinemaId);
+        Assert.Null(persisted.LastCrawlAt);
+    }
+
+    [Fact]
+    public async Task LastCrawlAt_is_not_stamped_when_a_later_film_in_the_same_crawl_throws()
+    {
+        // The first film's upsert calls SaveChangesAsync on its own (to get a real Id before the
+        // snapshot write) — that must not flush LastCrawlAt early if a second film in the same
+        // schedule then throws, or the field would lie about the crawl having fully succeeded.
+        var options = BuildOptions();
+        var now = new DateTimeOffset(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+
+        int cinemaId;
+        await using (var setup = new CineScoutDbContext(options))
+        {
+            var cinema = MakeCinema();
+            setup.Cinemas.Add(cinema);
+            await setup.SaveChangesAsync();
+            cinemaId = cinema.Id;
+        }
+
+        var schedule = new HallOfFameScheduleResponse
+        {
+            Films =
+            [
+                new HallOfFameFilmDto
+                {
+                    DetailId = 401865,
+                    FilmTitle = "Vaiana - Live Action",
+                    PerformanceGroups =
+                    [
+                        new HallOfFamePerformanceGroupDto
+                        {
+                            Performances = new Dictionary<string, JsonElement>
+                            {
+                                ["74011"] = JsonSerializer.SerializeToElement(new HallOfFamePerformanceDto
+                                {
+                                    PerformanceId = 74011,
+                                    BookingLink = "https://www.kinoheld.de/kino-kamp-lintfort/hall-of-fame?mode=widget&change=no&showId=1",
+                                    UnixDateTime = 1783969200,
+                                }),
+                            },
+                        },
+                    ],
+                },
+                new HallOfFameFilmDto
+                {
+                    DetailId = 401866,
+                    FilmTitle = "A Second Film",
+                    PerformanceGroups =
+                    [
+                        new HallOfFamePerformanceGroupDto
+                        {
+                            // Missing the required "bookingLink" — Deserialize<HallOfFamePerformanceDto>()
+                            // throws, simulating an upstream response shape this DTO can't parse.
+                            Performances = new Dictionary<string, JsonElement> { ["1"] = JsonSerializer.SerializeToElement(new { }) },
+                        },
+                    ],
+                },
+            ],
+        };
+
+        var client = Substitute.For<IHallOfFameClient>();
+        client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
+
+        await using (var db = new CineScoutDbContext(options))
+        {
+            var service = new HallOfFameCrawlService(db, client, _notifier);
+            var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+            await Assert.ThrowsAsync<JsonException>(
+                () => service.CrawlCinemaAsync(cinema, TimeSpan.FromHours(1), now, CancellationToken.None));
+        }
+
+        await using var read = new CineScoutDbContext(options);
+
+        // The first film's mid-loop SaveChangesAsync (to get a real Id before its snapshot write)
+        // did happen — proving this isn't just "nothing was saved at all" — but LastCrawlAt must
+        // still be null, since the crawl as a whole didn't complete.
+        Assert.True(await read.Films.AnyAsync(f => f.CinemaId == cinemaId && f.ExternalFilmId == "401865"));
+        var persisted = await read.Cinemas.SingleAsync(s => s.Id == cinemaId);
+        Assert.Null(persisted.LastCrawlAt);
+    }
 }

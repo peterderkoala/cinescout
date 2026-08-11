@@ -15,6 +15,7 @@ builder.Services.AddAuthenticationStateDeserialization();
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddSingleton<AntiforgeryTokenStore>();
 builder.Services.AddScoped<PingApiClient>();
+builder.Services.AddScoped<CinemasApiClient>();
 
 var host = builder.Build();
 

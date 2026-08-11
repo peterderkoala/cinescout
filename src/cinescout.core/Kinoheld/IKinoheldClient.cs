@@ -10,7 +10,13 @@ namespace cinescout.core.Kinoheld;
 /// </summary>
 public interface IKinoheldClient
 {
-    Task<KinoheldWidgetConfig> GetWidgetConfigAsync(string bookingLink, CancellationToken cancellationToken);
+    /// <summary>
+    /// Never throws on a non-success HTTP status — same posture as <see cref="GetSeatsAsync"/> and
+    /// for the same reason: <see cref="KinoheldRoomSeedingService"/> needs to distinguish a block
+    /// (403/429) or anomaly from a genuine parse failure so it can trip
+    /// <see cref="KinoheldCircuitBreaker"/> itself, symmetric with how seat fetches already work.
+    /// </summary>
+    Task<KinoheldWidgetConfigResult> GetWidgetConfigAsync(string bookingLink, CancellationToken cancellationToken);
 
     /// <summary>
     /// Fetches the seat map + availability for one performance. Never throws on a non-success

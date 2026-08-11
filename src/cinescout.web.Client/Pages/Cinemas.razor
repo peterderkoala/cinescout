@@ -1,0 +1,384 @@
+@page "/cinemas"
+@using cinescout.contracts
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject CinemasApiClient Api
+
+@*
+    Cinemas screen — Technical Design Spec.md §5.1 / CineScout Prototype.dc.html
+    (data-screen-label="Cinemas"). Master/detail: list (col-lg-4) + detail card and Rooms card
+    (col-lg-8). Fetches only once interactive (RendererInfo.IsInteractive, issue #86) — the
+    static-prerender pass renders CardSkeleton instead.
+*@
+
+<PageTitle>Cinemas</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h3 class="mb-0" style="color: var(--bs-body-color);">Cinemas</h3>
+    <button class="btn btn-sm cs-btn-primary" @onclick="StartAddCinema"><i class="bi bi-plus-lg"></i> Add cinema</button>
+</div>
+<p class="small mb-4" style="color:var(--bs-secondary-color); max-width:52rem;">
+    Cinemas CineScout crawls. Each cinema is identified by its external cinema id and crawled from its base URL;
+    the Kinoheld cinema id is resolved automatically on the first successful widget-config fetch and is needed
+    for seat availability.
+</p>
+
+@if (!RendererInfo.IsInteractive || _cinemas is null)
+{
+    <CardSkeleton Count="2" />
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-12 col-lg-4">
+            @if (_cinemas.Count == 0)
+            {
+                <p class="small" style="color:var(--bs-secondary-color);">No cinemas yet — add one to get started.</p>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var cinema in _cinemas)
+                    {
+                        var isSelected = _selectedId == cinema.Id;
+                        var roomsText = cinema.RoomCount == 0 ? "No rooms" : $"{cinema.RoomCount} room{(cinema.RoomCount == 1 ? "" : "s")}";
+                        <a href="#"
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-start gap-2"
+                           style="@(isSelected ? "background:rgba(122,31,43,.06); border-left:3px solid var(--cinescout-primary);" : "border-left:3px solid transparent;")"
+                           @onclick="() => SelectCinemaAsync(cinema.Id)" @onclick:preventDefault="true">
+                            <div style="min-width:0;">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span style="width:8px; height:8px; border-radius:50%; background:@(cinema.IsActive ? "var(--bs-success)" : "var(--bs-border-color)"); flex:none;"></span>
+                                    <span style="font-weight:600; color:var(--bs-body-color);">@cinema.Name</span>
+                                </div>
+                                <div class="text-truncate" style="font-size:.78rem; color:var(--bs-secondary-color); margin-top:2px;">@cinema.ExternalCinemaId</div>
+                            </div>
+                            <span class="badge text-bg-light border @(cinema.RoomCount == 0 ? "opacity-75" : "") flex-none">@roomsText</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="col-12 col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+                        <h6 class="card-title mb-0">@(_selectedId is null ? "New cinema" : _selectedCinema?.Name)</h6>
+                        <span class="badge @(_isActive ? "text-bg-success" : "text-bg-secondary")">@(_isActive ? "Active" : "Inactive")</span>
+                    </div>
+
+                    @if (_error is not null)
+                    {
+                        <div class="alert @_errorClass py-2 small">@_error</div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="cnName">Name</label>
+                            <input type="text" class="form-control form-control-sm" id="cnName" @bind="_name" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="cnExternalId">External cinema id</label>
+                            <input type="text" class="form-control form-control-sm" id="cnExternalId" @bind="_externalCinemaId" />
+                            <div style="font-size:.72rem; color:var(--bs-secondary-color); margin-top:4px;">Slug used by the Hall-of-Fame schedule API.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small text-muted" for="cnCrawlUrl">Crawl base URL</label>
+                            <input type="url" class="form-control form-control-sm" id="cnCrawlUrl" @bind="_crawlBaseUrl" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="cnKinoheldId">Kinoheld cinema id</label>
+                            <input type="text" class="form-control form-control-sm" id="cnKinoheldId" value="@(_selectedCinema?.KinoheldCinemaId ?? "Not resolved yet")" readonly disabled />
+                            @{ var resolved = _selectedCinema?.KinoheldCinemaId is not null; }
+                            <div class="d-flex align-items-center gap-1" style="font-size:.72rem; color:@(resolved ? "var(--bs-success)" : "var(--bs-secondary-color)"); margin-top:4px;">
+                                <i class="bi @(resolved ? "bi-check-circle-fill" : "bi-hourglass-split")"></i>
+                                @(resolved ? "Resolved from the widget config — used as cid for seat availability." : "Resolves on the first successful widget-config fetch.")
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted d-block">Crawling</label>
+                            <div class="form-check form-switch" style="padding-top:.2rem;">
+                                <input class="form-check-input" type="checkbox" role="switch" id="cnActive" @bind="_isActive" />
+                                <label class="form-check-label small" for="cnActive" style="color:var(--bs-body-color);">@(_isActive ? "Crawling enabled" : "Crawling paused")</label>
+                            </div>
+                            <div style="font-size:.72rem; color:var(--bs-secondary-color); margin-top:4px;">
+                                Last crawl: @(_selectedId is null ? "—" : RelativeTimeFormatter.Format(_selectedCinema?.LastCrawlAt, DateTimeOffset.UtcNow))
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 flex-wrap mt-4">
+                        <button class="btn btn-sm cs-btn-primary" @onclick="SaveAsync" disabled="@_saving">Save cinema</button>
+                        @if (_selectedId is not null)
+                        {
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="ReseedRoomsAsync" disabled="@_reseeding"><i class="bi bi-arrow-repeat"></i> Re-seed rooms</button>
+                            <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="DeleteAsync"><i class="bi bi-trash"></i> Delete cinema</button>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                        <h6 class="card-title mb-0">Rooms</h6>
+                        <span class="small" style="color:var(--bs-secondary-color);">Seeded from Kinoheld's widget config</span>
+                    </div>
+                    @if (_selectedCinema is { Rooms.Count: > 0 })
+                    {
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="small text-uppercase" style="font-size:.68rem; letter-spacing:.07em; color:var(--bs-secondary-color); font-weight:600;">Name</th>
+                                    <th scope="col" class="small text-uppercase" style="font-size:.68rem; letter-spacing:.07em; color:var(--bs-secondary-color); font-weight:600;">External auditorium id</th>
+                                    <th scope="col" style="width:1%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var room in _selectedCinema.Rooms)
+                                {
+                                    <tr>
+                                        @if (_renamingRoomId == room.Id)
+                                        {
+                                            <td><input class="form-control form-control-sm" @bind="_renameValue" /></td>
+                                            <td style="color:var(--bs-secondary-color); font-size:.85rem;">@room.ExternalAuditoriumId</td>
+                                            <td class="text-nowrap">
+                                                <button class="btn btn-sm btn-outline-secondary" style="font-size:.75rem; padding:.15rem .5rem;" @onclick="() => ConfirmRenameAsync(room.Id)">Save</button>
+                                                <button class="btn btn-sm btn-link" style="font-size:.75rem; padding:.15rem .3rem;" @onclick="CancelRename">Cancel</button>
+                                            </td>
+                                        }
+                                        else
+                                        {
+                                            <td style="color:var(--bs-body-color);">@room.Name</td>
+                                            <td style="color:var(--bs-secondary-color); font-size:.85rem;">@room.ExternalAuditoriumId</td>
+                                            <td><button class="btn btn-sm btn-outline-secondary" style="font-size:.75rem; padding:.15rem .5rem;" @onclick="() => StartRename(room)">Rename</button></td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <p class="small mb-0" style="color:var(--bs-secondary-color);">No rooms seeded yet — rooms appear after the first successful widget-config fetch.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<CinemaListItemDto>? _cinemas;
+    private CinemaDetailDto? _selectedCinema;
+    private int? _selectedId;
+
+    private string _name = "";
+    private string _externalCinemaId = "";
+    private string _crawlBaseUrl = "";
+    private bool _isActive = true;
+
+    private string? _error;
+    private string _errorClass = "alert-danger";
+    private bool _saving;
+    private bool _reseeding;
+
+    private int? _renamingRoomId;
+    private string _renameValue = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            await LoadCinemasAsync();
+        }
+    }
+
+    private async Task LoadCinemasAsync()
+    {
+        var cinemas = await Api.GetListAsync();
+
+        if (cinemas.Count > 0)
+        {
+            _selectedId = cinemas[0].Id;
+            _selectedCinema = await Api.GetDetailAsync(cinemas[0].Id);
+            SyncEditFieldsFromSelection();
+        }
+
+        _cinemas = cinemas;
+    }
+
+    private async Task SelectCinemaAsync(int id)
+    {
+        _error = null;
+        _renamingRoomId = null;
+        _selectedId = id;
+        _selectedCinema = await Api.GetDetailAsync(id);
+        SyncEditFieldsFromSelection();
+    }
+
+    private void SyncEditFieldsFromSelection()
+    {
+        _name = _selectedCinema?.Name ?? "";
+        _externalCinemaId = _selectedCinema?.ExternalCinemaId ?? "";
+        _crawlBaseUrl = _selectedCinema?.CrawlBaseUrl ?? "";
+        _isActive = _selectedCinema?.IsActive ?? true;
+    }
+
+    private void StartAddCinema()
+    {
+        _error = null;
+        _renamingRoomId = null;
+        _selectedId = null;
+        _selectedCinema = null;
+        _name = "";
+        _externalCinemaId = "";
+        _crawlBaseUrl = "";
+        _isActive = true;
+    }
+
+    /// <summary>
+    /// Immediate client-side feedback before the round trip — delegates to the same
+    /// CinemaValidation.Validate the server uses, so the two can't silently drift.
+    /// </summary>
+    private bool TryValidate(CinemaWriteRequest request, out string error)
+    {
+        if (CinemaValidation.Validate(request) is { } validationError)
+        {
+            error = validationError;
+            return false;
+        }
+
+        error = "";
+        return true;
+    }
+
+    private async Task SaveAsync()
+    {
+        _errorClass = "alert-danger";
+
+        var request = new CinemaWriteRequest { Name = _name, ExternalCinemaId = _externalCinemaId, CrawlBaseUrl = _crawlBaseUrl, IsActive = _isActive };
+        if (!TryValidate(request, out var validationError))
+        {
+            _error = validationError;
+            return;
+        }
+
+        _error = null;
+        _saving = true;
+
+        var (cinema, problem) = _selectedId is { } id
+            ? await Api.UpdateAsync(id, request)
+            : await Api.CreateAsync(request);
+
+        _saving = false;
+
+        if (problem is not null)
+        {
+            _error = problem.Detail ?? problem.Title ?? "Save failed.";
+            return;
+        }
+
+        _cinemas = await Api.GetListAsync();
+        if (cinema is not null)
+        {
+            _selectedId = cinema.Id;
+            _selectedCinema = cinema;
+            SyncEditFieldsFromSelection();
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_selectedId is not { } id)
+        {
+            return;
+        }
+
+        _errorClass = "alert-danger";
+        _error = null;
+
+        var problem = await Api.DeleteAsync(id);
+        if (problem is not null)
+        {
+            _error = problem.Detail ?? problem.Title ?? "Delete failed.";
+            return;
+        }
+
+        _cinemas = await Api.GetListAsync();
+        if (_cinemas.Count > 0)
+        {
+            await SelectCinemaAsync(_cinemas[0].Id);
+        }
+        else
+        {
+            StartAddCinema();
+        }
+    }
+
+    private async Task ReseedRoomsAsync()
+    {
+        if (_selectedId is not { } id)
+        {
+            return;
+        }
+
+        _error = null;
+        _reseeding = true;
+
+        var (cinema, problem) = await Api.ReseedRoomsAsync(id);
+
+        _reseeding = false;
+
+        if (problem is not null)
+        {
+            var alert = KinoheldStatusParser.Parse(problem.KinoheldStatus);
+            _errorClass = alert.AlertClass;
+            _error = problem.KinoheldStatus is null ? (problem.Detail ?? alert.Message) : alert.Message;
+            return;
+        }
+
+        if (cinema is not null)
+        {
+            _selectedCinema = cinema;
+            _cinemas = await Api.GetListAsync();
+        }
+    }
+
+    private void StartRename(RoomDto room)
+    {
+        _renamingRoomId = room.Id;
+        _renameValue = room.Name;
+    }
+
+    private void CancelRename() => _renamingRoomId = null;
+
+    private async Task ConfirmRenameAsync(int roomId)
+    {
+        if (_selectedId is not { } cinemaId)
+        {
+            return;
+        }
+
+        var (room, problem) = await Api.RenameRoomAsync(cinemaId, roomId, _renameValue);
+        _renamingRoomId = null;
+
+        if (problem is not null)
+        {
+            _errorClass = "alert-danger";
+            _error = problem.Detail ?? problem.Title ?? "Rename failed.";
+            return;
+        }
+
+        // The response already carries the renamed room — patch it into the loaded list in place
+        // instead of a second round trip to re-fetch the whole cinema just to show one new name.
+        if (room is not null && _selectedCinema is not null)
+        {
+            _selectedCinema = _selectedCinema with
+            {
+                Rooms = _selectedCinema.Rooms.Select(r => r.Id == room.Id ? room : r).ToList(),
+            };
+        }
+    }
+}

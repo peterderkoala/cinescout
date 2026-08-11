@@ -1,4 +1,5 @@
 using System.Net;
+using cinescout.core.Cinemas;
 using cinescout.core.Discord;
 using cinescout.core.Email;
 using cinescout.core.HallOfFame;
@@ -45,6 +46,7 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<KinoheldRoomSeedingService>();
         services.AddSingleton<KinoheldCircuitBreaker>();
         services.AddSingleton<KinoheldFetchCooldownTracker>();
+        services.AddSingleton<KinoheldRoomSeedCooldownTracker>();
         services.AddScoped<KinoheldSeatCrawlService>();
         services.AddScoped<KinoheldSeatCrawlJob>();
 
@@ -84,6 +86,13 @@ public static class CoreServiceCollectionExtensions
     public static IServiceCollection AddPreferences(this IServiceCollection services)
     {
         services.AddScoped<PreferenceService>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddCinemas(this IServiceCollection services)
+    {
+        services.AddScoped<CinemaService>();
 
         return services;
     }

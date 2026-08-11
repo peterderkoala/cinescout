@@ -3,6 +3,7 @@ using cinescout.core.HallOfFame;
 using cinescout.model;
 using cinescout.persistence;
 using cinescout.web.Auth;
+using cinescout.web.Client.Api;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -14,6 +15,28 @@ namespace cinescout.web.Extensions;
 
 public static class WebServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers cinescout.web.Client's per-screen API client wrappers (and their
+    /// AntiforgeryTokenStore/HttpClient dependencies) in the SERVER's DI container too — caught
+    /// live by #92's smoke test, which 500'd with "no registered service of type
+    /// CinemasApiClient". `@inject`-ed properties on an InteractiveWebAssembly page are resolved
+    /// from whichever host is currently rendering it; the static-prerender pass that produces the
+    /// initial HTML (issue #86: every WASM page gets one before the runtime boots) runs
+    /// server-side, so it needs these types constructible even though the RendererInfo.IsInteractive
+    /// gate means nothing on them is ever actually called until the client takes over. The
+    /// server-side HttpClient has no BaseAddress and is never meant to make a real request — every
+    /// future screen ticket that adds its own API client wrapper (#93–#98) must register it here
+    /// too, or its page will 500 on first load the same way.
+    /// </summary>
+    public static IServiceCollection AddClientApiClientsForPrerendering(this IServiceCollection services)
+    {
+        services.AddScoped(_ => new HttpClient());
+        services.AddScoped<AntiforgeryTokenStore>();
+        services.AddScoped<CinemasApiClient>();
+
+        return services;
+    }
+
     public static IServiceCollection AddCineScoutAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();

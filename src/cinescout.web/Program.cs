@@ -59,9 +59,11 @@ builder.Services
     .AddEmail()
     .AddMatching()
     .AddTrackedMovies()
-    .AddPreferences();
+    .AddPreferences()
+    .AddCinemas();
 
 builder.Services.AddCineScoutAuthentication(builder.Configuration);
+builder.Services.AddClientApiClientsForPrerendering();
 
 // HeaderName must be set explicitly: IAntiforgery.ValidateRequestAsync only reads the request
 // token from a form field unless a header name is configured too — the WASM client sends JSON, not
@@ -148,7 +150,7 @@ app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUse
     return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
 }).AllowAnonymous();
 
-app.MapApiGroup().MapPingEndpoint();
+app.MapApiGroup().MapPingEndpoint().MapCinemasEndpoints();
 
 app.MapPost("/account/logout", async (HttpContext context) =>
 {

@@ -44,6 +44,15 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
             missed.Status = PerformanceStatus.Cancelled;
         }
 
+        // Stamped only once every step above has completed without throwing — not before the
+        // GetScheduleAsync call, and not mid-loop (the film/performance upserts below each call
+        // SaveChangesAsync themselves, which would otherwise flush this early and durably record a
+        // "successful" crawl even if a later film/performance in the same cycle then threw and
+        // aborted the rest). Never derived from PerformanceSnapshot (ADR 0003) — answers "is
+        // crawling working for this cinema?" directly, independent of whether the response
+        // happened to contain any films.
+        cinema.LastCrawlAt = now;
+
         await db.SaveChangesAsync(cancellationToken);
     }
 

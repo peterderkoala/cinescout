@@ -19,19 +19,39 @@ public sealed class KinoheldClient(HttpClient httpClient) : IKinoheldClient
     private const string DataLayerPushMarker = "dataLayer.push(";
     private const string GetSeatsUrl = "https://www.kinoheld.de/ajax/getSeats";
 
-    public async Task<KinoheldWidgetConfig> GetWidgetConfigAsync(string bookingLink, CancellationToken cancellationToken)
+    public async Task<KinoheldWidgetConfigResult> GetWidgetConfigAsync(string bookingLink, CancellationToken cancellationToken)
     {
-        var html = await httpClient.GetStringAsync(bookingLink, cancellationToken);
+        // Do NOT throw on non-success: 403/429/etc must be surfaced as data for the circuit
+        // breaker, same posture as GetSeatsAsync below.
+        using var response = await httpClient.GetAsync(bookingLink, cancellationToken);
+        var html = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        var dataLayer = ParseDataLayer(html);
-
-        return new KinoheldWidgetConfig
+        if ((int)response.StatusCode is 403 or 429)
         {
-            CinemaId = dataLayer.Cinema.Id.ToString(CultureInfo.InvariantCulture),
-            Auditoriums = dataLayer.Cinema.Auditoriums
-                .Select(a => new KinoheldAuditorium { Id = a.Id.ToString(), Name = a.Name })
-                .ToList(),
-        };
+            return new KinoheldWidgetConfigResult.Blocked((int)response.StatusCode);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new KinoheldWidgetConfigResult.Anomalous($"Unexpected HTTP {(int)response.StatusCode} fetching the widget page.");
+        }
+
+        try
+        {
+            var dataLayer = ParseDataLayer(html);
+
+            return new KinoheldWidgetConfigResult.Success(new KinoheldWidgetConfig
+            {
+                CinemaId = dataLayer.Cinema.Id.ToString(CultureInfo.InvariantCulture),
+                Auditoriums = dataLayer.Cinema.Auditoriums
+                    .Select(a => new KinoheldAuditorium { Id = a.Id.ToString(), Name = a.Name })
+                    .ToList(),
+            });
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Text.Json.JsonException)
+        {
+            return new KinoheldWidgetConfigResult.Anomalous($"Widget page did not parse as expected: {ex.Message}");
+        }
     }
 
     public async Task<KinoheldSeatsResult> GetSeatsAsync(string cinemaId, string showId, CancellationToken cancellationToken)
@@ -192,7 +212,12 @@ public sealed class KinoheldClient(HttpClient httpClient) : IKinoheldClient
             }
         }
 
-        var objJson = html.Substring(objStart, checked((int)reader.BytesConsumed));
+        // reader.BytesConsumed counts UTF-8 bytes over `remaining`, not UTF-16 chars — using it as
+        // a length into html.Substring would misalign (and throw ArgumentOutOfRangeException) the
+        // moment a multi-byte character (e.g. a German umlaut/ß in a cinema/auditorium name)
+        // appears anywhere in the consumed range. Decoding the exact consumed bytes back to a
+        // string sidesteps the byte/char mismatch entirely.
+        var objJson = Encoding.UTF8.GetString(remaining, 0, checked((int)reader.BytesConsumed));
 
         return JsonSerializer.Deserialize<KinoheldDataLayerDto>(objJson)
             ?? throw new InvalidOperationException("Kinoheld widget page's dataLayer.push(...) block deserialized to null.");

@@ -2,6 +2,7 @@ using cinescout.core.Kinoheld;
 using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Testcontainers.PostgreSql;
 
@@ -30,6 +31,18 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         new DbContextOptionsBuilder<CineScoutDbContext>()
             .UseNpgsql(_postgres.GetConnectionString())
             .Options;
+
+    private static KinoheldRoomSeedingService CreateService(
+        CineScoutDbContext db,
+        IKinoheldClient client,
+        KinoheldCircuitBreaker? breaker = null,
+        KinoheldRoomSeedCooldownTracker? cooldownTracker = null) =>
+        new(
+            db,
+            client,
+            breaker ?? new KinoheldCircuitBreaker(),
+            cooldownTracker ?? new KinoheldRoomSeedCooldownTracker(),
+            NullLogger<KinoheldRoomSeedingService>.Instance);
 
     private static KinoheldWidgetConfig ThreeAuditoriumConfig() => new()
     {
@@ -88,18 +101,21 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         var options = BuildOptions();
         var client = Substitute.For<IKinoheldClient>();
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(ThreeAuditoriumConfig());
+            .Returns(new KinoheldWidgetConfigResult.Success(ThreeAuditoriumConfig()));
 
         int cinemaId;
+        RoomSeedOutcome outcome;
         await using (var db = new CineScoutDbContext(options))
         {
             (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
 
-            var service = new KinoheldRoomSeedingService(db, client);
+            var service = CreateService(db, client);
             var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
 
-            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+            outcome = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
+
+        Assert.Equal(RoomSeedOutcome.Seeded, outcome);
 
         await using var read = new CineScoutDbContext(options);
         var rooms = await read.Rooms.Where(r => r.CinemaId == cinemaId).OrderBy(r => r.ExternalAuditoriumId).ToListAsync();
@@ -120,7 +136,7 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         var options = BuildOptions();
         var client = Substitute.For<IKinoheldClient>();
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(ThreeAuditoriumConfig());
+            .Returns(new KinoheldWidgetConfigResult.Success(ThreeAuditoriumConfig()));
 
         int cinemaId;
         await using (var db = new CineScoutDbContext(options))
@@ -128,10 +144,12 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
             (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
         }
 
+        // Each iteration gets its own cooldown tracker — this test is about seeding idempotency,
+        // not the cooldown, which has its own tests below.
         for (var i = 0; i < 2; i++)
         {
             await using var db = new CineScoutDbContext(options);
-            var service = new KinoheldRoomSeedingService(db, client);
+            var service = CreateService(db, client);
             var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
             await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
@@ -148,13 +166,13 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         var options = BuildOptions();
         var client = Substitute.For<IKinoheldClient>();
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(ThreeAuditoriumConfig());
+            .Returns(new KinoheldWidgetConfigResult.Success(ThreeAuditoriumConfig()));
 
         int cinemaId;
         await using (var db = new CineScoutDbContext(options))
         {
             (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
-            var service = new KinoheldRoomSeedingService(db, client);
+            var service = CreateService(db, client);
             var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
             await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
@@ -166,7 +184,7 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         }
 
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new KinoheldWidgetConfig
+            .Returns(new KinoheldWidgetConfigResult.Success(new KinoheldWidgetConfig
             {
                 CinemaId = "2135",
                 Auditoriums =
@@ -175,11 +193,11 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
                     new KinoheldAuditorium { Id = "8257", Name = "Kino 2" },
                     new KinoheldAuditorium { Id = "8259", Name = "Kino 3 (Renamed)" },
                 ],
-            });
+            }));
 
         await using (var db = new CineScoutDbContext(options))
         {
-            var service = new KinoheldRoomSeedingService(db, client);
+            var service = CreateService(db, client);
             var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
             await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
@@ -199,9 +217,10 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
         var options = BuildOptions();
         var client = Substitute.For<IKinoheldClient>();
         client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(ThreeAuditoriumConfig());
+            .Returns(new KinoheldWidgetConfigResult.Success(ThreeAuditoriumConfig()));
 
         int cinemaId;
+        RoomSeedOutcome outcome;
         await using (var db = new CineScoutDbContext(options))
         {
             var cinema = new Cinema
@@ -215,14 +234,96 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
             await db.SaveChangesAsync();
             cinemaId = cinema.Id;
 
-            var service = new KinoheldRoomSeedingService(db, client);
-            await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+            var service = CreateService(db, client);
+            outcome = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
         }
 
+        Assert.Equal(RoomSeedOutcome.Unavailable, outcome);
         await client.DidNotReceive().GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
 
         await using var read = new CineScoutDbContext(options);
         var rooms = await read.Rooms.Where(r => r.CinemaId == cinemaId).ToListAsync();
         Assert.Empty(rooms);
+    }
+
+    [Fact]
+    public async Task Pre_tripped_breaker_short_circuits_without_calling_out()
+    {
+        var options = BuildOptions();
+        var client = Substitute.For<IKinoheldClient>();
+        var breaker = new KinoheldCircuitBreaker();
+        breaker.Trip("pre-tripped for this test");
+
+        await using var db = new CineScoutDbContext(options);
+        var (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
+        var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+
+        var service = CreateService(db, client, breaker: breaker);
+        var outcome = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+
+        Assert.Equal(RoomSeedOutcome.CircuitOpen, outcome);
+        await client.DidNotReceive().GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Blocked_widget_config_response_trips_breaker_and_returns_CircuitOpen()
+    {
+        var options = BuildOptions();
+        var client = Substitute.For<IKinoheldClient>();
+        client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new KinoheldWidgetConfigResult.Blocked(403));
+        var breaker = new KinoheldCircuitBreaker();
+
+        await using var db = new CineScoutDbContext(options);
+        var (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
+        var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+
+        var service = CreateService(db, client, breaker: breaker);
+        var outcome = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+
+        Assert.Equal(RoomSeedOutcome.CircuitOpen, outcome);
+        Assert.True(breaker.IsTripped);
+    }
+
+    [Fact]
+    public async Task Anomalous_widget_config_response_trips_breaker_and_returns_CircuitOpen()
+    {
+        var options = BuildOptions();
+        var client = Substitute.For<IKinoheldClient>();
+        client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new KinoheldWidgetConfigResult.Anomalous("garbage body"));
+        var breaker = new KinoheldCircuitBreaker();
+
+        await using var db = new CineScoutDbContext(options);
+        var (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
+        var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+
+        var service = CreateService(db, client, breaker: breaker);
+        var outcome = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+
+        Assert.Equal(RoomSeedOutcome.CircuitOpen, outcome);
+        Assert.True(breaker.IsTripped);
+    }
+
+    [Fact]
+    public async Task Second_attempt_within_cooldown_returns_CooldownActive_without_calling_out()
+    {
+        var options = BuildOptions();
+        var client = Substitute.For<IKinoheldClient>();
+        client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new KinoheldWidgetConfigResult.Success(ThreeAuditoriumConfig()));
+        var cooldownTracker = new KinoheldRoomSeedCooldownTracker();
+
+        await using var db = new CineScoutDbContext(options);
+        var (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
+        var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
+
+        var service = CreateService(db, client, cooldownTracker: cooldownTracker);
+        var first = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+        var second = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
+
+        Assert.Equal(RoomSeedOutcome.Seeded, first);
+        Assert.Equal(RoomSeedOutcome.CooldownActive, second);
+        await client.Received(1).GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

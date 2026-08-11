@@ -1,6 +1,7 @@
 using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace cinescout.core.Kinoheld;
 
@@ -15,11 +16,25 @@ namespace cinescout.core.Kinoheld;
 /// cinema-wide widget page), rather than from a dedicated Cinema field — if nothing has been
 /// crawled yet for a cinema, seeding is a safe no-op that will pick up once a Hall-of-Fame crawl
 /// has run.
+///
+/// Also the Re-seed Rooms trigger (Cinemas screen, ADR 0005): the circuit breaker and a per-cinema
+/// cooldown are checked internally, symmetric with how <see cref="KinoheldSeatCrawlService"/>
+/// already gates its own calls — callers don't enforce either themselves.
 /// </summary>
-public sealed class KinoheldRoomSeedingService(CineScoutDbContext db, IKinoheldClient client)
+public sealed class KinoheldRoomSeedingService(
+    CineScoutDbContext db,
+    IKinoheldClient client,
+    KinoheldCircuitBreaker circuitBreaker,
+    KinoheldRoomSeedCooldownTracker cooldownTracker,
+    ILogger<KinoheldRoomSeedingService> logger)
 {
-    public async Task SeedRoomsForCinemaAsync(Cinema cinema, CancellationToken cancellationToken)
+    public async Task<RoomSeedOutcome> SeedRoomsForCinemaAsync(Cinema cinema, CancellationToken cancellationToken)
     {
+        if (circuitBreaker.IsTripped)
+        {
+            return RoomSeedOutcome.CircuitOpen;
+        }
+
         var bookingLink = await db.Performances
             .Where(p => p.CinemaId == cinema.Id)
             .OrderByDescending(p => p.StartsAt)
@@ -28,11 +43,46 @@ public sealed class KinoheldRoomSeedingService(CineScoutDbContext db, IKinoheldC
 
         if (bookingLink is null)
         {
-            return; // nothing crawled yet for this cinema to derive a widget URL from — safe no-op, will pick up once Hall-of-Fame crawl has run
+            return RoomSeedOutcome.Unavailable; // nothing crawled yet for this cinema to derive a widget URL from — safe no-op, will pick up once Hall-of-Fame crawl has run
         }
 
-        var config = await client.GetWidgetConfigAsync(bookingLink, cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        if (!cooldownTracker.TryBeginSeed(cinema.Id, now))
+        {
+            return RoomSeedOutcome.CooldownActive;
+        }
 
+        var result = await client.GetWidgetConfigAsync(bookingLink, cancellationToken);
+
+        switch (result)
+        {
+            case KinoheldWidgetConfigResult.Success success:
+                await UpsertAsync(cinema, success.Config, cancellationToken);
+                return RoomSeedOutcome.Seeded;
+
+            case KinoheldWidgetConfigResult.Blocked blocked:
+                circuitBreaker.Trip($"Kinoheld answered HTTP {blocked.StatusCode} to a widget-config fetch for cinema {cinema.Id} — treating as a block; all Kinoheld polling is stopped until app restart.");
+                logger.LogError(
+                    "Kinoheld blocked a widget-config request (HTTP {StatusCode}) for cinema {CinemaId}; circuit breaker tripped, all polling stopped.",
+                    blocked.StatusCode,
+                    cinema.Id);
+                return RoomSeedOutcome.CircuitOpen;
+
+            case KinoheldWidgetConfigResult.Anomalous anomalous:
+                circuitBreaker.Trip($"Anomalous Kinoheld widget-config response for cinema {cinema.Id}: {anomalous.Detail} All Kinoheld polling is stopped until app restart.");
+                logger.LogError(
+                    "Anomalous Kinoheld widget-config response for cinema {CinemaId}: {Detail}; circuit breaker tripped, all polling stopped.",
+                    cinema.Id,
+                    anomalous.Detail);
+                return RoomSeedOutcome.CircuitOpen;
+
+            default:
+                throw new InvalidOperationException($"Unhandled KinoheldWidgetConfigResult variant {result.GetType().Name}.");
+        }
+    }
+
+    private async Task UpsertAsync(Cinema cinema, KinoheldWidgetConfig config, CancellationToken cancellationToken)
+    {
         // Capture Kinoheld's numeric cinema id alongside the auditoriums — the seat crawl (#22)
         // needs it as "cid" and never guesses it.
         if (cinema.KinoheldCinemaId != config.CinemaId)

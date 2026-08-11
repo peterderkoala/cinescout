@@ -24,10 +24,11 @@ public class KinoheldClientTests
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
         var client = new KinoheldClient(httpClient);
 
-        var config = await client.GetWidgetConfigAsync(
+        var result = await client.GetWidgetConfigAsync(
             "https://www.kinoheld.de/kino-kamp-lintfort/hall-of-fame?mode=widget&change=no&showId=74011",
             CancellationToken.None);
 
+        var config = Assert.IsType<KinoheldWidgetConfigResult.Success>(result).Config;
         Assert.Equal(7, config.Auditoriums.Count);
         Assert.Equal(
             [
@@ -51,13 +52,89 @@ public class KinoheldClientTests
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
         var client = new KinoheldClient(httpClient);
 
-        var config = await client.GetWidgetConfigAsync(
+        var result = await client.GetWidgetConfigAsync(
             "https://www.kinoheld.de/kino-kamp-lintfort/hall-of-fame?mode=widget&change=no&showId=74011",
             CancellationToken.None);
 
         // cinema.id (numeric, stringified) — NOT the opaque cinema.cid string ("MjU4NzYyMA"),
         // which is a different, GraphQL-facing identifier also present in the same blob.
+        var config = Assert.IsType<KinoheldWidgetConfigResult.Success>(result).Config;
         Assert.Equal("2135", config.CinemaId);
+    }
+
+    [Fact]
+    public async Task GetWidgetConfig_NonAsciiAuditoriumName_ParsesWithoutThrowing()
+    {
+        // A German umlaut before the end of the dataLayer.push(...) object is a multi-byte UTF-8
+        // character — reader.BytesConsumed (UTF-8 bytes) must not be used directly as a
+        // html.Substring char count, or this throws ArgumentOutOfRangeException instead of parsing.
+        const string html = """
+            <html><body><script>
+            dataLayer.push({"cinema":{"id":2135,"cid":"abc","auditoriums":[{"id":8255,"name":"Kinosaal Nr. 1 (groß)"}]}});
+            </script></body></html>
+            """;
+
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, html);
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
+        var client = new KinoheldClient(httpClient);
+
+        var result = await client.GetWidgetConfigAsync("https://www.kinoheld.de/some-widget-page", CancellationToken.None);
+
+        var config = Assert.IsType<KinoheldWidgetConfigResult.Success>(result).Config;
+        Assert.Equal("2135", config.CinemaId);
+        var auditorium = Assert.Single(config.Auditoriums);
+        Assert.Equal("Kinosaal Nr. 1 (groß)", auditorium.Name);
+    }
+
+    [Fact]
+    public async Task GetWidgetConfig_403_is_Blocked()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.Forbidden, "<html>Forbidden</html>");
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
+        var client = new KinoheldClient(httpClient);
+
+        var result = await client.GetWidgetConfigAsync("https://www.kinoheld.de/some-widget-page", CancellationToken.None);
+
+        var blocked = Assert.IsType<KinoheldWidgetConfigResult.Blocked>(result);
+        Assert.Equal(403, blocked.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWidgetConfig_429_is_Blocked()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.TooManyRequests, "");
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
+        var client = new KinoheldClient(httpClient);
+
+        var result = await client.GetWidgetConfigAsync("https://www.kinoheld.de/some-widget-page", CancellationToken.None);
+
+        var blocked = Assert.IsType<KinoheldWidgetConfigResult.Blocked>(result);
+        Assert.Equal(429, blocked.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWidgetConfig_unexpected_status_is_Anomalous()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.InternalServerError, "oops");
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
+        var client = new KinoheldClient(httpClient);
+
+        var result = await client.GetWidgetConfigAsync("https://www.kinoheld.de/some-widget-page", CancellationToken.None);
+
+        var anomalous = Assert.IsType<KinoheldWidgetConfigResult.Anomalous>(result);
+        Assert.Contains("500", anomalous.Detail);
+    }
+
+    [Fact]
+    public async Task GetWidgetConfig_200_without_dataLayer_push_is_Anomalous()
+    {
+        var handler = new StubHttpMessageHandler(HttpStatusCode.OK, "<html>no dataLayer here</html>");
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://www.kinoheld.de") };
+        var client = new KinoheldClient(httpClient);
+
+        var result = await client.GetWidgetConfigAsync("https://www.kinoheld.de/some-widget-page", CancellationToken.None);
+
+        Assert.IsType<KinoheldWidgetConfigResult.Anomalous>(result);
     }
 
     /// <summary>
