@@ -1,0 +1,124 @@
+@page "/tracked-movies"
+@using cinescout.contracts
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject TrackedMoviesApiClient Api
+
+@*
+    Tracked Movies screen — Technical Design Spec.md §5.5 / CineScout Prototype.dc.html
+    (data-screen-label="Tracked Movies"). Per-TrackedMovie block: title + Untrack, then its
+    upcoming performances as compact FilmPerformanceCards, or the exact "No upcoming performances"
+    empty-state copy. Below, All films: Film rows with an upcoming performance and no TrackedMovie
+    row, each with a Track button. Track/Untrack return the full page again (#95's endpoint
+    convention) — one action moves a film between both lists, so re-rendering both sections from
+    the same response avoids a second round trip. Fetches only once interactive
+    (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders CardSkeleton
+    instead.
+*@
+
+<PageTitle>Tracked Movies</PageTitle>
+
+<h3 class="mb-3" style="color: var(--bs-body-color);">Your Tracked Films</h3>
+
+@if (!RendererInfo.IsInteractive || _page is null)
+{
+    <CardSkeleton Count="3" />
+}
+else
+{
+    @if (_error is not null)
+    {
+        <div class="alert alert-danger py-2 small">@_error</div>
+    }
+
+    @if (_page.TrackedMovies.Count == 0)
+    {
+        <p class="text-muted small">No tracked films yet — track one below.</p>
+    }
+
+    @foreach (var row in _page.TrackedMovies)
+    {
+        <div class="mb-4">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <h5 class="mb-0" style="color: var(--bs-body-color);">@row.Title</h5>
+                <button class="btn btn-sm btn-outline-danger" style="font-size:.75rem; padding:.2rem .5rem;" @onclick="() => UntrackAsync(row.FilmId)" disabled="@_busy">Untrack</button>
+            </div>
+            @if (row.Performances.Count > 0)
+            {
+                <div class="border rounded bg-white overflow-hidden">
+                    @foreach (var performance in row.Performances)
+                    {
+                        <FilmPerformanceCard Card="performance" Variant="FilmPerformanceCardVariant.Compact" />
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-muted small mb-0">No upcoming performances</p>
+            }
+        </div>
+    }
+
+    <h3 class="mb-3 mt-5" style="color: var(--bs-body-color);">All films</h3>
+
+    @if (_page.AllFilms.Count == 0)
+    {
+        <p class="text-muted small">No untracked films with upcoming performances.</p>
+    }
+    else
+    {
+        <ul class="list-group" style="max-width:44rem;">
+            @foreach (var film in _page.AllFilms)
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    @film.Title
+                    <button class="btn btn-sm cs-btn-outline" @onclick="() => TrackAsync(film.FilmId)" disabled="@_busy">Track</button>
+                </li>
+            }
+        </ul>
+    }
+}
+
+@code {
+    private TrackedMoviesPageDto? _page;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            _page = await Api.GetAsync();
+        }
+    }
+
+    private Task TrackAsync(int filmId) => RunActionAsync(() => Api.TrackAsync(filmId));
+
+    private Task UntrackAsync(int filmId) => RunActionAsync(() => Api.UntrackAsync(filmId));
+
+    private async Task RunActionAsync(Func<Task<(TrackedMoviesPageDto? Page, ApiProblem? Problem)>> action)
+    {
+        _error = null;
+        _busy = true;
+
+        try
+        {
+            var (page, problem) = await action();
+
+            if (problem is not null)
+            {
+                _error = problem.Detail ?? problem.Title ?? "Something went wrong.";
+                // The acted-on film may no longer exist (e.g. removed by another session) — refetch
+                // so a dead row doesn't linger in the UI indefinitely instead of leaving _page stale.
+                _page = await Api.GetAsync();
+                return;
+            }
+
+            _page = page;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

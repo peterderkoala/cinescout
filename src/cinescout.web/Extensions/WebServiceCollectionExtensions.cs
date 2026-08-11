@@ -37,6 +37,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<SeatMatricesApiClient>();
         services.AddScoped<HomeApiClient>();
         services.AddScoped<PerformanceDetailApiClient>();
+        services.AddScoped<TrackedMoviesApiClient>();
 
         return services;
     }

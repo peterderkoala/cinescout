@@ -20,6 +20,7 @@ builder.Services.AddScoped<TimePreferencesApiClient>();
 builder.Services.AddScoped<SeatMatricesApiClient>();
 builder.Services.AddScoped<HomeApiClient>();
 builder.Services.AddScoped<PerformanceDetailApiClient>();
+builder.Services.AddScoped<TrackedMoviesApiClient>();
 
 var host = builder.Build();
 
