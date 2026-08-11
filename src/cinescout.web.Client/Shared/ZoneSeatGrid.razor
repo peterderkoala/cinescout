@@ -25,20 +25,13 @@
     }
 </div>
 
+@*
+    RowCells stays here rather than moving to ZoneSeatGrid.razor.cs (#106): it returns a
+    RenderFragment built from a Razor `@<text>` template, syntax only the Razor compiler understands
+    — it cannot appear in a plain .cs file. Every other member of this class lives in
+    ZoneSeatGrid.razor.cs.
+*@
 @code {
-    [Parameter, EditorRequired]
-    public required ZoneSeatGridModel Matrix { get; set; }
-
-    // RowStart/RowEnd are single Kinoheld row letters by domain convention (cinescout.model's own
-    // doc comment), but nothing at the type level enforces that — guard against an empty string
-    // reaching this component (e.g. from an editor that doesn't validate length) rather than
-    // throwing IndexOutOfRangeException on a malformed matrix.
-    private int RowCount => Matrix.RowStart.Length > 0 && Matrix.RowEnd.Length > 0
-        ? Matrix.RowEnd[0] - Matrix.RowStart[0] + 1
-        : 0;
-    private int SeatCount => Matrix.SeatNumberEnd - Matrix.SeatNumberStart + 1;
-    private SeatGridCappingResult Capping => SeatGridCapping.Compute(RowCount, SeatCount);
-
     private RenderFragment<double> RowCells => opacity =>
         @<text>
             @for (var c = 0; c < Capping.SeatsShown; c++)
@@ -53,6 +46,4 @@
                 <div style="width:16px; height:16px; flex:none; border-radius:2px; background:var(--cinescout-accent-match); opacity:@Opacity(0.35);"></div>
             }
         </text>;
-
-    private static string Opacity(double value) => value.ToString("0.####", CultureInfo.InvariantCulture);
 }
