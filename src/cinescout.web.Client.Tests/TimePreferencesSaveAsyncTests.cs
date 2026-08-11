@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text.Json;
 using cinescout.contracts;
 using cinescout.web.Client.Api;
 using cinescout.web.Client.Pages;
@@ -19,6 +20,11 @@ namespace cinescout.web.Client.Tests;
 /// </summary>
 public sealed class TimePreferencesSaveAsyncTests
 {
+    // ApiClientBase serializes outgoing request bodies with System.Net.Http.Json's default options
+    // (camelCase property names), so reading them back into the PascalCase-property request records
+    // needs case-insensitive matching.
+    private static readonly JsonSerializerOptions CaseInsensitive = new() { PropertyNameCaseInsensitive = true };
+
     private static readonly TimeOnly DefaultStart = new(18, 0);
     private static readonly TimeOnly DefaultEnd = new(22, 0);
 
@@ -82,9 +88,14 @@ public sealed class TimePreferencesSaveAsyncTests
         var created = new TimeWindowDto { Id = 5, DayCodes = ["Mo"], StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0) };
         var existing = new TimeWindowDto { Id = 1, DayCodes = ["Tu"], StartTime = new TimeOnly(12, 0), EndTime = new TimeOnly(13, 0) };
 
-        var (component, requests) = CreateComponent(SuccessHandler(created));
-        SetField(component, "_startTime", DefaultStart);
-        SetField(component, "_endTime", DefaultEnd);
+        var (component, handler) = CreateComponent(SuccessHandler(created));
+        // Deliberately not DefaultStart/DefaultEnd: ResetEditor() resets to those exact same
+        // constants, so priming with them would make the post-save "reset" assertions below pass
+        // even if ResetEditor were never called.
+        var editedStart = new TimeOnly(10, 0);
+        var editedEnd = new TimeOnly(11, 0);
+        SetField(component, "_startTime", editedStart);
+        SetField(component, "_endTime", editedEnd);
         SetField(component, "_selectedDayCodes", new HashSet<string> { "Mo" });
         SetField<int?>(component, "_editingId", null);
         SetField(component, "_windows", new List<TimeWindowDto> { existing });
@@ -92,9 +103,16 @@ public sealed class TimePreferencesSaveAsyncTests
         await InvokeSaveAsync(component);
 
         Assert.Null(GetField<string?>(component, "_error"));
-        var request = Assert.Single(requests);
+        var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
         Assert.Equal("http://localhost/api/time-preferences", request.RequestUri!.ToString());
+
+        // Confirms the request actually carries the edited window, not just that some POST landed
+        // on the right route — method/URL alone can't distinguish that bug from a correct one.
+        var sentBody = JsonSerializer.Deserialize<TimeWindowWriteRequest>(handler.RequestBodies[request]!, CaseInsensitive);
+        Assert.Equal(["Mo"], sentBody!.DayCodes);
+        Assert.Equal(editedStart, sentBody.StartTime);
+        Assert.Equal(editedEnd, sentBody.EndTime);
 
         // TimeWindowDto is a record whose DayCodes field is a string[] — record-generated equality
         // compares arrays by reference, not content, and the "created" window round-tripped through
@@ -121,7 +139,7 @@ public sealed class TimePreferencesSaveAsyncTests
     {
         var updated = new TimeWindowDto { Id = 5, DayCodes = ["Mo"], StartTime = new TimeOnly(9, 0), EndTime = new TimeOnly(10, 0) };
 
-        var (component, requests) = CreateComponent(SuccessHandler(updated));
+        var (component, handler) = CreateComponent(SuccessHandler(updated));
         SetField(component, "_startTime", DefaultStart);
         SetField(component, "_endTime", DefaultEnd);
         SetField(component, "_selectedDayCodes", new HashSet<string> { "Mo" });
@@ -130,7 +148,7 @@ public sealed class TimePreferencesSaveAsyncTests
 
         await InvokeSaveAsync(component);
 
-        var request = Assert.Single(requests);
+        var request = Assert.Single(handler.Requests);
         Assert.Equal(HttpMethod.Put, request.Method);
         Assert.Equal("http://localhost/api/time-preferences/5", request.RequestUri!.ToString());
         Assert.Null(GetField<int?>(component, "_editingId"));
@@ -140,16 +158,28 @@ public sealed class TimePreferencesSaveAsyncTests
     public async Task SaveAsync_ApiReturnsProblemWithDetail_SetsErrorFromDetailAndDoesNotResetEditor()
     {
         var (component, _) = CreateComponent(ProblemHandler(HttpStatusCode.BadRequest, "Bad Title", "Bad Detail"));
-        SetField(component, "_startTime", DefaultStart);
-        SetField(component, "_endTime", DefaultEnd);
-        SetField(component, "_selectedDayCodes", new HashSet<string> { "Mo" });
+        // Deliberately not DefaultStart/DefaultEnd, same reasoning as the create-path test: priming
+        // with the exact values ResetEditor() would reset to makes the "untouched on failure"
+        // assertions below pass even if ResetEditor() were incorrectly called on this path.
+        var editedStart = new TimeOnly(10, 0);
+        var editedEnd = new TimeOnly(11, 0);
+        var editedDays = new HashSet<string> { "Mo" };
+        SetField(component, "_startTime", editedStart);
+        SetField(component, "_endTime", editedEnd);
+        SetField(component, "_selectedDayCodes", editedDays);
         SetField(component, "_editingId", 7);
         SetField(component, "_windows", new List<TimeWindowDto>());
 
         await InvokeSaveAsync(component);
 
         Assert.Equal("Bad Detail", GetField<string?>(component, "_error"));
+        // Editor state untouched — user's in-progress input is preserved on failure. Re-checks every
+        // field the setup above primed, not just a couple of them, since a regression that reset
+        // only some fields on the failure path would otherwise slip through undetected.
         Assert.Equal(7, GetField<int?>(component, "_editingId"));
+        Assert.Equal(editedStart, GetField<TimeOnly?>(component, "_startTime"));
+        Assert.Equal(editedEnd, GetField<TimeOnly?>(component, "_endTime"));
+        Assert.Equal(editedDays, GetField<HashSet<string>>(component, "_selectedDayCodes"));
         Assert.False(GetField<bool>(component, "_saving"));
     }
 
@@ -181,13 +211,13 @@ public sealed class TimePreferencesSaveAsyncTests
         Assert.Equal("Save failed.", GetField<string?>(component, "_error"));
     }
 
-    private static (TimePreferences Component, List<HttpRequestMessage> Requests) CreateComponent(FakeHttpMessageHandler handler)
+    private static (TimePreferences Component, FakeHttpMessageHandler Handler) CreateComponent(FakeHttpMessageHandler handler)
     {
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") };
         var api = new TimePreferencesApiClient(httpClient, new AntiforgeryTokenStore());
         var component = new TimePreferences();
         SetApi(component, api);
-        return (component, handler.Requests);
+        return (component, handler);
     }
 
     private static void SetApi(TimePreferences component, TimePreferencesApiClient api)
@@ -231,10 +261,19 @@ public sealed class TimePreferencesSaveAsyncTests
     {
         public List<HttpRequestMessage> Requests { get; } = [];
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        /// <summary>
+        /// Bodies read eagerly here, not lazily off a captured <see cref="HttpRequestMessage"/> — <see
+        /// cref="ApiClientBase"/> wraps its outgoing request in a <c>using</c>, so by the time a test
+        /// assertion runs after <c>await</c>ing the call, its <c>Content</c> is already disposed.
+        /// Keyed by reference to the same request stored in <see cref="Requests"/>.
+        /// </summary>
+        public Dictionary<HttpRequestMessage, string?> RequestBodies { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
-            return Task.FromResult(respond(request));
+            RequestBodies[request] = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            return respond(request);
         }
     }
 }

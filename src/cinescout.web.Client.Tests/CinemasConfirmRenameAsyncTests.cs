@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text.Json;
 using cinescout.contracts;
 using cinescout.web.Client.Api;
 using cinescout.web.Client.Pages;
@@ -20,6 +21,11 @@ namespace cinescout.web.Client.Tests;
 /// </summary>
 public sealed class CinemasConfirmRenameAsyncTests
 {
+    // ApiClientBase serializes outgoing request bodies with System.Net.Http.Json's default options
+    // (camelCase property names), so reading them back into the PascalCase-property request records
+    // needs case-insensitive matching.
+    private static readonly JsonSerializerOptions CaseInsensitive = new() { PropertyNameCaseInsensitive = true };
+
     private static readonly PropertyInfo ApiProperty = typeof(Cinemas).GetProperty("Api", BindingFlags.NonPublic | BindingFlags.Instance)
         ?? throw new InvalidOperationException("Property Api not found on Cinemas.");
 
@@ -81,10 +87,18 @@ public sealed class CinemasConfirmRenameAsyncTests
     {
         public HttpRequestMessage? LastRequest { get; private set; }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        /// <summary>
+        /// Read eagerly here, not lazily off <see cref="LastRequest"/> — <see cref="ApiClientBase"/>
+        /// wraps its outgoing request in a <c>using</c>, so by the time a test assertion runs after
+        /// <c>await</c>ing the call, <c>LastRequest.Content</c> is already disposed.
+        /// </summary>
+        public string? LastRequestBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
-            return Task.FromResult(respond(request));
+            LastRequestBody = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            return respond(request);
         }
     }
 
@@ -130,6 +144,11 @@ public sealed class CinemasConfirmRenameAsyncTests
         Assert.NotNull(handler.LastRequest);
         Assert.Equal(HttpMethod.Put, handler.LastRequest!.Method);
         Assert.Equal("http://localhost/api/cinemas/1/rooms/2", handler.LastRequest.RequestUri!.ToString());
+
+        // Confirms the request actually carries the edited _renameValue, not e.g. the room's
+        // original name — method/URL alone can't distinguish that bug from a correct request.
+        var sentBody = JsonSerializer.Deserialize<RoomRenameRequest>(handler.LastRequestBody!, CaseInsensitive);
+        Assert.Equal("New Name", sentBody!.Name);
     }
 
     [Fact]
@@ -172,6 +191,9 @@ public sealed class CinemasConfirmRenameAsyncTests
         SelectedCinemaField.SetValue(component, cinema);
         RenamingRoomIdField.SetValue(component, 2);
         RenameValueField.SetValue(component, "Bad Name");
+        // Start from a non-default value so the post-call assertion below actually proves
+        // ConfirmRenameAsync sets it, rather than the field's own "alert-danger" default doing so.
+        ErrorClassField.SetValue(component, "alert-info");
 
         await InvokeConfirmRenameAsync(component, 2);
 
