@@ -38,6 +38,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<HomeApiClient>();
         services.AddScoped<PerformanceDetailApiClient>();
         services.AddScoped<TrackedMoviesApiClient>();
+        services.AddScoped<ScheduleApiClient>();
 
         return services;
     }

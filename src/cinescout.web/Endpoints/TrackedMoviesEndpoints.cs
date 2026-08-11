@@ -105,6 +105,7 @@ public static class TrackedMoviesEndpointsExtensions
             var cards = performancesByFilm[film.Id]
                 .Select(p => new FilmPerformanceCardModel
                 {
+                    PerformanceId = p.Id,
                     Title = film.Title,
                     Cinema = null,
                     Room = p.RoomId is int roomId && rooms.TryGetValue(roomId, out var room) ? room.Name : "",

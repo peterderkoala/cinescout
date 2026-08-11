@@ -16,6 +16,13 @@ namespace cinescout.contracts;
 /// </summary>
 public sealed record FilmPerformanceCardModel
 {
+    /// <summary>
+    /// Performance.Id — not one of §4.1's listed props (the prototype's <c>on-select</c> callback is
+    /// opaque to the design), but every caller has it on hand and Schedule (#96) needs it to navigate
+    /// the card's title through to <c>/performances/{id}</c> per its own design doc.
+    /// </summary>
+    public required int PerformanceId { get; init; }
+
     /// <summary>Film.Title.</summary>
     public required string Title { get; init; }
 

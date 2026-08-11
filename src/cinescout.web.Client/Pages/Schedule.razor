@@ -1,0 +1,101 @@
+@page "/schedule"
+@using cinescout.contracts
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject ScheduleApiClient Api
+@inject NavigationManager NavigationManager
+
+@*
+    Schedule screen — Technical Design Spec.md §5.4 / CineScout Prototype.dc.html
+    (data-screen-label="Schedule"). 14-day, day-grouped window with Previous/Next-week paging
+    (#96). Per #78's resolution, the day-grouping/windowing/omit-empty-days behavior is design
+    intent to build, not code ported from the old flat, ungrouped Schedule.razor stub (deleted in
+    this same PR) — that stub had no load-bearing behavior worth porting (confirmed against #78's
+    own resolution comment), unlike #98's PerformanceDetail legacy page. Fetches only once
+    interactive (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders
+    CardSkeleton instead. Unlike TrackedMovies/Home, GET failures are left to bubble to the
+    app-wide #blazor-error-ui bar (§8's generic Error state) rather than a per-page try/catch,
+    matching Home.razor's own GET-only precedent.
+*@
+
+<PageTitle>Schedule</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
+    <h3 class="mb-0" style="color: var(--bs-body-color);">Schedule</h3>
+    <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="PreviousWeekAsync" disabled="@(!RendererInfo.IsInteractive || _busy || _weekOffset == 0)">← Previous week</button>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="NextWeekAsync" disabled="@(!RendererInfo.IsInteractive || _busy)">Next week →</button>
+    </div>
+</div>
+
+@if (!RendererInfo.IsInteractive || _schedule is null)
+{
+    <CardSkeleton Count="4" />
+}
+else
+{
+    <p class="text-muted small mb-4">@_schedule.WeekLabel</p>
+
+    @if (_schedule.Days.Count == 0)
+    {
+        <p class="text-muted small">No performances in the next 14 days.</p>
+    }
+    else
+    {
+        @foreach (var day in _schedule.Days)
+        {
+            <div class="mb-4">
+                <h6 class="text-uppercase text-muted small mb-2" style="letter-spacing:.06em;">@day.Label</h6>
+                <div class="border rounded bg-white overflow-hidden">
+                    @foreach (var performance in day.Performances)
+                    {
+                        <FilmPerformanceCard Card="performance" Variant="FilmPerformanceCardVariant.Compact" OnSelect="() => GoToPerformance(performance.PerformanceId)" />
+                    }
+                </div>
+            </div>
+        }
+    }
+}
+
+@code {
+    private ScheduleDto? _schedule;
+    private int _weekOffset;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            _schedule = await Api.GetAsync(_weekOffset);
+        }
+    }
+
+    private async Task PreviousWeekAsync()
+    {
+        if (_weekOffset == 0)
+        {
+            return;
+        }
+
+        await LoadWeekAsync(_weekOffset - 1);
+    }
+
+    private Task NextWeekAsync() => LoadWeekAsync(_weekOffset + 1);
+
+    private async Task LoadWeekAsync(int weekOffset)
+    {
+        _busy = true;
+
+        try
+        {
+            _schedule = await Api.GetAsync(weekOffset);
+            _weekOffset = _schedule.WeekOffset;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void GoToPerformance(int performanceId) => NavigationManager.NavigateTo($"/performances/{performanceId}");
+}

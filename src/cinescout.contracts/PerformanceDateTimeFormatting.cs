@@ -32,4 +32,42 @@ public static class PerformanceDateTimeFormatting
 
         return berlinLocalStartsAt.ToString("ddd, MMM d '·' HH:mm", CultureInfo.InvariantCulture);
     }
+
+    /// <summary>§7's "time inside a day group" format: "HH:mm", e.g. "20:15" — no date, since the
+    /// enclosing day-group heading already carries it.</summary>
+    public static string FormatTimeOnly(DateTime berlinLocalStartsAt)
+    {
+        if (berlinLocalStartsAt.Kind != DateTimeKind.Unspecified)
+        {
+            throw new ArgumentException(
+                "Expected a Kind=Unspecified DateTime already converted to Berlin-local time by the caller " +
+                $"(got Kind={berlinLocalStartsAt.Kind}).",
+                nameof(berlinLocalStartsAt));
+        }
+
+        return berlinLocalStartsAt.ToString("HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// §5.4's day-group heading: "Today"/"Tomorrow" when <paramref name="day"/> is 0/1 days after
+    /// <paramref name="today"/>, otherwise a dated heading ("Fri, Aug 1").
+    /// </summary>
+    public static string FormatDayHeading(DateOnly day, DateOnly today)
+    {
+        if (day == today)
+        {
+            return "Today";
+        }
+
+        if (day == today.AddDays(1))
+        {
+            return "Tomorrow";
+        }
+
+        return day.ToString("ddd, MMM d", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>§7's week caption: "MMM d – MMM d" (en dash), e.g. "Aug 1 – Aug 14 · next 14 days".</summary>
+    public static string FormatWeekCaption(DateOnly windowStart, DateOnly windowEndInclusive) =>
+        $"{windowStart.ToString("MMM d", CultureInfo.InvariantCulture)} – {windowEndInclusive.ToString("MMM d", CultureInfo.InvariantCulture)} · next 14 days";
 }

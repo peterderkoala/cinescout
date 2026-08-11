@@ -101,6 +101,7 @@ public static class HomeEndpointsExtensions
 
             var card = new FilmPerformanceCardModel
             {
+                PerformanceId = performance.Id,
                 Title = film.Title,
                 Cinema = cinema.Name,
                 Room = room.Name,
@@ -192,6 +193,7 @@ public static class HomeEndpointsExtensions
                 FilmTitle = film.Title,
                 NextPerformance = new FilmPerformanceCardModel
                 {
+                    PerformanceId = performance.Id,
                     Title = film.Title,
                     Cinema = null,
                     Room = roomName,

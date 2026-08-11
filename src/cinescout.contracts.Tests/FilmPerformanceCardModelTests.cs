@@ -14,6 +14,7 @@ public class FilmPerformanceCardModelTests
     {
         var model = new FilmPerformanceCardModel
         {
+            PerformanceId = 42,
             Title = "Perfect Days",
             Cinema = "Kino am Rathaus",
             Room = "Saal 2",
@@ -46,6 +47,7 @@ public class FilmPerformanceCardModelTests
         // Compact rows don't show cinema, may have no crawled price yet, and no poster.
         var model = new FilmPerformanceCardModel
         {
+            PerformanceId = 42,
             Title = "Perfect Days",
             Room = "Saal 2",
             DateTime = "Fri, Aug 1 · 20:15",

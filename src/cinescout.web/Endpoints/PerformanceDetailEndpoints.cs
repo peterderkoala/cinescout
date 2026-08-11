@@ -158,6 +158,7 @@ public static class PerformanceDetailEndpointsExtensions
 
         var card = new FilmPerformanceCardModel
         {
+            PerformanceId = performance.Id,
             Title = film.Title,
             Cinema = cinema.Name,
             Room = roomName,
