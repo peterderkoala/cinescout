@@ -13,6 +13,24 @@ namespace cinescout.persistence.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "Cinemas",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ExternalCinemaId = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    CrawlBaseUrl = table.Column<string>(type: "text", nullable: false),
+                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
+                    KinoheldCinemaId = table.Column<string>(type: "text", nullable: true),
+                    LastCrawlAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Cinemas", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "FavoriteTimeWindows",
                 columns: table => new
                 {
@@ -28,19 +46,18 @@ namespace cinescout.persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Sites",
+                name: "Users",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    ExternalSiteId = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    CrawlBaseUrl = table.Column<string>(type: "text", nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false)
+                    Username = table.Column<string>(type: "text", nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: true),
+                    SetupCompletedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Sites", x => x.Id);
+                    table.PrimaryKey("PK_Users", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -49,17 +66,18 @@ namespace cinescout.persistence.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    SiteId = table.Column<int>(type: "integer", nullable: false),
+                    CinemaId = table.Column<int>(type: "integer", nullable: false),
                     ExternalFilmId = table.Column<string>(type: "text", nullable: false),
-                    Title = table.Column<string>(type: "text", nullable: false)
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    PosterUrl = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Films", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Films_Sites_SiteId",
-                        column: x => x.SiteId,
-                        principalTable: "Sites",
+                        name: "FK_Films_Cinemas_CinemaId",
+                        column: x => x.CinemaId,
+                        principalTable: "Cinemas",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -70,7 +88,7 @@ namespace cinescout.persistence.Migrations
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    SiteId = table.Column<int>(type: "integer", nullable: false),
+                    CinemaId = table.Column<int>(type: "integer", nullable: false),
                     ExternalAuditoriumId = table.Column<string>(type: "text", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false)
                 },
@@ -78,15 +96,15 @@ namespace cinescout.persistence.Migrations
                 {
                     table.PrimaryKey("PK_Rooms", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Rooms_Sites_SiteId",
-                        column: x => x.SiteId,
-                        principalTable: "Sites",
+                        name: "FK_Rooms_Cinemas_CinemaId",
+                        column: x => x.CinemaId,
+                        principalTable: "Cinemas",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "WatchedMovies",
+                name: "TrackedMovies",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
@@ -96,9 +114,9 @@ namespace cinescout.persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_WatchedMovies", x => x.Id);
+                    table.PrimaryKey("PK_TrackedMovies", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_WatchedMovies_Films_FilmId",
+                        name: "FK_TrackedMovies_Films_FilmId",
                         column: x => x.FilmId,
                         principalTable: "Films",
                         principalColumn: "Id",
@@ -145,7 +163,7 @@ namespace cinescout.persistence.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     FilmId = table.Column<int>(type: "integer", nullable: false),
-                    SiteId = table.Column<int>(type: "integer", nullable: false),
+                    CinemaId = table.Column<int>(type: "integer", nullable: false),
                     RoomId = table.Column<int>(type: "integer", nullable: true),
                     SourcePerformanceId = table.Column<string>(type: "text", nullable: false),
                     StartsAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -159,6 +177,12 @@ namespace cinescout.persistence.Migrations
                 {
                     table.PrimaryKey("PK_Performances", x => x.Id);
                     table.ForeignKey(
+                        name: "FK_Performances_Cinemas_CinemaId",
+                        column: x => x.CinemaId,
+                        principalTable: "Cinemas",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
                         name: "FK_Performances_Films_FilmId",
                         column: x => x.FilmId,
                         principalTable: "Films",
@@ -170,12 +194,6 @@ namespace cinescout.persistence.Migrations
                         principalTable: "Rooms",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_Performances_Sites_SiteId",
-                        column: x => x.SiteId,
-                        principalTable: "Sites",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -185,9 +203,10 @@ namespace cinescout.persistence.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     PerformanceId = table.Column<int>(type: "integer", nullable: false),
-                    WatchedMovieId = table.Column<int>(type: "integer", nullable: false),
+                    TrackedMovieId = table.Column<int>(type: "integer", nullable: false),
                     MatchedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false)
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    HasSufficientSeats = table.Column<bool>(type: "boolean", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -199,9 +218,31 @@ namespace cinescout.persistence.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_Matches_WatchedMovies_WatchedMovieId",
-                        column: x => x.WatchedMovieId,
-                        principalTable: "WatchedMovies",
+                        name: "FK_Matches_TrackedMovies_TrackedMovieId",
+                        column: x => x.TrackedMovieId,
+                        principalTable: "TrackedMovies",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PerformancePriceAreas",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    PerformanceId = table.Column<int>(type: "integer", nullable: false),
+                    ProviderId = table.Column<string>(type: "text", nullable: false),
+                    Name = table.Column<string>(type: "text", nullable: false),
+                    OrderPrice = table.Column<decimal>(type: "numeric(10,4)", precision: 10, scale: 4, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PerformancePriceAreas", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PerformancePriceAreas_Performances_PerformanceId",
+                        column: x => x.PerformanceId,
+                        principalTable: "Performances",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -261,6 +302,7 @@ namespace cinescout.persistence.Migrations
                     Status = table.Column<int>(type: "integer", nullable: false),
                     LeftNeighborSeatId = table.Column<string>(type: "text", nullable: true),
                     RightNeighborSeatId = table.Column<string>(type: "text", nullable: true),
+                    PriceAreaProviderId = table.Column<string>(type: "text", nullable: true),
                     UpdatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -282,6 +324,7 @@ namespace cinescout.persistence.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     NotificationType = table.Column<int>(type: "integer", nullable: false),
                     MatchId = table.Column<int>(type: "integer", nullable: true),
+                    FilmId = table.Column<int>(type: "integer", nullable: true),
                     Channel = table.Column<string>(type: "text", nullable: false),
                     SentAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
@@ -290,6 +333,12 @@ namespace cinescout.persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_NotificationLogs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_NotificationLogs_Films_FilmId",
+                        column: x => x.FilmId,
+                        principalTable: "Films",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_NotificationLogs_Matches_MatchId",
                         column: x => x.MatchId,
@@ -310,7 +359,8 @@ namespace cinescout.persistence.Migrations
                     SeatNumber = table.Column<int>(type: "integer", nullable: false),
                     Status = table.Column<int>(type: "integer", nullable: false),
                     LeftNeighborSeatId = table.Column<string>(type: "text", nullable: true),
-                    RightNeighborSeatId = table.Column<string>(type: "text", nullable: true)
+                    RightNeighborSeatId = table.Column<string>(type: "text", nullable: true),
+                    PriceAreaProviderId = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -323,6 +373,17 @@ namespace cinescout.persistence.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.InsertData(
+                table: "Users",
+                columns: new[] { "Id", "PasswordHash", "SetupCompletedAt", "Username" },
+                values: new object[] { 1, null, null, "cinescout" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Cinemas_ExternalCinemaId",
+                table: "Cinemas",
+                column: "ExternalCinemaId",
+                unique: true);
+
             migrationBuilder.CreateIndex(
                 name: "IX_FavoriteSeatMatrices_FilmId",
                 table: "FavoriteSeatMatrices",
@@ -334,9 +395,9 @@ namespace cinescout.persistence.Migrations
                 column: "RoomId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Films_SiteId_ExternalFilmId",
+                name: "IX_Films_CinemaId_ExternalFilmId",
                 table: "Films",
-                columns: new[] { "SiteId", "ExternalFilmId" },
+                columns: new[] { "CinemaId", "ExternalFilmId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -345,14 +406,31 @@ namespace cinescout.persistence.Migrations
                 column: "PerformanceId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Matches_WatchedMovieId",
+                name: "IX_Matches_TrackedMovieId",
                 table: "Matches",
-                column: "WatchedMovieId");
+                column: "TrackedMovieId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_NotificationLogs_FilmId",
+                table: "NotificationLogs",
+                column: "FilmId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_NotificationLogs_MatchId",
                 table: "NotificationLogs",
                 column: "MatchId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PerformancePriceAreas_PerformanceId_ProviderId",
+                table: "PerformancePriceAreas",
+                columns: new[] { "PerformanceId", "ProviderId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Performances_CinemaId_SourcePerformanceId",
+                table: "Performances",
+                columns: new[] { "CinemaId", "SourcePerformanceId" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Performances_FilmId",
@@ -365,20 +443,14 @@ namespace cinescout.persistence.Migrations
                 column: "RoomId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Performances_SiteId_SourcePerformanceId",
-                table: "Performances",
-                columns: new[] { "SiteId", "SourcePerformanceId" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_PerformanceSnapshots_PerformanceId",
                 table: "PerformanceSnapshots",
                 column: "PerformanceId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Rooms_SiteId_ExternalAuditoriumId",
+                name: "IX_Rooms_CinemaId_ExternalAuditoriumId",
                 table: "Rooms",
-                columns: new[] { "SiteId", "ExternalAuditoriumId" },
+                columns: new[] { "CinemaId", "ExternalAuditoriumId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -398,15 +470,15 @@ namespace cinescout.persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Sites_ExternalSiteId",
-                table: "Sites",
-                column: "ExternalSiteId",
+                name: "IX_TrackedMovies_FilmId",
+                table: "TrackedMovies",
+                column: "FilmId",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_WatchedMovies_FilmId",
-                table: "WatchedMovies",
-                column: "FilmId",
+                name: "IX_Users_Username",
+                table: "Users",
+                column: "Username",
                 unique: true);
         }
 
@@ -423,6 +495,9 @@ namespace cinescout.persistence.Migrations
                 name: "NotificationLogs");
 
             migrationBuilder.DropTable(
+                name: "PerformancePriceAreas");
+
+            migrationBuilder.DropTable(
                 name: "PerformanceSnapshots");
 
             migrationBuilder.DropTable(
@@ -432,13 +507,16 @@ namespace cinescout.persistence.Migrations
                 name: "SeatStatuses");
 
             migrationBuilder.DropTable(
+                name: "Users");
+
+            migrationBuilder.DropTable(
                 name: "Matches");
 
             migrationBuilder.DropTable(
                 name: "SeatingSnapshots");
 
             migrationBuilder.DropTable(
-                name: "WatchedMovies");
+                name: "TrackedMovies");
 
             migrationBuilder.DropTable(
                 name: "Performances");
@@ -450,7 +528,7 @@ namespace cinescout.persistence.Migrations
                 name: "Rooms");
 
             migrationBuilder.DropTable(
-                name: "Sites");
+                name: "Cinemas");
         }
     }
 }

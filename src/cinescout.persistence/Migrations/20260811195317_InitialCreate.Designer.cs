@@ -12,8 +12,8 @@ using cinescout.persistence;
 namespace cinescout.persistence.Migrations
 {
     [DbContext(typeof(CineScoutDbContext))]
-    [Migration("20260809190401_RenameSiteToCinemaAndWatchedMovieToTrackedMovie")]
-    partial class RenameSiteToCinemaAndWatchedMovieToTrackedMovie
+    [Migration("20260811195317_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -46,6 +46,9 @@ namespace cinescout.persistence.Migrations
 
                     b.Property<string>("KinoheldCinemaId")
                         .HasColumnType("text");
+
+                    b.Property<DateTimeOffset?>("LastCrawlAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -202,6 +205,9 @@ namespace cinescout.persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("FilmId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("MatchId")
                         .HasColumnType("integer");
 
@@ -218,6 +224,8 @@ namespace cinescout.persistence.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FilmId");
 
                     b.HasIndex("MatchId");
 
@@ -565,6 +573,11 @@ namespace cinescout.persistence.Migrations
 
             modelBuilder.Entity("cinescout.model.NotificationLog", b =>
                 {
+                    b.HasOne("cinescout.model.Film", null)
+                        .WithMany()
+                        .HasForeignKey("FilmId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("cinescout.model.Match", null)
                         .WithMany()
                         .HasForeignKey("MatchId")
