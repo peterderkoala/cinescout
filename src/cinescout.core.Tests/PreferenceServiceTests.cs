@@ -142,19 +142,20 @@ public class PreferenceServiceTests : IAsyncLifetime
         var options = BuildOptions();
         var (roomId, _) = await SeedRoomAndFilmAsync();
 
+        int matrixId;
         await using (var db = new CineScoutDbContext(options))
         {
             var service = new PreferenceService(db);
-            await service.CreateSeatMatrixAsync(
+            var (outcome, id) = await service.CreateSeatMatrixAsync(
                 new SeatMatrixInput(roomId, FilmId: null, "Sweet spot", "D", "F", 4, 9, 2, IsEnabled: true),
                 CancellationToken.None);
+            Assert.Equal(SeatMatrixSaveOutcome.Saved, outcome);
+            matrixId = id;
         }
 
-        int matrixId;
         await using (var read = new CineScoutDbContext(options))
         {
-            var matrix = await read.FavoriteSeatMatrices.SingleAsync();
-            matrixId = matrix.Id;
+            var matrix = await read.FavoriteSeatMatrices.SingleAsync(m => m.Id == matrixId);
             Assert.Equal(roomId, matrix.RoomId);
             Assert.Null(matrix.FilmId);
             Assert.Equal("Sweet spot", matrix.Name);
@@ -169,10 +170,11 @@ public class PreferenceServiceTests : IAsyncLifetime
         await using (var db = new CineScoutDbContext(options))
         {
             var service = new PreferenceService(db);
-            await service.UpdateSeatMatrixAsync(
+            var outcome = await service.UpdateSeatMatrixAsync(
                 matrixId,
                 new SeatMatrixInput(roomId, FilmId: null, "Back rows", "G", "H", 1, 12, 4, IsEnabled: false),
                 CancellationToken.None);
+            Assert.Equal(SeatMatrixSaveOutcome.Saved, outcome);
         }
 
         await using (var read = new CineScoutDbContext(options))
@@ -208,9 +210,10 @@ public class PreferenceServiceTests : IAsyncLifetime
         await using (var db = new CineScoutDbContext(options))
         {
             var service = new PreferenceService(db);
-            await service.CreateSeatMatrixAsync(
+            var (outcome, _) = await service.CreateSeatMatrixAsync(
                 new SeatMatrixInput(roomId, filmId, "Vaiana premiere seats", "A", "C", 5, 8, 3, IsEnabled: true),
                 CancellationToken.None);
+            Assert.Equal(SeatMatrixSaveOutcome.Saved, outcome);
         }
 
         await using var read = new CineScoutDbContext(options);
@@ -229,15 +232,96 @@ public class PreferenceServiceTests : IAsyncLifetime
         await using (var db = new CineScoutDbContext(options))
         {
             var service = new PreferenceService(db);
-            await service.UpdateSeatMatrixAsync(
+            var outcome = await service.UpdateSeatMatrixAsync(
                 12345,
                 new SeatMatrixInput(roomId, FilmId: null, "Ghost", "A", "B", 1, 2, 1, IsEnabled: true),
                 CancellationToken.None);
+            Assert.Equal(SeatMatrixSaveOutcome.Saved, outcome);
             await service.DeleteSeatMatrixAsync(12345, CancellationToken.None);
         }
 
         await using var read = new CineScoutDbContext(options);
         Assert.Empty(await read.FavoriteSeatMatrices.ToListAsync());
+    }
+
+    [Fact]
+    public async Task CreateSeatMatrix_SecondGeneralMatrixForSameRoom_IsRejected()
+    {
+        var options = BuildOptions();
+        var (roomId, _) = await SeedRoomAndFilmAsync();
+
+        await using var db = new CineScoutDbContext(options);
+        var service = new PreferenceService(db);
+
+        var (first, _) = await service.CreateSeatMatrixAsync(
+            new SeatMatrixInput(roomId, FilmId: null, "Sweet spot", "D", "F", 4, 9, 2, IsEnabled: true),
+            CancellationToken.None);
+        Assert.Equal(SeatMatrixSaveOutcome.Saved, first);
+
+        var (second, _) = await service.CreateSeatMatrixAsync(
+            new SeatMatrixInput(roomId, FilmId: null, "Back rows", "G", "H", 1, 12, 4, IsEnabled: true),
+            CancellationToken.None);
+        Assert.Equal(SeatMatrixSaveOutcome.DuplicateGeneralMatrixForRoom, second);
+
+        Assert.Equal(1, await db.FavoriteSeatMatrices.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateSeatMatrix_FilmSpecificOverride_DoesNotCollideWithAnExistingGeneralMatrix()
+    {
+        var options = BuildOptions();
+        var (roomId, filmId) = await SeedRoomAndFilmAsync();
+
+        await using var db = new CineScoutDbContext(options);
+        var service = new PreferenceService(db);
+
+        var (general, _) = await service.CreateSeatMatrixAsync(
+            new SeatMatrixInput(roomId, FilmId: null, "Sweet spot", "D", "F", 4, 9, 2, IsEnabled: true),
+            CancellationToken.None);
+        Assert.Equal(SeatMatrixSaveOutcome.Saved, general);
+
+        var (theOverride, _) = await service.CreateSeatMatrixAsync(
+            new SeatMatrixInput(roomId, filmId, "Premiere seats", "A", "C", 5, 8, 3, IsEnabled: true),
+            CancellationToken.None);
+        Assert.Equal(SeatMatrixSaveOutcome.Saved, theOverride);
+
+        Assert.Equal(2, await db.FavoriteSeatMatrices.CountAsync());
+    }
+
+    [Fact]
+    public async Task UpdateSeatMatrix_IntoASecondGeneralMatrixForSameRoom_IsRejected()
+    {
+        var options = BuildOptions();
+        var (roomId, filmId) = await SeedRoomAndFilmAsync();
+
+        await using var db = new CineScoutDbContext(options);
+        var service = new PreferenceService(db);
+
+        var (_, generalId) = await service.CreateSeatMatrixAsync(
+            new SeatMatrixInput(roomId, FilmId: null, "Sweet spot", "D", "F", 4, 9, 2, IsEnabled: true),
+            CancellationToken.None);
+        var (_, overrideId) = await service.CreateSeatMatrixAsync(
+            new SeatMatrixInput(roomId, filmId, "Premiere seats", "A", "C", 5, 8, 3, IsEnabled: true),
+            CancellationToken.None);
+
+        var outcome = await service.UpdateSeatMatrixAsync(
+            overrideId,
+            new SeatMatrixInput(roomId, FilmId: null, "Now general too", "A", "C", 5, 8, 3, IsEnabled: true),
+            CancellationToken.None);
+
+        Assert.Equal(SeatMatrixSaveOutcome.DuplicateGeneralMatrixForRoom, outcome);
+
+        var stillOverride = await db.FavoriteSeatMatrices.SingleAsync(m => m.Id == overrideId);
+        Assert.Equal(filmId, stillOverride.FilmId);
+        Assert.Equal("Premiere seats", stillOverride.Name);
+
+        // Updating the existing general matrix's own other fields (not touching FilmId) must not
+        // trip the guard against itself.
+        var selfUpdate = await service.UpdateSeatMatrixAsync(
+            generalId,
+            new SeatMatrixInput(roomId, FilmId: null, "Renamed", "D", "F", 4, 9, 2, IsEnabled: true),
+            CancellationToken.None);
+        Assert.Equal(SeatMatrixSaveOutcome.Saved, selfUpdate);
     }
 
     [Fact]

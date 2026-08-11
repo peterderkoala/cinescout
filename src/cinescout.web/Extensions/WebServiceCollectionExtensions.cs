@@ -34,6 +34,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<AntiforgeryTokenStore>();
         services.AddScoped<CinemasApiClient>();
         services.AddScoped<TimePreferencesApiClient>();
+        services.AddScoped<SeatMatricesApiClient>();
 
         return services;
     }

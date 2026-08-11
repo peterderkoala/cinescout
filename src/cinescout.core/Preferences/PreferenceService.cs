@@ -19,6 +19,19 @@ public sealed record SeatMatrixInput(
     int PartySize,
     bool IsEnabled);
 
+/// <summary>Outcome of a seat-matrix create/update attempt (#94's deepening, per #78's resolution).</summary>
+public enum SeatMatrixSaveOutcome
+{
+    Saved,
+
+    /// <summary>
+    /// Rejected: the room already has a different FilmId-null (general) matrix. The General tab
+    /// shows at most one such card per room, so a second one would be unreachable in the UI —
+    /// not editable, toggleable, or deletable.
+    /// </summary>
+    DuplicateGeneralMatrixForRoom,
+}
+
 /// <summary>
 /// Thin persistence layer for the user's preference entities (FavoriteTimeWindow,
 /// FavoriteSeatMatrix). Validation is the UI's job; like TrackedMovieService, operations
@@ -66,9 +79,14 @@ public sealed class PreferenceService(CineScoutDbContext db)
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task CreateSeatMatrixAsync(SeatMatrixInput input, CancellationToken cancellationToken)
+    public async Task<(SeatMatrixSaveOutcome Outcome, int Id)> CreateSeatMatrixAsync(SeatMatrixInput input, CancellationToken cancellationToken)
     {
-        db.FavoriteSeatMatrices.Add(new FavoriteSeatMatrix
+        if (input.FilmId is null && await HasOtherGeneralMatrixAsync(input.RoomId, excludeId: null, cancellationToken))
+        {
+            return (SeatMatrixSaveOutcome.DuplicateGeneralMatrixForRoom, 0);
+        }
+
+        var matrix = new FavoriteSeatMatrix
         {
             RoomId = input.RoomId,
             FilmId = input.FilmId,
@@ -79,16 +97,24 @@ public sealed class PreferenceService(CineScoutDbContext db)
             SeatNumberEnd = input.SeatNumberEnd,
             PartySize = input.PartySize,
             IsEnabled = input.IsEnabled,
-        });
+        };
+        db.FavoriteSeatMatrices.Add(matrix);
         await db.SaveChangesAsync(cancellationToken);
+
+        return (SeatMatrixSaveOutcome.Saved, matrix.Id);
     }
 
-    public async Task UpdateSeatMatrixAsync(int id, SeatMatrixInput input, CancellationToken cancellationToken)
+    public async Task<SeatMatrixSaveOutcome> UpdateSeatMatrixAsync(int id, SeatMatrixInput input, CancellationToken cancellationToken)
     {
         var matrix = await db.FavoriteSeatMatrices.SingleOrDefaultAsync(m => m.Id == id, cancellationToken);
         if (matrix is null)
         {
-            return;
+            return SeatMatrixSaveOutcome.Saved; // defensive no-op, same posture as every other operation here
+        }
+
+        if (input.FilmId is null && await HasOtherGeneralMatrixAsync(input.RoomId, excludeId: id, cancellationToken))
+        {
+            return SeatMatrixSaveOutcome.DuplicateGeneralMatrixForRoom;
         }
 
         matrix.RoomId = input.RoomId;
@@ -101,7 +127,12 @@ public sealed class PreferenceService(CineScoutDbContext db)
         matrix.PartySize = input.PartySize;
         matrix.IsEnabled = input.IsEnabled;
         await db.SaveChangesAsync(cancellationToken);
+
+        return SeatMatrixSaveOutcome.Saved;
     }
+
+    private Task<bool> HasOtherGeneralMatrixAsync(int roomId, int? excludeId, CancellationToken cancellationToken) =>
+        db.FavoriteSeatMatrices.AnyAsync(m => m.RoomId == roomId && m.FilmId == null && m.Id != excludeId, cancellationToken);
 
     public async Task DeleteSeatMatrixAsync(int id, CancellationToken cancellationToken)
     {
