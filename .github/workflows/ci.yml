@@ -1,9 +1,10 @@
 name: CI
 
-# Runs the same test entrypoint local dev uses (./run-tests.sh) on every PR and every direct push
-# to main/dev. GitHub-hosted ubuntu-latest runners already have Docker reachable for the runner
-# user out of the box, so run-tests.sh's `sg docker` fallback (for a local machine whose
-# `usermod -aG docker` hasn't taken effect yet) never triggers here — nothing to adapt.
+# Runs the same test entrypoint local dev uses (./coverage.sh, which runs the full suite exactly
+# like run-tests.sh plus code coverage collection — no reason to run tests twice) on every PR and
+# every direct push to main/dev. GitHub-hosted ubuntu-latest runners already have Docker reachable
+# for the runner user out of the box, so the script's `sg docker` fallback (for a local machine
+# whose `usermod -aG docker` hasn't taken effect yet) never triggers here — nothing to adapt.
 on:
   push:
     branches: [main, dev]
@@ -21,5 +22,12 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Run tests
-        run: ./run-tests.sh
+      - name: Run tests with coverage
+        run: ./coverage.sh
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage/report
+          retention-days: 14
