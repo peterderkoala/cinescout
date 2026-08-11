@@ -16,6 +16,10 @@ builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.H
 builder.Services.AddSingleton<AntiforgeryTokenStore>();
 builder.Services.AddScoped<PingApiClient>();
 builder.Services.AddScoped<CinemasApiClient>();
+builder.Services.AddScoped<TimePreferencesApiClient>();
+builder.Services.AddScoped<SeatMatricesApiClient>();
+builder.Services.AddScoped<HomeApiClient>();
+builder.Services.AddScoped<PerformanceDetailApiClient>();
 
 var host = builder.Build();
 
