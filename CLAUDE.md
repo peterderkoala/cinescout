@@ -134,7 +134,7 @@ Current projects:
   since Blazor WASM's "local time zone" is the visitor's browser, not the server's — the UTC→Berlin conversion
   itself stays the caller's job, done via `cinescout.core`'s `CinemaTimeZone`, since this project can't
   reference `cinescout.core` either).
-- `src/cinescout.model` — the EF Core entity set (`Cinema`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `CONTEXT.md` for the full glossary).
+- `src/cinescout.model` — the EF Core entity set (`Cinema`, `Film`, `Performance`, `Room`, `SeatStatus`, etc. — see `docs/CONTEXT.md` for the full glossary).
 - `src/cinescout.persistence` — `CineScoutDbContext`, migrations, and the design-time factory.
 - `src/cinescout.persistence.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for the persistence layer.
 - `src/cinescout.core.Tests` — xUnit + NSubstitute + Testcontainers-backed Postgres tests for `cinescout.core`'s
@@ -187,7 +187,7 @@ cookies survive a container restart instead of silently becoming unverifiable �
 restarting the container, and confirming the same cookie still worked) is `mkdir`+`chown`'d in the Dockerfile
 *before* `USER $APP_UID`, and is a named volume in `docker-compose.yml`, not just an ad hoc directory.
 
-Login credentials live in the persisted `User` table (see `CONTEXT.md`), seeded by migration with
+Login credentials live in the persisted `User` table (see `docs/CONTEXT.md`), seeded by migration with
 `PasswordHash = null` — a null hash is the sole "not set up" signal, and login always fails until it's set,
 the same safe default as before (see [ADR 0001](docs/adr/0001-user-table-seeded-with-null-password-hash.md)).
 A fresh deployment is guided to `/setup` (`Login.razor` and `POST /account/login` both redirect there while
@@ -225,9 +225,11 @@ Recurring jobs must be registered via the DI-resolved `IRecurringJobManager` (`a
 throws `InvalidOperationException` at startup (caught by actually running the app against a real Postgres, not
 just `dotnet build`/`dotnet test` — worth doing for any change that touches startup wiring).
 
-## Project idea (from IDEA.md)
+## Project idea
 
-CineScout's purpose is to automate movie-going logistics:
+The original brainstorm this project started from (all of it now implemented — see [Status in
+README.md](README.md#status) for current state). CineScout's purpose is to automate movie-going
+logistics:
 
 - Frequently crawl a local cinema's homepage for currently screening movies.
 - Frequently crawl the Kinoheld booking service for seating info related to a movie.
@@ -251,11 +253,16 @@ a rules/matching engine for preferences, and a notification mechanism.
 - films --> base array with screening infos
 - films/performances --> screening dates of each film with link to www.kinoheld.de booking references   
 
-## Intended repository structure (from ARCHITECTURE.md)
+## Repository structure
+
+Also documented, with the assembly dependency graph, in [README.md's Architecture
+section](README.md#architecture) — kept brief here, don't duplicate.
 
 - `src/` — home of all `.slnx` and `.cs` files, organized into subprojects.
 - `docker/` — home of `Dockerfile`, `.dockerignore`, `docker-compose.yml`.
-- `docs/` — documentation in markdown, divided by purpose (e.g. an `api` subfolder for API docs).
+- `docs/` — documentation in markdown, divided by purpose: `CONTEXT.md` (domain glossary), `adr/`
+  (architectural decisions), `design/`/`api/` (UI/API design references), `agents/` (agent-facing
+  conventions, e.g. this file's issue-tracker/domain-docs sections point here).
 - `.github/workflows/` — CI/CD pipelines for PR checks, builds, and releases (GitHub Actions
   requires this exact location; no separate top-level `pipelines/` directory).
 
@@ -269,7 +276,9 @@ Issues are tracked as GitHub Issues on peterderkoala/cinescout via the `gh` CLI.
 
 ### Domain docs
 
-Single-context layout: CONTEXT.md + docs/adr/ at the repo root. See `docs/agents/domain.md`.
+Single-context layout: `docs/CONTEXT.md` + `docs/adr/` — moved under `docs/` rather than the repo
+root (this repo's own deviation from the stock convention, to keep the root uncluttered). See
+`docs/agents/domain.md`.
 
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph

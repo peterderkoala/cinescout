@@ -12,10 +12,76 @@ drop the query param, which defaults to the repo's default branch) once dev is p
 CineScout automates movie-going logistics for a local cinema: it crawls the cinema's schedule and
 Kinoheld's seat-availability data, lets you mark movies as "tracked", and alerts you when a
 tracked movie's screening matches your preferred time/room/seating — with a direct link straight
-into the booking flow. See [IDEA.md](IDEA.md) for the original concept and
-[CONTEXT.md](CONTEXT.md) for the domain glossary.
+into the booking flow. See [`docs/CONTEXT.md`](docs/CONTEXT.md) for the domain glossary and
+[`docs/adr/`](docs/adr/) for the architectural decisions behind it.
 
 This is a personal, single-user, self-hosted app — not a multi-tenant SaaS.
+
+## Status
+
+The full v1 feature set from the original spec is built and tested: scheduled crawling of the
+cinema's listings and Kinoheld seat data, the time/seat-matrix matching engine, Discord/email
+notifications, cookie-based auth with a first-run setup flow, and all nine screens of the web UI
+(Schedule, Tracked Movies, Time Preferences, Seat Matrices, Cinemas, Home, Performance Detail,
+Login/Setup). 289+ tests across the solution — current coverage is tracked live at the
+[Coverage badge](https://peterderkoala.github.io/cinescout/) above.
+
+What's still in progress: automated deployment to a VPS via GitHub Actions + Watchtower, tracked
+as a [wayfinder map](https://github.com/peterderkoala/cinescout/issues/100) with its own child
+tickets — CI (test-on-every-push) is done, the release/publish side is being worked through
+incrementally. Until that lands, deploying is the manual `docker compose` process below.
+
+## Architecture
+
+Six projects under `src/`, split so the WASM client never depends on anything server-only (EF
+Core/Npgsql aren't WASM-appropriate to ship to the browser) and the DTO layer stays a true leaf
+both sides of the wire can see:
+
+```mermaid
+graph TD
+    web["cinescout.web<br/>ASP.NET Core host"]
+    webclient["cinescout.web.Client<br/>Blazor WASM client"]
+    core["cinescout.core<br/>domain services<br/>(crawl, matching, notifications)"]
+    contracts["cinescout.contracts<br/>shared DTOs"]
+    persistence["cinescout.persistence<br/>EF Core DbContext + migrations"]
+    model["cinescout.model<br/>EF Core entities"]
+
+    web --> webclient
+    web --> core
+    web --> persistence
+    web --> contracts
+    webclient --> contracts
+    core --> persistence
+    persistence --> model
+```
+
+- **`cinescout.web`** — the ASP.NET Core host. Serves the Blazor WASM client, hosts the `/api`
+  endpoints each screen calls, runs the Hangfire-scheduled crawl/matching jobs, and owns
+  authentication (cookie-based, gates the whole app by `AuthorizationOptions.FallbackPolicy`).
+- **`cinescout.web.Client`** — the WASM client: every interactive page and shared UI component
+  (`FilmPerformanceCard`, `SeatGrid`). Talks to the host only through `cinescout.contracts` DTOs
+  over `/api`, never touches the database directly.
+- **`cinescout.core`** — domain services with no UI concerns: the Hall-of-Fame schedule crawl, the
+  Kinoheld room/seat crawl (with its own circuit breaker), the time-window/seat-matrix matching
+  engine, and the Discord/email notifiers.
+- **`cinescout.contracts`** — the shared DTO project. A true leaf: never references `model`,
+  `persistence`, or `core`, so both `web` and `web.Client` can depend on it safely.
+- **`cinescout.persistence`** — `CineScoutDbContext`, EF Core migrations, and the design-time
+  factory `dotnet ef` uses.
+- **`cinescout.model`** — the EF Core entity set (`Cinema`, `Film`, `Performance`, `Room`,
+  `SeatStatus`, etc.). A true leaf, referenced by everything that needs to read/write the database.
+
+Each production assembly has a matching `*.Tests` project (see [`CLAUDE.md`](CLAUDE.md) for the
+full per-project testing conventions — real Postgres via Testcontainers for anything touching the
+database, no bUnit for `.razor` markup).
+
+### Repository layout
+
+- `src/` — all `.slnx`/`.cs` files, organized into the subprojects above.
+- `docker/` — `Dockerfile`, `docker-compose.yml`, `.env.example`; see [Running it](#running-it).
+- `docs/` — everything non-code: the domain glossary (`CONTEXT.md`), architectural decisions
+  (`adr/`), UI/API design references (`design/`, `api/`), and agent-facing conventions (`agents/`).
+- `.github/workflows/` — CI/CD pipelines (GitHub Actions requires this exact location).
 
 ## Running it
 

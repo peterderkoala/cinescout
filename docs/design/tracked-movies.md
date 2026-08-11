@@ -33,7 +33,7 @@ The primary section — every film currently on the active Tracked list. For eac
   asking "when can I actually go" across every option, not just "is anything happening at all."
 - **Zero-performances state**: a film can be tracked with no upcoming performances at all (its run
   finished after being marked tracked — `TrackedMovie` only becomes *active* for matching while
-  performances remain, per `CONTEXT.md`, but the row itself isn't auto-removed). Show this
+  performances remain, per `../CONTEXT.md`, but the row itself isn't auto-removed). Show this
   explicitly ("No upcoming performances") rather than leaving a blank gap under the film heading.
 
 ### 2. All films
