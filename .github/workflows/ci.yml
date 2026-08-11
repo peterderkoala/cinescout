@@ -5,11 +5,18 @@ name: CI
 # every direct push to main/dev. GitHub-hosted ubuntu-latest runners already have Docker reachable
 # for the runner user out of the box, so the script's `sg docker` fallback (for a local machine
 # whose `usermod -aG docker` hasn't taken effect yet) never triggers here — nothing to adapt.
+#
+# On a real push (not PRs — a PR's coverage shouldn't overwrite the live page), the merged
+# coverage report + self-contained badge SVGs also get published to GitHub Pages
+# (https://peterderkoala.github.io/cinescout/) via the publish-coverage job.
 on:
   push:
     branches: [main, dev]
   pull_request:
     branches: [main, dev]
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -25,9 +32,30 @@ jobs:
       - name: Run tests with coverage
         run: ./coverage.sh
 
-      - name: Upload coverage report
+      - name: Upload coverage report (build artifact)
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/report
           retention-days: 14
+
+      - name: Upload coverage report for Pages
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: coverage/report
+
+  publish-coverage:
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy coverage report to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

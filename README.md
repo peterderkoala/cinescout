@@ -1,5 +1,14 @@
 # CineScout
 
+[![CI](https://github.com/peterderkoala/cinescout/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/peterderkoala/cinescout/actions/workflows/ci.yml)
+[![Coverage](https://peterderkoala.github.io/cinescout/badge_linecoverage.svg)](https://peterderkoala.github.io/cinescout/)
+
+<!--
+CI badge tracks `dev` (?branch=dev) — `main` is still just the initial commit (see the release
+wayfinder map, issue #100) and has never had a CI run of its own yet. Switch this to `main` (or
+drop the query param, which defaults to the repo's default branch) once dev is promoted there.
+-->
+
 CineScout automates movie-going logistics for a local cinema: it crawls the cinema's schedule and
 Kinoheld's seat-availability data, lets you mark movies as "tracked", and alerts you when a
 tracked movie's screening matches your preferred time/room/seating — with a direct link straight

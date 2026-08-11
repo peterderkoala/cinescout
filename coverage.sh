@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Runs the full test suite with code coverage collection (coverlet.collector, already referenced
 # by every test project — dotnet new xunit's default) and merges the per-project Cobertura reports
-# into one combined HTML + text-summary report via ReportGenerator (a local tool, see
-# .config/dotnet-tools.json — `dotnet tool restore` before first use). Reading a single project's
-# raw coverage.cobertura.xml on its own is misleading: e.g. cinescout.web shows up in
-# cinescout.contracts.Tests' report too (trivially, via RoomMapperTests) alongside its real
-# coverage from cinescout.web.Tests — merging is what makes the number honest. Mirrors
-# run-tests.sh's Docker-reachability fallback — the persistence/core/web test projects still need
-# Docker for their Testcontainers-backed Postgres.
+# into one combined HTML + text-summary report, plus self-contained badge SVGs (badge_linecoverage
+# etc. — no shields.io/third-party dependency, the color is baked into the SVG at generation time),
+# via ReportGenerator (a local tool, see .config/dotnet-tools.json — `dotnet tool restore` before
+# first use). Reading a single project's raw coverage.cobertura.xml on its own is misleading: e.g.
+# cinescout.web shows up in cinescout.contracts.Tests' report too (trivially, via RoomMapperTests)
+# alongside its real coverage from cinescout.web.Tests — merging is what makes the number honest.
+# Mirrors run-tests.sh's Docker-reachability fallback — the persistence/core/web test projects
+# still need Docker for their Testcontainers-backed Postgres.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -26,7 +27,7 @@ dotnet tool restore
 dotnet tool run reportgenerator \
     -reports:"coverage/**/coverage.cobertura.xml" \
     -targetdir:"coverage/report" \
-    -reporttypes:"Html;TextSummary"
+    -reporttypes:"Html;TextSummary;Badges"
 
 echo
 cat coverage/report/Summary.txt
