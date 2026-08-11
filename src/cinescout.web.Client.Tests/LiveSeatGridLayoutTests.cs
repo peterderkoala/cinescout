@@ -73,6 +73,44 @@ public sealed class LiveSeatGridLayoutTests
     }
 
     [Fact]
+    public void Build_FirstSeatReferencesUnknownLeftNeighbor_InsertsLeadingHiddenCell()
+    {
+        // The row's true leftmost seat is absent from the payload entirely, but the first present
+        // seat's LeftNeighborSeatId still points at it — the only way to detect it exists at all.
+        var seats = new[]
+        {
+            Seat("s2", "A", 2, left: "s1-missing", right: "s3"),
+            Seat("s3", "A", 3, left: "s2"),
+        };
+
+        var rows = LiveSeatGridLayout.Build(seats);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(3, row.Cells.Count);
+        Assert.Null(row.Cells[0].Seat);
+        Assert.NotNull(row.Cells[1].Seat);
+        Assert.NotNull(row.Cells[2].Seat);
+    }
+
+    [Fact]
+    public void Build_LastSeatReferencesUnknownRightNeighbor_InsertsTrailingHiddenCell()
+    {
+        var seats = new[]
+        {
+            Seat("s1", "A", 1, right: "s2"),
+            Seat("s2", "A", 2, left: "s1", right: "s3-missing"),
+        };
+
+        var rows = LiveSeatGridLayout.Build(seats);
+
+        var row = Assert.Single(rows);
+        Assert.Equal(3, row.Cells.Count);
+        Assert.NotNull(row.Cells[0].Seat);
+        Assert.NotNull(row.Cells[1].Seat);
+        Assert.Null(row.Cells[2].Seat);
+    }
+
+    [Fact]
     public void Build_ShorterRowThanOthers_IsPaddedWithHiddenCellsToRectangularWidth()
     {
         var seats = new[]

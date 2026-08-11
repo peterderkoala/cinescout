@@ -33,18 +33,31 @@ public static class LiveSeatGridLayout
 
     private static IReadOnlyList<LiveSeatGridCell> BuildRowCells(IEnumerable<LiveSeatDto> orderedRowSeats)
     {
+        var seats = orderedRowSeats as IReadOnlyList<LiveSeatDto> ?? orderedRowSeats.ToList();
         var cells = new List<LiveSeatGridCell>();
         LiveSeatDto? previous = null;
 
-        foreach (var seat in orderedRowSeats)
+        foreach (var seat in seats)
         {
-            if (previous is not null && seat.LeftNeighborSeatId != previous.SourceSeatId)
+            // A gap exists both between two present seats whose neighbor ids don't chain, and
+            // before the very first present seat when its own LeftNeighborSeatId points at a seat
+            // this payload never included — the only way to detect a leading absent seat at all.
+            var hasGapBefore = previous is null
+                ? seat.LeftNeighborSeatId is not null
+                : seat.LeftNeighborSeatId != previous.SourceSeatId;
+
+            if (hasGapBefore)
             {
                 cells.Add(LiveSeatGridCell.Hidden);
             }
 
             cells.Add(new LiveSeatGridCell(seat));
             previous = seat;
+        }
+
+        if (seats.Count > 0 && seats[^1].RightNeighborSeatId is not null)
+        {
+            cells.Add(LiveSeatGridCell.Hidden);
         }
 
         return cells;
