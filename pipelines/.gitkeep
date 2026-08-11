@@ -1,2 +1,0 @@
-Placeholder for future CI/CD pipelines (PR checks, builds, releases) — see ARCHITECTURE.md.
-This file exists so the directory survives a fresh clone; git doesn't track empty directories.

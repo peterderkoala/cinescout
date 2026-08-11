@@ -12,7 +12,8 @@
 
 - home of all documentation, structured in markdown files and devided by purpuse e.g. api subfolder for api docs etc...
 
-# pipelines 
+# .github/workflows
 
-- home of all pipelines regarding PR, Build and Release
+- home of all CI/CD pipelines (PR checks, builds, releases) — GitHub Actions requires workflow
+  files to live here, not in a separate top-level directory
 

@@ -156,7 +156,10 @@ directly (e.g. a `usermod -aG docker` that hasn't taken effect in the current sh
 persistence/core tests spin up a real Postgres container via Testcontainers, so Docker must be reachable one way
 or the other. Don't invent lint commands — none are configured yet.
 
-`pipelines/` is still an empty placeholder per `ARCHITECTURE.md` — not yet started.
+`.github/workflows/ci.yml` runs `./run-tests.sh` on every PR/push to `main`/`dev` (`ubuntu-latest`,
+single job — no separate `pipelines/` directory; GitHub Actions requires workflow files to live
+under `.github/workflows/`). A release/deploy pipeline (to the operator's VPS via a self-hosted
+runner) is charted as a separate wayfinder map, not yet built.
 
 `docker/` holds a working Compose deployment: `docker compose -f docker/docker-compose.yml up` (or `cd docker &&
 docker compose up`) builds `app` from `docker/Dockerfile` (multi-stage: SDK build stage, ASP.NET Core runtime
@@ -253,7 +256,8 @@ a rules/matching engine for preferences, and a notification mechanism.
 - `src/` — home of all `.slnx` and `.cs` files, organized into subprojects.
 - `docker/` — home of `Dockerfile`, `.dockerignore`, `docker-compose.yml`.
 - `docs/` — documentation in markdown, divided by purpose (e.g. an `api` subfolder for API docs).
-- `pipelines/` — CI/CD pipelines for PR checks, builds, and releases.
+- `.github/workflows/` — CI/CD pipelines for PR checks, builds, and releases (GitHub Actions
+  requires this exact location; no separate top-level `pipelines/` directory).
 
 Follow this layout when adding new files rather than introducing an alternative structure.
 
