@@ -16,6 +16,7 @@ public static class NotificationDispatcher
         IDiscordNotifier notifier,
         NotificationType type,
         int? matchId,
+        int filmId,
         string message,
         CancellationToken cancellationToken)
     {
@@ -25,6 +26,7 @@ public static class NotificationDispatcher
         {
             NotificationType = type,
             MatchId = matchId,
+            FilmId = filmId,
             Channel = "Discord",
             SentAt = DateTimeOffset.UtcNow,
             Status = result.Success ? NotificationStatus.Success : NotificationStatus.Failed,

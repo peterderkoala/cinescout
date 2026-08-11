@@ -89,7 +89,7 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
 
     private Task NotifyNewFilmAsync(Film film, CancellationToken cancellationToken) =>
         NotificationDispatcher.SendAndLogAsync(
-            db, notifier, NotificationType.NewFilmAdded, matchId: null, $"New film added: **{film.Title}**.", cancellationToken);
+            db, notifier, NotificationType.NewFilmAdded, matchId: null, film.Id, $"New film added: **{film.Title}**.", cancellationToken);
 
     private async Task UpsertPerformanceAsync(
         int cinemaId,

@@ -121,7 +121,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
             lines.Add(film.PosterUrl);
         }
 
-        await SendAndLogAsync(NotificationType.RulesMatched, match, string.Join('\n', lines), cancellationToken);
+        await SendAndLogAsync(NotificationType.RulesMatched, match, film.Id, string.Join('\n', lines), cancellationToken);
     }
 
     private async Task NotifySeatAvailabilityChangedAsync(
@@ -142,7 +142,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
             $"Book: <{performance.BookingLink}>",
         ]);
 
-        await SendAndLogAsync(NotificationType.SeatAvailabilityChanged, match, message, cancellationToken);
+        await SendAndLogAsync(NotificationType.SeatAvailabilityChanged, match, film.Id, message, cancellationToken);
     }
 
     private async Task<(Film Film, Cinema Cinema, Room Room)> LoadNotificationContextAsync(Performance performance, CancellationToken cancellationToken)
@@ -153,9 +153,9 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
         return (film, cinema, room);
     }
 
-    private async Task SendAndLogAsync(NotificationType type, Match match, string message, CancellationToken cancellationToken)
+    private async Task SendAndLogAsync(NotificationType type, Match match, int filmId, string message, CancellationToken cancellationToken)
     {
-        var result = await NotificationDispatcher.SendAndLogAsync(db, notifier, type, match.Id, message, cancellationToken);
+        var result = await NotificationDispatcher.SendAndLogAsync(db, notifier, type, match.Id, filmId, message, cancellationToken);
 
         if (!result.Success)
         {

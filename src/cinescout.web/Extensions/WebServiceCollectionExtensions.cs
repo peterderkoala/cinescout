@@ -35,6 +35,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped<CinemasApiClient>();
         services.AddScoped<TimePreferencesApiClient>();
         services.AddScoped<SeatMatricesApiClient>();
+        services.AddScoped<HomeApiClient>();
 
         return services;
     }

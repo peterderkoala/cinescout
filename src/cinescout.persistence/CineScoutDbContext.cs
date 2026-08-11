@@ -99,6 +99,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
         modelBuilder.Entity<NotificationLog>(e =>
         {
             e.HasOne<Match>().WithMany().HasForeignKey(n => n.MatchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Film>().WithMany().HasForeignKey(n => n.FilmId).OnDelete(DeleteBehavior.Cascade);
         });
 
         // Seeded ahead of first use, not inserted by the setup flow — PasswordHash == null is the

@@ -51,6 +51,6 @@ public sealed class TrackedMovieService(CineScoutDbContext db, IDiscordNotifier 
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Only track-lifecycle notification types are sent from here."),
         };
 
-        await NotificationDispatcher.SendAndLogAsync(db, notifier, type, matchId: null, message, cancellationToken);
+        await NotificationDispatcher.SendAndLogAsync(db, notifier, type, matchId: null, filmId, message, cancellationToken);
     }
 }
