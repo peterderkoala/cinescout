@@ -26,15 +26,18 @@ public sealed record SeatMatrixInput(
 /// </summary>
 public sealed class PreferenceService(CineScoutDbContext db)
 {
-    public async Task CreateTimeWindowAsync(DaysOfWeekFlags days, TimeOnly start, TimeOnly end, CancellationToken cancellationToken)
+    public async Task<int> CreateTimeWindowAsync(DaysOfWeekFlags days, TimeOnly start, TimeOnly end, CancellationToken cancellationToken)
     {
-        db.FavoriteTimeWindows.Add(new FavoriteTimeWindow
+        var window = new FavoriteTimeWindow
         {
             DaysOfWeek = days,
             StartTime = start,
             EndTime = end,
-        });
+        };
+        db.FavoriteTimeWindows.Add(window);
         await db.SaveChangesAsync(cancellationToken);
+
+        return window.Id;
     }
 
     public async Task UpdateTimeWindowAsync(int id, DaysOfWeekFlags days, TimeOnly start, TimeOnly end, CancellationToken cancellationToken)

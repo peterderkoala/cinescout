@@ -150,7 +150,7 @@ app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUse
     return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
 }).AllowAnonymous();
 
-app.MapApiGroup().MapPingEndpoint().MapCinemasEndpoints();
+app.MapApiGroup().MapPingEndpoint().MapCinemasEndpoints().MapTimePreferencesEndpoints();
 
 app.MapPost("/account/logout", async (HttpContext context) =>
 {

@@ -33,6 +33,7 @@ public static class WebServiceCollectionExtensions
         services.AddScoped(_ => new HttpClient());
         services.AddScoped<AntiforgeryTokenStore>();
         services.AddScoped<CinemasApiClient>();
+        services.AddScoped<TimePreferencesApiClient>();
 
         return services;
     }

@@ -1,0 +1,225 @@
+@page "/time-preferences"
+@using cinescout.contracts
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject TimePreferencesApiClient Api
+
+@*
+    Time Preferences screen — Technical Design Spec.md §5.3 / CineScout Prototype.dc.html
+    (data-screen-label="Time Preferences"). Editor card + list, max-width:32rem — the simplest of
+    the five existing screens (#78's resolution: no filter bar, no cross-entity joins), converted
+    first as the template the remaining ones (#94–#98) follow. Fetches only once interactive
+    (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders CardSkeleton instead.
+*@
+
+<PageTitle>Time Preferences</PageTitle>
+
+<h3 class="mb-3" style="color: var(--bs-body-color);">Time Preferences</h3>
+
+@if (!RendererInfo.IsInteractive || _windows is null)
+{
+    <div style="max-width:32rem;">
+        <CardSkeleton Count="2" />
+    </div>
+}
+else
+{
+    <div style="max-width:32rem;">
+        @if (_error is not null)
+        {
+            <div class="alert alert-danger" role="alert">@_error</div>
+        }
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h6 class="card-title mb-3">@(_editingId is null ? "Add time window" : "Edit time window")</h6>
+
+                <label class="form-label small text-muted">Days</label>
+                <div class="d-flex gap-1 mb-3">
+                    @foreach (var dayCode in DayCodesInOrder)
+                    {
+                        var isSelected = _selectedDayCodes.Contains(dayCode);
+                        <button type="button" class="btn btn-sm flex-fill"
+                                style="@(isSelected
+                                    ? "background:var(--cinescout-primary); color:var(--cinescout-on-primary); border-color:var(--cinescout-primary);"
+                                    : "background:var(--bs-tertiary-bg); color:var(--bs-body-color); border-color:var(--bs-border-color);")"
+                                @onclick="() => ToggleDay(dayCode)">@dayCode</button>
+                    }
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col">
+                        <label class="form-label small text-muted" for="tpStart">Start</label>
+                        <input type="time" id="tpStart" class="form-control form-control-sm" @bind="_startTime" />
+                    </div>
+                    <div class="col">
+                        <label class="form-label small text-muted" for="tpEnd">End</label>
+                        <input type="time" id="tpEnd" class="form-control form-control-sm" @bind="_endTime" />
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm cs-btn-primary" @onclick="SaveAsync" disabled="@_saving">@(_editingId is null ? "+ Add time window" : "Update window")</button>
+                    @if (_editingId is not null)
+                    {
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="ResetEditor">Cancel</button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (_windows.Count == 0)
+        {
+            <p class="small" style="color:var(--bs-secondary-color);">No time preferences yet — add one to start matching screenings against your schedule.</p>
+        }
+        else
+        {
+            <ul class="list-group">
+                @foreach (var window in _windows)
+                {
+                    var isEditing = _editingId == window.Id;
+                    <li class="list-group-item d-flex justify-content-between align-items-center gap-2 flex-wrap"
+                        style="@(isEditing ? "background:rgba(122,31,43,.06);" : "")">
+                        <div class="d-flex align-items-center gap-1 flex-wrap">
+                            @foreach (var dayCode in window.DayCodes)
+                            {
+                                <span class="badge" style="background:var(--cinescout-primary);">@dayCode</span>
+                            }
+                            <span class="ms-2">@window.StartTime.ToString("HH:mm")–@window.EndTime.ToString("HH:mm")</span>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(window)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete" @onclick="() => DeleteAsync(window.Id)"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Fixed Mo..Su rendering order, per §6.3 — matches DayCodeConverter server-side.</summary>
+    private static readonly string[] DayCodesInOrder = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+
+    private IReadOnlyList<TimeWindowDto>? _windows;
+    private int? _editingId;
+    private HashSet<string> _selectedDayCodes = [];
+    // Nullable, not TimeOnly: a native <input type="time"> whose value the user clears fails
+    // BindConverter's parse and Blazor's generated @bind setter is simply never invoked for a
+    // non-nullable target — the field would silently keep its last value with no error shown.
+    // Binding to TimeOnly? instead lets a cleared field become null, which SaveAsync below can
+    // detect and reject explicitly, porting the deleted SSR page's own "Enter a valid start and
+    // end time." guard forward.
+    private TimeOnly? _startTime = new TimeOnly(18, 0);
+    private TimeOnly? _endTime = new TimeOnly(22, 0);
+
+    private string? _error;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (RendererInfo.IsInteractive)
+        {
+            _windows = await Api.GetListAsync();
+        }
+    }
+
+    private void ToggleDay(string code)
+    {
+        if (!_selectedDayCodes.Remove(code))
+        {
+            _selectedDayCodes.Add(code);
+        }
+    }
+
+    private void StartEdit(TimeWindowDto window)
+    {
+        _error = null;
+        _editingId = window.Id;
+        _selectedDayCodes = [.. window.DayCodes];
+        _startTime = window.StartTime;
+        _endTime = window.EndTime;
+    }
+
+    private void ResetEditor()
+    {
+        _error = null;
+        _editingId = null;
+        _selectedDayCodes = [];
+        _startTime = new TimeOnly(18, 0);
+        _endTime = new TimeOnly(22, 0);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_startTime is not { } start || _endTime is not { } end)
+        {
+            _error = "Enter a valid start and end time.";
+            return;
+        }
+
+        var request = new TimeWindowWriteRequest { DayCodes = [.. _selectedDayCodes], StartTime = start, EndTime = end };
+        if (TimeWindowValidation.Validate(request) is { } validationError)
+        {
+            _error = validationError;
+            return;
+        }
+
+        _error = null;
+        _saving = true;
+
+        var (window, problem) = _editingId is { } id
+            ? await Api.UpdateAsync(id, request)
+            : await Api.CreateAsync(request);
+
+        _saving = false;
+
+        if (problem is not null)
+        {
+            _error = problem.Detail ?? problem.Title ?? "Save failed.";
+            return;
+        }
+
+        if (window is not null)
+        {
+            ReplaceWindow(window);
+        }
+
+        ResetEditor();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        _error = null;
+
+        var problem = await Api.DeleteAsync(id);
+        if (problem is not null)
+        {
+            _error = problem.Detail ?? problem.Title ?? "Delete failed.";
+            return;
+        }
+
+        _windows = _windows!.Where(w => w.Id != id).ToList();
+
+        if (_editingId == id)
+        {
+            ResetEditor();
+        }
+    }
+
+    /// <summary>
+    /// Patches the single created/updated row into the already-loaded list in place, re-sorted to
+    /// match the server's StartTime-then-Id order — cheaper than a second round trip to re-fetch the
+    /// whole list just to show one changed row (the mutation response already carries it).
+    /// </summary>
+    private void ReplaceWindow(TimeWindowDto window)
+    {
+        _windows = _windows!
+            .Where(w => w.Id != window.Id)
+            .Append(window)
+            .OrderBy(w => w.StartTime)
+            .ThenBy(w => w.Id)
+            .ToList();
+    }
+}

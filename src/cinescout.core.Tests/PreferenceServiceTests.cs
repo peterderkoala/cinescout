@@ -70,21 +70,20 @@ public class PreferenceServiceTests : IAsyncLifetime
     {
         var options = BuildOptions();
 
+        int windowId;
         await using (var db = new CineScoutDbContext(options))
         {
             var service = new PreferenceService(db);
-            await service.CreateTimeWindowAsync(
+            windowId = await service.CreateTimeWindowAsync(
                 DaysOfWeekFlags.Friday | DaysOfWeekFlags.Saturday,
                 new TimeOnly(19, 0),
                 new TimeOnly(22, 30),
                 CancellationToken.None);
         }
 
-        int windowId;
         await using (var read = new CineScoutDbContext(options))
         {
-            var window = await read.FavoriteTimeWindows.SingleAsync();
-            windowId = window.Id;
+            var window = await read.FavoriteTimeWindows.SingleAsync(w => w.Id == windowId);
             Assert.Equal(DaysOfWeekFlags.Friday | DaysOfWeekFlags.Saturday, window.DaysOfWeek);
             Assert.Equal(new TimeOnly(19, 0), window.StartTime);
             Assert.Equal(new TimeOnly(22, 30), window.EndTime);
