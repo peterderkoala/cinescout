@@ -47,7 +47,10 @@
             }
             @if (Capping.HasGhostColumn)
             {
-                <div style="width:16px; height:16px; flex:none; border-radius:2px; background:var(--cinescout-accent-match); opacity:@Opacity(opacity * 0.35);"></div>
+                // Flat 0.35, not `opacity * 0.35` — the ghost-row/ghost-column corner cell would
+                // otherwise compound to ~12% (0.35 * 0.35) instead of the spec's single 35% ghost
+                // opacity, when a matrix overflows both the row cap and the seat cap at once.
+                <div style="width:16px; height:16px; flex:none; border-radius:2px; background:var(--cinescout-accent-match); opacity:@Opacity(0.35);"></div>
             }
         </text>;
 
