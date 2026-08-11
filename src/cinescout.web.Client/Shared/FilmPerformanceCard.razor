@@ -1,0 +1,112 @@
+@*
+    One component, two variants — Technical Design Spec.md §4.1 / FilmPerformanceCard.dc.html.
+    Bound to a single FilmPerformanceCardModel (issue #77/#84: the DTO carries every derived value
+    already computed server-side; this component does zero derivation of its own beyond the two
+    purely-presentational pieces §4.1 doesn't hand it — status badge class/text and match-reason
+    badge color). Decomposed into small reusable pieces (status badge, tracking star) wherever
+    compact and featured genuinely share behavior, matching only what the two .dc.html variants
+    actually render — verify visually against those files, not this file's markup alone.
+*@
+@using cinescout.contracts
+
+@if (Variant == FilmPerformanceCardVariant.Compact)
+{
+    <div class="compact-row d-flex align-items-center justify-content-between gap-3 px-3 border-bottom flex-wrap" style="padding-top:10px; padding-bottom:10px;">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            @if (Card.Tracking)
+            {
+                @TrackingStar("Tracking")
+            }
+            <a href="#" @onclick="HandleSelect" @onclick:preventDefault="true" class="fw-semibold text-decoration-none cs-heading" style="color:var(--bs-body-color);">@Card.Title</a>
+            <span class="text-muted small">@Card.DateTime</span>
+            <span class="text-muted small">@Card.Room</span>
+        </div>
+        @if (StatusBadge is { } badge)
+        {
+            <span class="badge @badge.Class">@badge.Text</span>
+        }
+    </div>
+}
+else
+{
+    <div class="card shadow-sm h-100" style="@FeaturedCardStyle">
+        <div class="row g-0 h-100">
+            <div class="col-4 col-md-3">
+                @if (Card.PosterUrl is { } posterUrl)
+                {
+                    <img src="@posterUrl" alt="@Card.Title poster" style="width:100%; height:100%; min-height:170px; object-fit:cover; border-radius:.375rem 0 0 .375rem;" />
+                }
+                else
+                {
+                    <div class="d-flex align-items-center justify-content-center h-100 text-secondary" style="min-height:170px; background:var(--bs-secondary-bg); border-radius:.375rem 0 0 .375rem;">
+                        <i class="bi bi-film" style="font-size:2.5rem;"></i>
+                    </div>
+                }
+            </div>
+            <div class="col-8 col-md-9">
+                <div class="card-body" style="padding:24px;">
+                    @if (Card.IsMatch)
+                    {
+                        <div class="text-uppercase fw-semibold mb-1 cs-heading" style="font-size:.7rem; letter-spacing:.08em; color:var(--cinescout-accent-match-text);">Match</div>
+                    }
+                    <h5 class="card-title mb-1" style="color:var(--bs-body-color);">@Card.Title</h5>
+                    <p class="card-text text-muted mb-1 small">@CinemaRoomLine</p>
+                    <p class="card-text mb-2 small">
+                        @Card.DateTime
+                        @if (Card.Price is { } price)
+                        {
+                            <text> · </text><strong>@price</strong>
+                        }
+                    </p>
+                    @if (Card.MatchReasons.Count > 0)
+                    {
+                        <div class="d-flex gap-1 flex-wrap mb-3">
+                            @foreach (var reason in Card.MatchReasons)
+                            {
+                                <span class="badge @(IsSeatRelated(reason) ? "text-bg-success" : "text-bg-secondary")">@reason</span>
+                            }
+                        </div>
+                    }
+                    @if (Card.Tracking && !Card.IsMatch)
+                    {
+                        <div class="mb-3 small text-muted">@TrackingStar(null) Tracking</div>
+                    }
+                    <a href="@Card.BookingLink" target="_blank" rel="noopener" class="btn btn-sm cs-btn-primary d-inline-block mt-3">Book on Kinoheld</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public required FilmPerformanceCardModel Card { get; set; }
+
+    [Parameter, EditorRequired]
+    public required FilmPerformanceCardVariant Variant { get; set; }
+
+    [Parameter]
+    public EventCallback OnSelect { get; set; }
+
+    private Task HandleSelect() => OnSelect.InvokeAsync();
+
+    private string? FeaturedCardStyle => Card.IsMatch
+        ? "border-left:4px solid var(--cinescout-accent-match); box-shadow:0 0 0 1px rgba(184,134,11,.2), 0 .25rem .6rem rgba(0,0,0,.08);"
+        : null;
+
+    private string CinemaRoomLine => string.Join(" · ", new[] { Card.Cinema, Card.Room }.Where(s => !string.IsNullOrEmpty(s)));
+
+    private (string Class, string Text)? StatusBadge => Card.Status switch
+    {
+        PerformanceCardStatus.Cancelled => ("text-bg-secondary", "Cancelled"),
+        PerformanceCardStatus.SoldOut => ("text-bg-danger", "Sold out"),
+        PerformanceCardStatus.Available => ("text-bg-success", "Seats available"),
+        _ => null,
+    };
+
+    private static bool IsSeatRelated(string reason) =>
+        reason.Contains("seat", StringComparison.OrdinalIgnoreCase) || reason.Contains("free", StringComparison.OrdinalIgnoreCase);
+
+    private static RenderFragment<string?> TrackingStar => title =>
+        @<i class="bi bi-bookmark-star-fill" title="@title" style="color:var(--cinescout-accent-match);"></i>;
+}

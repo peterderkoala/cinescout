@@ -1,0 +1,9 @@
+/* Compact row hover — FilmPerformanceCard.dc.html's style-hover, ported since Blazor scoped CSS has
+   no equivalent shorthand. */
+.compact-row {
+    transition: background-color .12s ease;
+}
+
+.compact-row:hover {
+    background-color: var(--bs-tertiary-bg);
+}

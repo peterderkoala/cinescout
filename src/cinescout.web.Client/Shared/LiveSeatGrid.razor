@@ -1,0 +1,40 @@
+@*
+    SeatGrid live mode — Technical Design Spec.md §4.2 / SeatGrid.dc.html. Renders one Performance's
+    real SeatStatus rows, 26px cells / 4px gaps, plus "{free} of {total} seats free". Row/cell layout
+    (adjacency-walked, not raw SeatNumber order) is computed by the pure, tested
+    LiveSeatGridLayout.Build — this component only turns the result into cells. Cell styles map 1:1
+    to SeatOccupancyStatus; a seat absent from the payload renders visibility:hidden (§4.2).
+*@
+@using cinescout.contracts
+
+<div>
+    <p class="small text-muted mb-2">@FreeCount of @TotalCount seats free</p>
+    <div class="d-flex flex-column" style="gap:4px;">
+        @foreach (var row in Rows)
+        {
+            <div class="d-flex" style="gap:4px;">
+                @foreach (var cell in row.Cells)
+                {
+                    <div style="width:26px; height:26px; border-radius:4px; @CellStyle(cell)"></div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<LiveSeatDto> Seats { get; set; }
+
+    private IReadOnlyList<LiveSeatGridRow> Rows => LiveSeatGridLayout.Build(Seats);
+    private int TotalCount => Seats.Count;
+    private int FreeCount => Seats.Count(s => s.Status == SeatOccupancyStatus.Free);
+
+    private static string CellStyle(LiveSeatGridCell cell) => cell.Seat?.Status switch
+    {
+        SeatOccupancyStatus.Free => "background:transparent; border:2px solid var(--bs-success);",
+        SeatOccupancyStatus.Sold => "background:var(--bs-secondary); border:2px solid var(--bs-secondary);",
+        SeatOccupancyStatus.Other => "background:transparent; border:2px solid var(--bs-warning);",
+        _ => "visibility:hidden;",
+    };
+}
