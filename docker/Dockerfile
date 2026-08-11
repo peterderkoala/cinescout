@@ -11,6 +11,7 @@ COPY src/cinescout.web.Client/cinescout.web.Client.csproj src/cinescout.web.Clie
 COPY src/cinescout.core/cinescout.core.csproj src/cinescout.core/
 COPY src/cinescout.model/cinescout.model.csproj src/cinescout.model/
 COPY src/cinescout.persistence/cinescout.persistence.csproj src/cinescout.persistence/
+COPY src/cinescout.contracts/cinescout.contracts.csproj src/cinescout.contracts/
 RUN dotnet restore src/cinescout.web/cinescout.web.csproj
 
 COPY src/cinescout.web/ src/cinescout.web/
@@ -18,6 +19,7 @@ COPY src/cinescout.web.Client/ src/cinescout.web.Client/
 COPY src/cinescout.core/ src/cinescout.core/
 COPY src/cinescout.model/ src/cinescout.model/
 COPY src/cinescout.persistence/ src/cinescout.persistence/
+COPY src/cinescout.contracts/ src/cinescout.contracts/
 RUN dotnet publish src/cinescout.web/cinescout.web.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
