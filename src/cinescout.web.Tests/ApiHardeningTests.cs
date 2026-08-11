@@ -145,13 +145,12 @@ public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.
         // request on the returned client an authenticated one, same as a real browser session.
         public async Task<HttpClient> CreateAuthenticatedClientAsync()
         {
-            const string password = "correct-horse-battery-staple";
-            await SetSeededUserPasswordHashAsync(password);
+            await SetSeededUserPasswordHashAsync(CorrectPassword);
 
             var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
             await client.PostAsync(
                 "/account/login",
-                new FormUrlEncodedContent([new KeyValuePair<string, string>("password", password)]));
+                new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
 
             return client;
         }
