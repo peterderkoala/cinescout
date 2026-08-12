@@ -32,6 +32,9 @@ jobs:
       - name: Run tests with coverage
         run: ./coverage.sh
 
+      - name: Enforce CRAP-score ceiling
+        run: ./crap-check.sh
+
       - name: Upload coverage report (build artifact)
         uses: actions/upload-artifact@v7
         with:
