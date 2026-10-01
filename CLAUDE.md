@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 CineScout has a real .NET 10 solution in `src/` (see `src/cinescout.slnx`). The [wayfinder map](https://github.com/peterderkoala/cinescout/issues/1) produced a full spec, sliced into tickets tracked from [issue #14](https://github.com/peterderkoala/cinescout/issues/14); implementation is in progress against that ticket list.
 
-`./handoff/` (git-ignored) is where an agent session's end-of-session handoff doc gets written — check
-there first when picking up mid-project; it's the fastest way to see what the last session did and what's
-next, without re-deriving it from git log/issues. Throwaway per session, not part of project history.
+`./handoff/handoff.md` (git-ignored, single undated file, overwritten in place) is the agent handoff doc —
+check it first when picking up mid-project; it's the fastest way to see what the last session did and what's
+next, without re-deriving it from git log/issues. Update it frequently during a session, not just at the end.
+Throwaway, not part of project history.
 
 Current projects:
 
