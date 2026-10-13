@@ -6,12 +6,10 @@ using cinescout.core.Kinoheld;
 using cinescout.model;
 using cinescout.persistence;
 using cinescout.web.Auth;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.web.Tests;
 
@@ -344,38 +342,9 @@ public sealed partial class CinemasEndpointsKinoheldStatusTests : IClassFixture<
     private static partial Regex AntiforgeryTokenMetaTagRegex();
 }
 
-public sealed class CinemasEndpointsTestFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class CinemasEndpointsTestFactory : PostgresWebFactory
 {
     private const string CorrectPassword = "correct-horse-battery-staple";
-
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
-
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        await using var context = CreateDbContext();
-        await context.Database.MigrateAsync();
-    }
-
-    async Task IAsyncLifetime.DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-        await DisposeAsync();
-    }
-
-    public CineScoutDbContext CreateDbContext() =>
-        new(new DbContextOptionsBuilder<CineScoutDbContext>().UseNpgsql(_postgres.GetConnectionString()).Options);
-
-    /// <summary>Tests share one Postgres container/schema; this clears out Cinema/Room rows so list/order assertions aren't polluted by other tests' data.</summary>
-    public async Task ResetDatabaseAsync()
-    {
-        await using var db = CreateDbContext();
-        db.Rooms.RemoveRange(db.Rooms);
-        db.Cinemas.RemoveRange(db.Cinemas);
-        await db.SaveChangesAsync();
-    }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync()
     {
@@ -393,11 +362,5 @@ public sealed class CinemasEndpointsTestFactory : WebApplicationFactory<Program>
             new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
 
         return client;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
     }
 }

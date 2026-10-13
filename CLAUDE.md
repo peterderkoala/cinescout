@@ -67,9 +67,10 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
   touch the DB take `IClassFixture<PostgresFixture>` and call `ResetAsync()` (TRUNCATE) in `InitializeAsync`.
 - NSubstitute only at the HTTP-edge seams (`IHallOfFameClient`, `IKinoheldClient`, `IDiscordNotifier`). Matching
   logic is pure, tested without I/O. No bUnit.
-- Web tests: pass the connection string with `UseSetting` in `ConfigureWebHost` — `ConfigureAppConfiguration` is
-  too late, `Program.cs` reads it before `Build()`. The `Testing` environment skips Hangfire and migrations and
-  doesn't require the connection string.
+- Web test factories derive from `PostgresWebFactory`. Its reset must not `RESTART IDENTITY`: the app host outlives
+  a reset, and id-keyed singletons (the force-refresh cooldown) would see reused ids. It passes the connection
+  string with `UseSetting` — `ConfigureAppConfiguration` is too late, `Program.cs` reads it before `Build()`. The
+  `Testing` environment skips Hangfire and migrations and doesn't require the connection string.
 
 ## Runtime gotchas
 

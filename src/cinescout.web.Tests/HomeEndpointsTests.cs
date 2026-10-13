@@ -3,11 +3,9 @@ using cinescout.contracts;
 using cinescout.model;
 using cinescout.persistence;
 using cinescout.web.Auth;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.web.Tests;
 
@@ -267,47 +265,9 @@ public sealed class HomeEndpointsTests : IClassFixture<HomeEndpointsTestFactory>
     }
 }
 
-public sealed class HomeEndpointsTestFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class HomeEndpointsTestFactory : PostgresWebFactory
 {
     private const string CorrectPassword = "correct-horse-battery-staple";
-
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
-
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        await using var context = CreateDbContext();
-        await context.Database.MigrateAsync();
-    }
-
-    async Task IAsyncLifetime.DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-        await DisposeAsync();
-    }
-
-    public CineScoutDbContext CreateDbContext() =>
-        new(new DbContextOptionsBuilder<CineScoutDbContext>().UseNpgsql(_postgres.GetConnectionString()).Options);
-
-    /// <summary>Tests share one Postgres container/schema; clear out everything Home's read model touches between tests.</summary>
-    public async Task ResetDatabaseAsync()
-    {
-        await using var db = CreateDbContext();
-        db.NotificationLogs.RemoveRange(db.NotificationLogs);
-        db.Matches.RemoveRange(db.Matches);
-        db.SeatStatuses.RemoveRange(db.SeatStatuses);
-        db.PerformancePriceAreas.RemoveRange(db.PerformancePriceAreas);
-        db.FavoriteSeatMatrices.RemoveRange(db.FavoriteSeatMatrices);
-        db.FavoriteTimeWindows.RemoveRange(db.FavoriteTimeWindows);
-        db.TrackedMovies.RemoveRange(db.TrackedMovies);
-        db.Performances.RemoveRange(db.Performances);
-        db.Films.RemoveRange(db.Films);
-        db.Rooms.RemoveRange(db.Rooms);
-        db.Cinemas.RemoveRange(db.Cinemas);
-        await db.SaveChangesAsync();
-    }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync()
     {
@@ -325,11 +285,5 @@ public sealed class HomeEndpointsTestFactory : WebApplicationFactory<Program>, I
             new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
 
         return client;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
     }
 }

@@ -1,12 +1,10 @@
 using System.Net;
 using cinescout.persistence;
 using cinescout.web.Auth;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.web.Tests;
 
@@ -124,28 +122,11 @@ public sealed class SetupTests : IClassFixture<SetupTests.Factory>
             new KeyValuePair<string, string>("confirmPassword", confirmPassword),
         ]);
 
-    public sealed class Factory : WebApplicationFactory<Program>, IAsyncLifetime
+    public sealed class Factory : PostgresWebFactory
     {
-        private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-            .Build();
-
-        public async Task InitializeAsync()
-        {
-            await _postgres.StartAsync();
-
-            await using var context = new CineScoutDbContext(BuildOptions());
-            await context.Database.MigrateAsync();
-        }
-
-        async Task IAsyncLifetime.DisposeAsync()
-        {
-            await _postgres.DisposeAsync();
-            await DisposeAsync();
-        }
-
         public async Task SetSeededUserPasswordHashAsync(string? password)
         {
-            await using var db = new CineScoutDbContext(BuildOptions());
+            await using var db = CreateDbContext();
             var user = await db.Users.SingleAsync();
             user.PasswordHash = password is null ? null : new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, password);
             user.SetupCompletedAt = password is null ? null : DateTimeOffset.UtcNow;
@@ -154,19 +135,8 @@ public sealed class SetupTests : IClassFixture<SetupTests.Factory>
 
         public async Task<cinescout.model.User> GetSeededUserAsync()
         {
-            await using var db = new CineScoutDbContext(BuildOptions());
+            await using var db = CreateDbContext();
             return await db.Users.SingleAsync();
-        }
-
-        private DbContextOptions<CineScoutDbContext> BuildOptions() =>
-            new DbContextOptionsBuilder<CineScoutDbContext>()
-                .UseNpgsql(_postgres.GetConnectionString())
-                .Options;
-
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            builder.UseEnvironment("Testing");
-            builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
         }
     }
 }

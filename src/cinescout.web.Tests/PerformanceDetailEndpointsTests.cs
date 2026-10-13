@@ -12,7 +12,6 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.web.Tests;
 
@@ -503,48 +502,11 @@ public sealed class FakeKinoheldClient : IKinoheldClient
         Task.FromResult(NextGetSeatsResult?.Invoke(cinemaId, showId) ?? new KinoheldSeatsResult.NotBookable());
 }
 
-public sealed class PerformanceDetailEndpointsTestFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class PerformanceDetailEndpointsTestFactory : PostgresWebFactory
 {
     private const string CorrectPassword = "correct-horse-battery-staple";
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
-
     public FakeKinoheldClient FakeKinoheldClient { get; } = new();
-
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        await using var context = CreateDbContext();
-        await context.Database.MigrateAsync();
-    }
-
-    async Task IAsyncLifetime.DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-        await DisposeAsync();
-    }
-
-    public CineScoutDbContext CreateDbContext() =>
-        new(new DbContextOptionsBuilder<CineScoutDbContext>().UseNpgsql(_postgres.GetConnectionString()).Options);
-
-    /// <summary>Tests share one Postgres container/schema; clear out everything Performance Detail's read model touches between tests.</summary>
-    public async Task ResetDatabaseAsync()
-    {
-        await using var db = CreateDbContext();
-        db.Matches.RemoveRange(db.Matches);
-        db.SeatStatuses.RemoveRange(db.SeatStatuses);
-        db.PerformancePriceAreas.RemoveRange(db.PerformancePriceAreas);
-        db.FavoriteSeatMatrices.RemoveRange(db.FavoriteSeatMatrices);
-        db.FavoriteTimeWindows.RemoveRange(db.FavoriteTimeWindows);
-        db.TrackedMovies.RemoveRange(db.TrackedMovies);
-        db.Performances.RemoveRange(db.Performances);
-        db.Films.RemoveRange(db.Films);
-        db.Rooms.RemoveRange(db.Rooms);
-        db.Cinemas.RemoveRange(db.Cinemas);
-        await db.SaveChangesAsync();
-    }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync()
     {
@@ -566,8 +528,7 @@ public sealed class PerformanceDetailEndpointsTestFactory : WebApplicationFactor
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
+        base.ConfigureWebHost(builder);
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IKinoheldClient>();

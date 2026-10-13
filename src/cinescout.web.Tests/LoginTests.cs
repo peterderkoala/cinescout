@@ -1,11 +1,9 @@
 using System.Net;
 using cinescout.persistence;
 using cinescout.web.Auth;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.web.Tests;
 
@@ -72,49 +70,17 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
     private static FormUrlEncodedContent FormBody(string password) =>
         new([new KeyValuePair<string, string>("password", password)]);
 
-    public sealed class Factory : WebApplicationFactory<Program>, IAsyncLifetime
+    public sealed class Factory : PostgresWebFactory
     {
-        private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-            .Build();
-
-        public async Task InitializeAsync()
-        {
-            await _postgres.StartAsync();
-
-            await using var context = new CineScoutDbContext(BuildOptions());
-            await context.Database.MigrateAsync();
-        }
-
-        async Task IAsyncLifetime.DisposeAsync()
-        {
-            await _postgres.DisposeAsync();
-            await DisposeAsync();
-        }
-
         // The seeded User row starts with PasswordHash == null (ADR 0001) — tests set it directly
         // against the same real Postgres the app uses, rather than going through a config-based
         // credential, matching the login flow's actual source of truth after this change.
         public async Task SetSeededUserPasswordHashAsync(string? password)
         {
-            await using var db = new CineScoutDbContext(BuildOptions());
+            await using var db = CreateDbContext();
             var user = await db.Users.SingleAsync();
             user.PasswordHash = password is null ? null : new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, password);
             await db.SaveChangesAsync();
-        }
-
-        private DbContextOptions<CineScoutDbContext> BuildOptions() =>
-            new DbContextOptionsBuilder<CineScoutDbContext>()
-                .UseNpgsql(_postgres.GetConnectionString())
-                .Options;
-
-        protected override void ConfigureWebHost(IWebHostBuilder builder)
-        {
-            builder.UseEnvironment("Testing");
-            // UseSetting (not ConfigureAppConfiguration) — Program.cs reads
-            // builder.Configuration.GetConnectionString("Postgres") into a local variable before
-            // Build() runs, and ConfigureAppConfiguration's provider isn't spliced in early enough
-            // for that read to see it. UseSetting applies synchronously, early enough to be visible.
-            builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
         }
     }
 }

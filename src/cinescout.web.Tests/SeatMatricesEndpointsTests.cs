@@ -5,11 +5,9 @@ using cinescout.contracts;
 using cinescout.model;
 using cinescout.persistence;
 using cinescout.web.Auth;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.web.Tests;
 
@@ -302,40 +300,9 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     private static partial Regex AntiforgeryTokenMetaTagRegex();
 }
 
-public sealed class SeatMatricesEndpointsTestFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class SeatMatricesEndpointsTestFactory : PostgresWebFactory
 {
     private const string CorrectPassword = "correct-horse-battery-staple";
-
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
-
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        await using var context = CreateDbContext();
-        await context.Database.MigrateAsync();
-    }
-
-    async Task IAsyncLifetime.DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-        await DisposeAsync();
-    }
-
-    public CineScoutDbContext CreateDbContext() =>
-        new(new DbContextOptionsBuilder<CineScoutDbContext>().UseNpgsql(_postgres.GetConnectionString()).Options);
-
-    /// <summary>Tests share one Postgres container/schema; this clears out the entities this screen touches so list/order/guard assertions aren't polluted by other tests' data.</summary>
-    public async Task ResetDatabaseAsync()
-    {
-        await using var db = CreateDbContext();
-        db.FavoriteSeatMatrices.RemoveRange(db.FavoriteSeatMatrices);
-        db.Films.RemoveRange(db.Films);
-        db.Rooms.RemoveRange(db.Rooms);
-        db.Cinemas.RemoveRange(db.Cinemas);
-        await db.SaveChangesAsync();
-    }
 
     public async Task<(int CinemaId, int RoomId, int FilmId)> SeedCinemaRoomAndFilmAsync()
     {
@@ -377,11 +344,5 @@ public sealed class SeatMatricesEndpointsTestFactory : WebApplicationFactory<Pro
             new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
 
         return client;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
     }
 }
