@@ -114,9 +114,9 @@ public static class WebServiceCollectionExtensions
             $"0 */{hallOfFameCrawlIntervalHours} * * *");
 
         var kinoheldSeatCrawlIntervalMinutes = app.Configuration.GetValue("Kinoheld:SeatCrawlIntervalMinutes", 30);
-        recurringJobManager.AddOrUpdate<KinoheldSeatCrawlJob>(
+        recurringJobManager.AddOrUpdate<KinoheldSeatCrawlService>(
             "kinoheld-seat-crawl",
-            job => job.RunAsync(CancellationToken.None),
+            service => service.CrawlTrackedAsync(CancellationToken.None),
             $"*/{kinoheldSeatCrawlIntervalMinutes} * * * *");
     }
 

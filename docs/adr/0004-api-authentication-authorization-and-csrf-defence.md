@@ -41,7 +41,8 @@ into `ProblemDetails` plus the `kinoheldStatus` extension #83 already specified.
 needed at the endpoint layer for that path. Re-seed Rooms has no equivalent today — it's currently only
 invoked once at startup — so it gets a new sibling tracker (per-cinema, ~5 minute window, longer than the
 seat-fetch cooldown since a room re-seed is a heavier operation), following the same pattern rather than
-introducing a second rate-limiting mechanism.
+introducing a second rate-limiting mechanism. _Superseded by [#125](https://github.com/peterderkoala/cinescout/issues/125):
+the re-seed tracker was cut; Re-seed Rooms is gated by the circuit breaker only (see ADR 0005)._
 
 **Session expiry as an actionable status.** Plain `AddCookie()` here has no custom `Events`, so the default
 `OnRedirectToLogin` unconditionally 302-redirects — `fetch()` follows it transparently and lands on the
@@ -78,7 +79,7 @@ here changes that.
   and a custom `Events.OnRedirectToLogin`/`OnRedirectToAccessDenied` pair keyed on the `/api` path prefix.
 - A new tracker sibling to `KinoheldFetchCooldownTracker` is needed for Re-seed Rooms before
   [Sites screen: service seam, re-seed trigger, and delete semantics](https://github.com/peterderkoala/cinescout/issues/79)
-  can implement that trigger.
+  can implement that trigger. _(Superseded by #125 — no re-seed tracker.)_
 - `CLAUDE.md`'s existing antiforgery paragraph — which justifies `EditForm`'s built-in protection for
   authenticated mutations — becomes wrong once these `/api` endpoints replace those Blazor-form flows on the
   seven WASM screens, and needs correction as part of that work.

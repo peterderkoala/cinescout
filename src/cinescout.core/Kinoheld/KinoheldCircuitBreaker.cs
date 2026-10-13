@@ -5,61 +5,21 @@ namespace cinescout.core.Kinoheld;
 /// (403/429 or any anomalous response), the breaker trips and every polling path — recurring
 /// crawl, on-demand page fetch, force-refresh — stops calling out entirely. Deliberately
 /// in-memory and permanent for v1: there is no automatic half-open/retry, and an app restart
-/// is the "manual reset". Registered as a singleton; thread-safe via a plain lock.
+/// is the "manual reset". Registered as a singleton.
 /// </summary>
 public sealed class KinoheldCircuitBreaker
 {
-    private readonly Lock _lock = new();
-    private bool _isTripped;
-    private string? _tripReason;
-    private DateTimeOffset? _trippedAt;
+    private sealed record TripRecord(string Reason, DateTimeOffset At);
 
-    public bool IsTripped
-    {
-        get
-        {
-            lock (_lock)
-            {
-                return _isTripped;
-            }
-        }
-    }
+    private TripRecord? _trip;
 
-    public string? TripReason
-    {
-        get
-        {
-            lock (_lock)
-            {
-                return _tripReason;
-            }
-        }
-    }
+    public bool IsTripped => Volatile.Read(ref _trip) is not null;
 
-    public DateTimeOffset? TrippedAt
-    {
-        get
-        {
-            lock (_lock)
-            {
-                return _trippedAt;
-            }
-        }
-    }
+    public string? TripReason => Volatile.Read(ref _trip)?.Reason;
+
+    public DateTimeOffset? TrippedAt => Volatile.Read(ref _trip)?.At;
 
     /// <summary>Trips the breaker. The first trip wins — later calls never overwrite the original reason/timestamp.</summary>
-    public void Trip(string reason)
-    {
-        lock (_lock)
-        {
-            if (_isTripped)
-            {
-                return;
-            }
-
-            _isTripped = true;
-            _tripReason = reason;
-            _trippedAt = DateTimeOffset.UtcNow;
-        }
-    }
+    public void Trip(string reason) =>
+        Interlocked.CompareExchange(ref _trip, new TripRecord(reason, DateTimeOffset.UtcNow), null);
 }

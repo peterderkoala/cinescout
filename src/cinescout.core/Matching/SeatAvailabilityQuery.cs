@@ -13,26 +13,8 @@ namespace cinescout.core.Matching;
 /// </summary>
 public sealed class SeatAvailabilityQuery(CineScoutDbContext db)
 {
-    public async Task<bool> HasOpenFavoriteMatrixSeatsAsync(int performanceId, CancellationToken cancellationToken)
-    {
-        var performance = await db.Performances.SingleOrDefaultAsync(p => p.Id == performanceId, cancellationToken);
-        if (performance?.RoomId is not int roomId)
-        {
-            return false;
-        }
-
-        var matrix = await SeatMatrixResolver.ResolveApplicableAsync(db, roomId, performance.FilmId, cancellationToken);
-        if (matrix is null)
-        {
-            return false;
-        }
-
-        var seats = await db.SeatStatuses.Where(s => s.PerformanceId == performanceId).ToListAsync(cancellationToken);
-        return SeatBlockFinder.FindContiguousFreeBlock(seats, matrix) is not null;
-    }
-
     /// <summary>
-    /// Batch form for browse pages listing many performances (e.g. Schedule.razor) — two bulk
+    /// Batch-only, for browse pages listing many performances (e.g. Schedule.razor) — two bulk
     /// queries (matrices across every distinct RoomId, seats across every performance) instead of
     /// one round-trip per performance, then resolves each performance's matrix/block in memory via
     /// SeatMatrixResolver.ResolveApplicable/SeatBlockFinder. Callers already hold the Performance

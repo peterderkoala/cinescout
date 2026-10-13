@@ -62,7 +62,8 @@ public sealed class KinoheldSeatCrawlService(
 
     /// <summary>
     /// On-demand path for the performance detail page. Serves cache when the latest snapshot is
-    /// within the freshness window (<c>Kinoheld:SeatFreshnessMinutes</c>, default 30) unless
+    /// within the freshness window — the same <c>Kinoheld:SeatCrawlIntervalMinutes</c> (default 30)
+    /// the recurring crawl runs on (#14: one window) — unless
     /// <paramref name="forceRefresh"/> is set. The 30-second per-performance cooldown applies to
     /// force-refresh only — it exists purely to absorb accidental double-clicks (#14), not to
     /// second-guess a deliberate refresh or throttle routine stale-cache fetches (those are
@@ -86,7 +87,7 @@ public sealed class KinoheldSeatCrawlService(
 
         if (!forceRefresh)
         {
-            var freshnessMinutes = configuration.GetValue("Kinoheld:SeatFreshnessMinutes", 30);
+            var freshnessMinutes = configuration.GetValue("Kinoheld:SeatCrawlIntervalMinutes", 30);
             var latestCrawledAt = await db.SeatingSnapshots
                 .Where(s => s.PerformanceId == performanceId)
                 .MaxAsync(s => (DateTimeOffset?)s.CrawledAt, cancellationToken);

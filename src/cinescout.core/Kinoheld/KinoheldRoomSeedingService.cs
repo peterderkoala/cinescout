@@ -17,15 +17,14 @@ namespace cinescout.core.Kinoheld;
 /// crawled yet for a cinema, seeding is a safe no-op that will pick up once a Hall-of-Fame crawl
 /// has run.
 ///
-/// Also the Re-seed Rooms trigger (Cinemas screen, ADR 0005): the circuit breaker and a per-cinema
-/// cooldown are checked internally, symmetric with how <see cref="KinoheldSeatCrawlService"/>
-/// already gates its own calls — callers don't enforce either themselves.
+/// Also the Re-seed Rooms trigger (Cinemas screen, ADR 0005): the circuit breaker is checked
+/// internally, symmetric with how <see cref="KinoheldSeatCrawlService"/> already gates its own
+/// calls — callers don't enforce it themselves.
 /// </summary>
 public sealed class KinoheldRoomSeedingService(
     CineScoutDbContext db,
     IKinoheldClient client,
     KinoheldCircuitBreaker circuitBreaker,
-    KinoheldRoomSeedCooldownTracker cooldownTracker,
     ILogger<KinoheldRoomSeedingService> logger)
 {
     public async Task<RoomSeedOutcome> SeedRoomsForCinemaAsync(Cinema cinema, CancellationToken cancellationToken)
@@ -44,12 +43,6 @@ public sealed class KinoheldRoomSeedingService(
         if (bookingLink is null)
         {
             return RoomSeedOutcome.Unavailable; // nothing crawled yet for this cinema to derive a widget URL from — safe no-op, will pick up once Hall-of-Fame crawl has run
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        if (!cooldownTracker.TryBeginSeed(cinema.Id, now))
-        {
-            return RoomSeedOutcome.CooldownActive;
         }
 
         var result = await client.GetWidgetConfigAsync(bookingLink, cancellationToken);

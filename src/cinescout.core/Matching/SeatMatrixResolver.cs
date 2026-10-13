@@ -28,7 +28,7 @@ public static class SeatMatrixResolver
 
     /// <summary>
     /// Pure precedence rule over an already-loaded set of enabled matrices for one room — lets
-    /// batch callers (e.g. SeatAvailabilityQuery's multi-performance overload) load matrices for
+    /// batch callers (e.g. SeatAvailabilityQuery) load matrices for
     /// many rooms in a single query and resolve each performance in memory, instead of one
     /// DB round-trip per performance.
     /// </summary>

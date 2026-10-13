@@ -21,11 +21,12 @@ is no read-side service, matching the existing write/read split.
 plus a small per-auditorium loop, no pagination) and already runs synchronously today, awaited at startup.
 There is no fire-and-forget Hangfire precedent anywhere in the repo (`IBackgroundJobClient`/
 `BackgroundJob.Enqueue` are unused; the only two Hangfire jobs are recurring). Re-seed Rooms runs
-synchronously inside the request, matching Force Refresh — the closest existing analog. Breaker and cooldown
-enforcement ([API authentication, authorization and CSRF defence](https://github.com/peterderkoala/cinescout/issues/85)
-gave Re-seed Rooms its own cooldown tracker) move *into* `SeedRoomsForCinemaAsync` itself, symmetric with how
-`KinoheldSeatCrawlService.FetchForPerformanceAsync` already checks `KinoheldCircuitBreaker` and its own
-cooldown tracker internally rather than leaving it to the caller. The method returns a typed outcome (the
+synchronously inside the request, matching Force Refresh — the closest existing analog. Breaker
+enforcement moves *into* `SeedRoomsForCinemaAsync` itself, symmetric with how
+`KinoheldSeatCrawlService.FetchForPerformanceAsync` already checks `KinoheldCircuitBreaker` internally rather
+than leaving it to the caller. _Amended by [#125](https://github.com/peterderkoala/cinescout/issues/125): the
+per-cinema re-seed cooldown this originally included (from ADR 0004) was cut — it isn't in the spec, and the
+breaker already stops all calls once Kinoheld pushes back._ The method returns a typed outcome (the
 room-seeding analog of `SeatFetchOutcome`) that the endpoint translates to `ProblemDetails` plus
 `kinoheldStatus`, the same contract shape ADR 0004 established for Force Refresh.
 
@@ -55,7 +56,7 @@ rooms come only from Re-seed Rooms seeding. Nothing in the above smuggles a crea
 - **Re-seed Rooms enqueued to Hangfire** (rejected): would be the first fire-and-forget job in the codebase,
   needs a way to report the outcome back to a client that's still waiting for a response, and the underlying
   work is cheap enough that Force Refresh's synchronous precedent applies directly.
-- **Breaker/cooldown checks in `CinemaService` or the endpoint rather than inside `KinoheldRoomSeedingService`**
+- **Breaker checks in `CinemaService` or the endpoint rather than inside `KinoheldRoomSeedingService`**
   (rejected): would duplicate the pattern `KinoheldSeatCrawlService` already establishes for the same class of
   problem, splitting Kinoheld-call enforcement across two places instead of one.
 - **Unconditional cascade delete** (rejected): the spec doesn't ask for a delete confirmation flow rich enough
@@ -72,10 +73,8 @@ rooms come only from Re-seed Rooms seeding. Nothing in the above smuggles a crea
 - New `cinescout.core/Cinemas/CinemaService.cs`, registered via an `AddCinemas` extension following the
   `AddTrackedMovies`/`AddPreferences` pattern.
 - `KinoheldRoomSeedingService.SeedRoomsForCinemaAsync` changes signature from bare `Task` to a typed outcome
-  (mirroring `SeatFetchOutcome`), and gains the breaker/cooldown checks `KinoheldSeatCrawlService.FetchForPerformanceAsync`
+  (mirroring `SeatFetchOutcome`), and gains the breaker check `KinoheldSeatCrawlService.FetchForPerformanceAsync`
   already has.
-- A new cooldown tracker sibling to `KinoheldFetchCooldownTracker`, scoped per-cinema (~5 minute window, per
-  ADR 0004), is needed before Re-seed Rooms can be implemented.
 - `CinemaService.DeleteAsync` needs a `Room` existence check before deleting, and the endpoint needs a
   `ProblemDetails` response shape for the blocked case.
 - Building this screen also requires implementing [ADR 0003](https://github.com/peterderkoala/cinescout/blob/dev/docs/adr/0003-cinema-last-crawl-at-field.md)'s

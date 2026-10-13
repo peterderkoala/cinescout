@@ -35,13 +35,11 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
     private static KinoheldRoomSeedingService CreateService(
         CineScoutDbContext db,
         IKinoheldClient client,
-        KinoheldCircuitBreaker? breaker = null,
-        KinoheldRoomSeedCooldownTracker? cooldownTracker = null) =>
+        KinoheldCircuitBreaker? breaker = null) =>
         new(
             db,
             client,
             breaker ?? new KinoheldCircuitBreaker(),
-            cooldownTracker ?? new KinoheldRoomSeedCooldownTracker(),
             NullLogger<KinoheldRoomSeedingService>.Instance);
 
     private static KinoheldWidgetConfig ThreeAuditoriumConfig() => new()
@@ -303,27 +301,5 @@ public class KinoheldRoomSeedingServiceTests : IAsyncLifetime
 
         Assert.Equal(RoomSeedOutcome.CircuitOpen, outcome);
         Assert.True(breaker.IsTripped);
-    }
-
-    [Fact]
-    public async Task Second_attempt_within_cooldown_returns_CooldownActive_without_calling_out()
-    {
-        var options = BuildOptions();
-        var client = Substitute.For<IKinoheldClient>();
-        client.GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new KinoheldWidgetConfigResult.Success(ThreeAuditoriumConfig()));
-        var cooldownTracker = new KinoheldRoomSeedCooldownTracker();
-
-        await using var db = new CineScoutDbContext(options);
-        var (cinemaId, _) = await SeedCinemaWithPerformanceAsync(db);
-        var cinema = await db.Cinemas.SingleAsync(s => s.Id == cinemaId);
-
-        var service = CreateService(db, client, cooldownTracker: cooldownTracker);
-        var first = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
-        var second = await service.SeedRoomsForCinemaAsync(cinema, CancellationToken.None);
-
-        Assert.Equal(RoomSeedOutcome.Seeded, first);
-        Assert.Equal(RoomSeedOutcome.CooldownActive, second);
-        await client.Received(1).GetWidgetConfigAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 }

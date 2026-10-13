@@ -30,6 +30,13 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
             .UseNpgsql(_postgres.GetConnectionString())
             .Options;
 
+    private static async Task<bool> QuerySingleAsync(CineScoutDbContext db, int performanceId)
+    {
+        var performance = await db.Performances.SingleAsync(p => p.Id == performanceId);
+        var result = await new SeatAvailabilityQuery(db).HasOpenFavoriteMatrixSeatsAsync([performance], CancellationToken.None);
+        return result[performanceId];
+    }
+
     private sealed record Scenario(int RoomId, int FilmId, int PerformanceId);
 
     private static async Task<Scenario> SeedScenarioAsync(CineScoutDbContext db, bool tracked = false, int? roomId = null)
@@ -137,7 +144,7 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
 
         await using var db2 = new CineScoutDbContext(options);
-        var result = await new SeatAvailabilityQuery(db2).HasOpenFavoriteMatrixSeatsAsync(performanceId, CancellationToken.None);
+        var result = await QuerySingleAsync(db2, performanceId);
 
         Assert.True(result);
     }
@@ -165,9 +172,8 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
 
         await using var db2 = new CineScoutDbContext(options);
-        var query = new SeatAvailabilityQuery(db2);
-        var trackedResult = await query.HasOpenFavoriteMatrixSeatsAsync(trackedPerformanceId, CancellationToken.None);
-        var nonTrackedResult = await query.HasOpenFavoriteMatrixSeatsAsync(nonTrackedPerformanceId, CancellationToken.None);
+        var trackedResult = await QuerySingleAsync(db2, trackedPerformanceId);
+        var nonTrackedResult = await QuerySingleAsync(db2, nonTrackedPerformanceId);
 
         Assert.True(trackedResult);
         Assert.True(nonTrackedResult);
@@ -186,7 +192,7 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
 
         await using var db2 = new CineScoutDbContext(options);
-        var result = await new SeatAvailabilityQuery(db2).HasOpenFavoriteMatrixSeatsAsync(performanceId, CancellationToken.None);
+        var result = await QuerySingleAsync(db2, performanceId);
 
         Assert.False(result);
     }
@@ -206,7 +212,7 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
 
         await using var db2 = new CineScoutDbContext(options);
-        var result = await new SeatAvailabilityQuery(db2).HasOpenFavoriteMatrixSeatsAsync(performanceId, CancellationToken.None);
+        var result = await QuerySingleAsync(db2, performanceId);
 
         Assert.False(result);
     }
@@ -228,7 +234,7 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
 
         await using var db2 = new CineScoutDbContext(options);
-        var result = await new SeatAvailabilityQuery(db2).HasOpenFavoriteMatrixSeatsAsync(performanceId, CancellationToken.None);
+        var result = await QuerySingleAsync(db2, performanceId);
 
         Assert.False(result);
     }
@@ -250,13 +256,13 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
         }
 
         await using var db2 = new CineScoutDbContext(options);
-        var result = await new SeatAvailabilityQuery(db2).HasOpenFavoriteMatrixSeatsAsync(performanceId, CancellationToken.None);
+        var result = await QuerySingleAsync(db2, performanceId);
 
         Assert.False(result);
     }
 
     [Fact]
-    public async Task Batch_overload_matches_the_single_performance_result_for_a_mix_of_performances()
+    public async Task Resolves_each_performance_in_a_mixed_batch()
     {
         var options = BuildOptions();
         int withSeatsId;
@@ -303,7 +309,7 @@ public class SeatAvailabilityQueryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Batch_overload_returns_an_empty_dictionary_for_an_empty_input()
+    public async Task Returns_an_empty_dictionary_for_an_empty_input()
     {
         var options = BuildOptions();
         await using var db = new CineScoutDbContext(options);

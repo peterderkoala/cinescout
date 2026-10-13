@@ -9,9 +9,6 @@ public enum RoomSeedOutcome
     /// <summary>Nothing has been crawled yet for this cinema to derive a widget URL from; safe no-op.</summary>
     Unavailable,
 
-    /// <summary>The per-cinema cooldown (~5 min) hasn't elapsed since the last seed attempt; no call was made.</summary>
-    CooldownActive,
-
     /// <summary>The circuit breaker is tripped (or tripped during this attempt) — all Kinoheld polling is suspended.</summary>
     CircuitOpen,
 }

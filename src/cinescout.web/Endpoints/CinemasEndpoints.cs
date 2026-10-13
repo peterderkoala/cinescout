@@ -144,13 +144,6 @@ public static class CinemasEndpointsExtensions
                     "The Kinoheld connection's circuit breaker is open — all Kinoheld polling is stopped until the app restarts.",
                     StatusCodes.Status503ServiceUnavailable);
 
-            case RoomSeedOutcome.CooldownActive:
-                return ProblemWithKinoheldStatus(
-                    "cooldown",
-                    "Re-seeded too recently.",
-                    "Re-seed rooms is available again shortly — it was already run for this cinema within the last few minutes.",
-                    StatusCodes.Status429TooManyRequests);
-
             case RoomSeedOutcome.Unavailable:
                 return TypedResults.Problem(
                     title: "Nothing crawled yet.",

@@ -45,9 +45,7 @@ public static class CoreServiceCollectionExtensions
         services.AddScoped<KinoheldRoomSeedingService>();
         services.AddSingleton<KinoheldCircuitBreaker>();
         services.AddSingleton<KinoheldFetchCooldownTracker>();
-        services.AddSingleton<KinoheldRoomSeedCooldownTracker>();
         services.AddScoped<KinoheldSeatCrawlService>();
-        services.AddScoped<KinoheldSeatCrawlJob>();
 
         return services;
     }
