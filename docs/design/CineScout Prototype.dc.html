@@ -814,7 +814,7 @@ class Component extends DCLogic {
     const sel = this.state.selectedPerf;
     const pd = sel ? { ...base, ...sel, isTracked: !!sel.tracking, isMatch: false, matchReasons: [] } : base;
     const outcomeMap = {
-      breaker: ["alert-warning", "Live seat data is temporarily unavailable — the Kinoheld connection's circuit breaker is open. Retrying automatically."],
+      breaker: ["alert-warning", "Live seat data is paused — the Kinoheld connection's circuit breaker is open. It stays paused until the app restarts."],
       unbookable: ["alert-secondary", "This performance isn't currently bookable on Kinoheld."],
       unavailable: ["alert-secondary", "This performance is no longer available on Kinoheld."],
       cooldown: ["alert-info", "Refreshed too recently — force refresh is available again in 30 seconds."],

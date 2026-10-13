@@ -249,7 +249,7 @@ Back-link, featured card, then the **Seats** section: `Force refresh` (`bi-arrow
 
 | Case | Alert | Copy |
 |---|---|---|
-| Circuit breaker open | `alert-warning` | “Live seat data is temporarily unavailable — the Kinoheld connection's circuit breaker is open. Retrying automatically.” |
+| Circuit breaker open | `alert-warning` | “Live seat data is paused — the Kinoheld connection's circuit breaker is open. It stays paused until the app restarts.” |
 | `IsBookable == false` | `alert-secondary` | “This performance isn't currently bookable on Kinoheld.” |
 | Gone from source | `alert-secondary` | “This performance is no longer available on Kinoheld.” |
 | Refresh cooldown | `alert-info` | “Refreshed too recently — force refresh is available again in 30 seconds.” |

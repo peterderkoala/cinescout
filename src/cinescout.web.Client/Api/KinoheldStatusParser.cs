@@ -25,7 +25,7 @@ public static class KinoheldStatusParser
     {
         "breaker-open" => new KinoheldStatusAlert(
             "alert-warning",
-            "Live seat data is temporarily unavailable — the Kinoheld connection's circuit breaker is open. Retrying automatically."),
+            "Live seat data is paused — the Kinoheld connection's circuit breaker is open. It stays paused until the app restarts."),
         "not-bookable" => new KinoheldStatusAlert(
             "alert-secondary",
             "This performance isn't currently bookable on Kinoheld."),
