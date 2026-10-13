@@ -5,15 +5,15 @@ Split out while resolving [wayfinder ticket #65](https://github.com/peterderkoal
 This is the shared way CineScout displays a `Film`/`Performance` pairing anywhere in the app — first
 grounded in Home's Active-Matches hero, but intended to be referenced by any page doc that shows
 film/performance content rather than each re-deriving it. See
-[`00-design-system.md`](../00-design-system.md) for color/type/spacing.
+[Technical Design Spec](<../Technical Design Spec.md>) for color/type/spacing.
 
 **Known consumers so far** (update this list as later page tickets confirm their usage):
 
 - [`home.md`](../home.md) — featured variant, Active Matches hero.
-- [`schedule.md`](../schedule.md) — compact-row variant, grouped by day.
-- [`tracked-movies.md`](../tracked-movies.md) — compact-row variant, one card per upcoming
+- `Schedule.razor` — compact-row variant, grouped by day.
+- `TrackedMovies.razor` — compact-row variant, one card per upcoming
   performance of each tracked film (all of them, not just the next one).
-- [`performance-detail.md`](../performance-detail.md) — featured variant, as the page's own header
+- `PerformanceDetail.razor` — featured variant, as the page's own header
   — confirmed while resolving [wayfinder ticket #70](https://github.com/peterderkoala/cinescout/issues/70).
   Match-reason badges shown only when the viewed performance is an active `Match`; the `Tracking`
   indicator shown instead when the film is tracked but this performance isn't a `Match`; neither
@@ -61,8 +61,8 @@ Content:
   blank space.
 - Film title (Montserrat, per the design system's heading treatment)
 - `Cinema` / `Room`, date/time
-- Price (the cheapest matching Kinoheld price category, per the notification content CLAUDE.md
-  already documents for `RulesMatched` Discord embeds — this card reuses that same field, not a
+- Price (the cheapest matching Kinoheld price category, per the notification content spec #14
+  documents for `RulesMatched` Discord embeds — this card reuses that same field, not a
   new one)
 - **Match-reason badges** — small `.badge`s, not a prose sentence, so multiple cards scan quickly
   at a glance. Semantic-colored: a `success`-tinted badge (`.badge.text-bg-success`) for seat
@@ -79,4 +79,4 @@ Content:
 - [Bootstrap 5.3 — Badge](https://getbootstrap.com/docs/5.3/components/badge/)
 - [Bootstrap 5.3 — Card](https://getbootstrap.com/docs/5.3/components/card/) (featured variant)
 - [Bootstrap Icons](https://icons.getbootstrap.com/) — `bi-film` (poster fallback)
-- [`00-design-system.md`](../00-design-system.md) — inherited, not restated here
+- [Technical Design Spec](<../Technical Design Spec.md>) — inherited, not restated here

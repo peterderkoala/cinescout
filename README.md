@@ -72,7 +72,7 @@ graph TD
   `SeatStatus`, etc.). A true leaf, referenced by everything that needs to read/write the database.
 
 Each production assembly has a matching `*.Tests` project (see [`CLAUDE.md`](CLAUDE.md) for the
-full per-project testing conventions — real Postgres via Testcontainers for anything touching the
+testing conventions — real Postgres via Testcontainers for anything touching the
 database, no bUnit for `.razor` markup).
 
 ### Repository layout
@@ -172,5 +172,5 @@ single-use and only valid while the app's `User` row has no password set yet.
 
 ## Development
 
-See [CLAUDE.md](CLAUDE.md) for the full project layout, local (non-Docker) run/test instructions,
-and architectural conventions.
+See [CLAUDE.md](CLAUDE.md) for local (non-Docker) run/test commands and the conventions and gotchas
+not visible in the code.

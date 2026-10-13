@@ -3,12 +3,12 @@
 Split out while resolving [wayfinder ticket #69](https://github.com/peterderkoala/cinescout/issues/69)
 (Seat Matrices page design), part of the [page-design reference set map](https://github.com/peterderkoala/cinescout/issues/61).
 Confirms the map's originally-flagged "seat-matrix visualization" reuse candidate. See
-[`00-design-system.md`](../00-design-system.md) for color/spacing.
+[Technical Design Spec](<../Technical Design Spec.md>) for color/spacing.
 
 **Known consumers so far**:
 
-- [`seat-matrices.md`](../seat-matrices.md) — **zone-preview mode**.
-- [`performance-detail.md`](../performance-detail.md) — **live-availability mode**, confirmed while
+- `SeatMatrices.razor` — **zone-preview mode**.
+- `PerformanceDetail.razor` — **live-availability mode**, confirmed while
   resolving [wayfinder ticket #70](https://github.com/peterderkoala/cinescout/issues/70).
 
 ## Zone-preview mode (confirmed by #69)
@@ -46,7 +46,7 @@ alone doesn't give as quickly).
 following each seat's real `LeftNeighborSeatId`/`RightNeighborSeatId` chain, **not** by
 `SeatNumber` order. Kinoheld's own seat numbering isn't always gap-free/sequential, and the
 matching engine's `SeatBlockFinder` already treats adjacency, not seat numbers, as the source of
-truth for what counts as "contiguous" (per root `CLAUDE.md`). If the grid used raw numbers instead,
+truth for what counts as "contiguous". If the grid used raw numbers instead,
 it could visually show a row as gap-free while the actual matching logic sees a gap — misleading on
 exactly the screen where a user is judging whether a room has room for their group. This is real
 implementation work (walking a linked structure instead of sorting a number), not just a rendering
@@ -69,4 +69,4 @@ dilute that reserved meaning.
 - [Bootstrap 5.3 — Grid](https://getbootstrap.com/docs/5.3/layout/grid/) / [CSS Grid (MDN)](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout)
   — either is a reasonable implementation basis for the rectangle; CSS Grid is likely the more
   direct fit for a dense uniform matrix of cells.
-- [`00-design-system.md`](../00-design-system.md) — inherited, not restated here
+- [Technical Design Spec](<../Technical Design Spec.md>) — inherited, not restated here

@@ -2,8 +2,7 @@
 
 Resolves [wayfinder ticket #65](https://github.com/peterderkoala/cinescout/issues/65), part of the
 [page-design reference set map](https://github.com/peterderkoala/cinescout/issues/61). See
-[`00-design-system.md`](00-design-system.md) for color/type/spacing/breakpoints,
-[`layout-navigation.md`](layout-navigation.md) for the `MainLayout` shell this page renders inside,
+[Technical Design Spec](<Technical Design Spec.md>) for color/type/spacing/breakpoints and the `MainLayout` shell this page renders inside,
 and [`components/film-performance-card.md`](components/film-performance-card.md) for the shared
 card this page's hero section uses.
 
@@ -22,7 +21,7 @@ being a dead first screen or a pass-through to Schedule.
 ### 1. Hero: Active Matches
 
 The dominant section — real visual weight, using the marquee-gold Match-accent from
-`00-design-system.md` (reserved specifically for this). Each active `Match` renders as a
+the Technical Design Spec. Each active `Match` renders as a
 [**featured film/performance card**](components/film-performance-card.md#featured-card): poster,
 `Cinema`/`Room`, date/time, price, match-reason badges, and a prominent booking CTA linking straight
 to Kinoheld.
@@ -59,5 +58,5 @@ breakpoints), **stacking to one column below `md`**:
   page is actually built.
 - [Bootstrap 5.3 — Grid](https://getbootstrap.com/docs/5.3/layout/grid/) (the two-column-on-`md`+
   secondary panel layout)
-- [`00-design-system.md`](00-design-system.md) and [`layout-navigation.md`](layout-navigation.md)
+- [Technical Design Spec](<Technical Design Spec.md>)
   — inherited, not restated here
