@@ -26,8 +26,9 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 ## Project boundaries
 
 - `cinescout.web.Client` never references `cinescout.persistence`/`cinescout.core` (EF/Npgsql don't belong in WASM).
-- `cinescout.contracts` is a true leaf: it can't see `cinescout.model`, so mirrored types (`Weekday` ↔
-  `DaysOfWeekFlags`) convert by cast and are pinned by a parity test.
+- `cinescout.contracts` references only the dependency-free `cinescout.model`, so DTOs use model enums
+  (`DaysOfWeekFlags`, `SeatOccupancyStatus`) directly. Keep `cinescout.model` free of package references:
+  it ships to WASM through contracts.
 - Mapperly `[Mapper]` classes live in `cinescout.web/Mapping/` (it sees both sides). Anything not genuinely
   1:1 is hand-written mapping.
 

@@ -1,4 +1,5 @@
 using cinescout.contracts;
+using cinescout.model;
 
 namespace cinescout.contracts.Tests;
 
@@ -8,7 +9,7 @@ public class DayCodeConverterTests
     public void ToDayCodes_EmitsCodesInFixedOrder_RegardlessOfFlagBitOrder()
     {
         // Bits set out of "natural" order (Friday, then Monday, then Wednesday) — output must still be Mo, We, Fr.
-        var days = Weekday.Friday | Weekday.Monday | Weekday.Wednesday;
+        var days = DaysOfWeekFlags.Friday | DaysOfWeekFlags.Monday | DaysOfWeekFlags.Wednesday;
 
         var codes = DayCodeConverter.ToDayCodes(days);
 
@@ -18,8 +19,8 @@ public class DayCodeConverterTests
     [Fact]
     public void ToDayCodes_AllDays_EmitsFullFixedOrder()
     {
-        var days = Weekday.Monday | Weekday.Tuesday | Weekday.Wednesday | Weekday.Thursday
-            | Weekday.Friday | Weekday.Saturday | Weekday.Sunday;
+        var days = DaysOfWeekFlags.Monday | DaysOfWeekFlags.Tuesday | DaysOfWeekFlags.Wednesday | DaysOfWeekFlags.Thursday
+            | DaysOfWeekFlags.Friday | DaysOfWeekFlags.Saturday | DaysOfWeekFlags.Sunday;
 
         var codes = DayCodeConverter.ToDayCodes(days);
 
@@ -29,7 +30,7 @@ public class DayCodeConverterTests
     [Fact]
     public void ToDayCodes_None_EmitsEmptyArray()
     {
-        var codes = DayCodeConverter.ToDayCodes(Weekday.None);
+        var codes = DayCodeConverter.ToDayCodes(DaysOfWeekFlags.None);
 
         Assert.Empty(codes);
     }
@@ -42,7 +43,7 @@ public class DayCodeConverterTests
     {
         var result = DayCodeConverter.FromDayCodes(codes);
 
-        Assert.Equal(Weekday.Monday | Weekday.Wednesday | Weekday.Friday, result);
+        Assert.Equal(DaysOfWeekFlags.Monday | DaysOfWeekFlags.Wednesday | DaysOfWeekFlags.Friday, result);
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public class DayCodeConverterTests
     {
         var result = DayCodeConverter.FromDayCodes([]);
 
-        Assert.Equal(Weekday.None, result);
+        Assert.Equal(DaysOfWeekFlags.None, result);
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public class DayCodeConverterTests
     {
         var result = DayCodeConverter.FromDayCodes(["Mo", "Mo"]);
 
-        Assert.Equal(Weekday.Monday, result);
+        Assert.Equal(DaysOfWeekFlags.Monday, result);
     }
 
     [Theory]
@@ -84,11 +85,11 @@ public class DayCodeConverterTests
     }
 
     [Theory]
-    [InlineData(Weekday.None)]
-    [InlineData(Weekday.Monday)]
-    [InlineData(Weekday.Monday | Weekday.Wednesday | Weekday.Friday)]
-    [InlineData(Weekday.Saturday | Weekday.Sunday)]
-    public void RoundTrip_ToDayCodes_ThenFromDayCodes_IsLossless(Weekday original)
+    [InlineData(DaysOfWeekFlags.None)]
+    [InlineData(DaysOfWeekFlags.Monday)]
+    [InlineData(DaysOfWeekFlags.Monday | DaysOfWeekFlags.Wednesday | DaysOfWeekFlags.Friday)]
+    [InlineData(DaysOfWeekFlags.Saturday | DaysOfWeekFlags.Sunday)]
+    public void RoundTrip_ToDayCodes_ThenFromDayCodes_IsLossless(DaysOfWeekFlags original)
     {
         var codes = DayCodeConverter.ToDayCodes(original);
         var roundTripped = DayCodeConverter.FromDayCodes(codes);

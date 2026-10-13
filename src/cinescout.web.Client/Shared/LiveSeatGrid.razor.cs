@@ -1,4 +1,5 @@
 using cinescout.contracts;
+using cinescout.model;
 using Microsoft.AspNetCore.Components;
 
 namespace cinescout.web.Client.Shared;

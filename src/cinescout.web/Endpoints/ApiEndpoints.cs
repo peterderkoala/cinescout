@@ -19,19 +19,6 @@ public static class ApiEndpointsExtensions
 
         return group;
     }
-
-    /// <summary>
-    /// The worked example this ticket's acceptance criteria need: a real endpoint under the group
-    /// to prove the antiforgery convention end-to-end (see <c>cinescout.web.Tests.ApiHardeningTests</c>)
-    /// and for <c>cinescout.web.Client.Api.PingApiClient</c> to demonstrate the shared-<c>HttpClient</c>
-    /// + antiforgery-header convention against. Not a real screen endpoint — #92–#98 add those.
-    /// </summary>
-    public static RouteGroupBuilder MapPingEndpoint(this RouteGroupBuilder apiGroup)
-    {
-        apiGroup.MapPost("/ping", () => Results.NoContent());
-
-        return apiGroup;
-    }
 }
 
 /// <summary>

@@ -2,7 +2,7 @@ namespace cinescout.contracts;
 
 /// <summary>
 /// Read model for a <c>FavoriteTimeWindow</c> row (§5.3). <see cref="DayCodes"/> is the §6.3
-/// pre-computed Mo..Su chip list — never the raw <c>DaysOfWeekFlags</c>/<see cref="Weekday"/> value
+/// pre-computed Mo..Su chip list — never the raw <c>DaysOfWeekFlags</c> value
 /// — matching <see cref="DayCodeConverter"/>'s convention that read DTOs carry the chip shape, not
 /// the bit-flag one.
 /// </summary>

@@ -5,10 +5,8 @@ namespace cinescout.contracts.Tests.Mapping;
 
 /// <summary>
 /// Proves the Room -> RoomDto Mapperly convention (<c>cinescout.web.Mapping.RoomMapper</c>) against
-/// real sample values. The mapper itself lives in cinescout.web, not here: cinescout.contracts is a
-/// true leaf and can never see <c>Room</c>, so the mapper needs a project that can see both
-/// <c>Room</c> and <c>RoomDto</c>, which cinescout.web already is. This test project references
-/// cinescout.web the same way cinescout.web.Tests already does.
+/// real sample values. The mapper lives in cinescout.web (every <c>[Mapper]</c> does), so this test
+/// project references cinescout.web the same way cinescout.web.Tests already does.
 /// </summary>
 public class RoomMapperTests
 {

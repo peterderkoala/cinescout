@@ -9,12 +9,11 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddAuthenticationStateDeserialization();
 
 // One shared HttpClient, same-origin (issue #86's resolution) — per-screen client wrappers
-// (PingApiClient is the worked example) take this via constructor injection instead of their own
+// (deriving from ApiClientBase) take this via constructor injection instead of their own
 // AddHttpClient<T>(). No Microsoft.Extensions.Http.Resilience here: auto-retry on a user-initiated
 // mutation would hide the transient failure the §8 error state is supposed to surface.
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddSingleton<AntiforgeryTokenStore>();
-builder.Services.AddScoped<PingApiClient>();
 builder.Services.AddScoped<CinemasApiClient>();
 builder.Services.AddScoped<TimePreferencesApiClient>();
 builder.Services.AddScoped<SeatMatricesApiClient>();

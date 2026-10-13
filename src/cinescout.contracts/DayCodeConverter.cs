@@ -1,3 +1,5 @@
+using cinescout.model;
+
 namespace cinescout.contracts;
 
 /// <summary>
@@ -9,31 +11,31 @@ namespace cinescout.contracts;
 public static class DayCodeConverter
 {
     /// <summary>Fixed Mo→Su rendering/emission order, per §6.3.</summary>
-    private static readonly (Weekday Day, string Code)[] OrderedDays =
+    private static readonly (DaysOfWeekFlags Day, string Code)[] OrderedDays =
     [
-        (Weekday.Monday, "Mo"),
-        (Weekday.Tuesday, "Tu"),
-        (Weekday.Wednesday, "We"),
-        (Weekday.Thursday, "Th"),
-        (Weekday.Friday, "Fr"),
-        (Weekday.Saturday, "Sa"),
-        (Weekday.Sunday, "Su"),
+        (DaysOfWeekFlags.Monday, "Mo"),
+        (DaysOfWeekFlags.Tuesday, "Tu"),
+        (DaysOfWeekFlags.Wednesday, "We"),
+        (DaysOfWeekFlags.Thursday, "Th"),
+        (DaysOfWeekFlags.Friday, "Fr"),
+        (DaysOfWeekFlags.Saturday, "Sa"),
+        (DaysOfWeekFlags.Sunday, "Su"),
     ];
 
     /// <summary>Converts flags to day codes, always in fixed Mo..Su order regardless of which bits are set first.</summary>
-    public static string[] ToDayCodes(Weekday days) =>
+    public static string[] ToDayCodes(DaysOfWeekFlags days) =>
         OrderedDays.Where(d => days.HasFlag(d.Day)).Select(d => d.Code).ToArray();
 
     /// <summary>
     /// Converts day codes back to flags. Order-independent — duplicates are harmless, but any code
     /// outside Mo/Tu/We/Th/Fr/Sa/Su throws, since the wire vocabulary is a fixed, closed set.
     /// </summary>
-    public static Weekday FromDayCodes(IEnumerable<string> codes)
+    public static DaysOfWeekFlags FromDayCodes(IEnumerable<string> codes)
     {
         ArgumentNullException.ThrowIfNull(codes);
 
         var remaining = new HashSet<string>(codes, StringComparer.Ordinal);
-        var result = Weekday.None;
+        var result = DaysOfWeekFlags.None;
 
         foreach (var (day, code) in OrderedDays)
         {

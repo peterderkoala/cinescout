@@ -1,10 +1,11 @@
+using cinescout.model;
+
 namespace cinescout.contracts;
 
 /// <summary>
 /// One <c>cinescout.model.SeatStatus</c> row for <c>LiveSeatGrid</c> (Technical Design Spec.md
-/// §4.2's "live" mode) — a true leaf DTO, not a 1:1 Mapperly shape, since cinescout.contracts can
-/// never reference cinescout.model. Carries exactly what the grid needs to lay out and style one
-/// cell: <see cref="SourceSeatId"/>/<see cref="LeftNeighborSeatId"/>/<see cref="RightNeighborSeatId"/>
+/// §4.2's "live" mode) — hand-mapped rather than a 1:1 Mapperly shape. Carries exactly what the
+/// grid needs to lay out and style one cell: <see cref="SourceSeatId"/>/<see cref="LeftNeighborSeatId"/>/<see cref="RightNeighborSeatId"/>
 /// so <c>LiveSeatGridLayout</c> can walk true physical adjacency the same way
 /// <c>cinescout.core.Matching.SeatBlockFinder</c> does, rather than trusting raw
 /// <see cref="SeatNumber"/> gaps to mean "no seat here" (issue #77's resolution).

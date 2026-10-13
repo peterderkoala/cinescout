@@ -1,4 +1,5 @@
 using cinescout.contracts;
+using cinescout.model;
 using cinescout.web.Client.Shared;
 
 namespace cinescout.web.Client.Tests;

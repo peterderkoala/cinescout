@@ -109,7 +109,7 @@ public sealed partial class PerformanceDetailEndpointsTests : IClassFixture<Perf
         Assert.Contains("2 seats free", dto.Card.MatchReasons);
         Assert.Contains("Fri evening", dto.Card.MatchReasons);
         Assert.Equal(4, dto.Seats.Count);
-        Assert.All(dto.Seats, s => Assert.Equal(cinescout.contracts.SeatOccupancyStatus.Free, s.Status));
+        Assert.All(dto.Seats, s => Assert.Equal(cinescout.model.SeatOccupancyStatus.Free, s.Status));
     }
 
     [Fact]
@@ -332,7 +332,7 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
         Assert.NotNull(dto);
         var seat = Assert.Single(dto.Seats);
         Assert.Equal("A1", seat.SourceSeatId);
-        Assert.Equal(cinescout.contracts.SeatOccupancyStatus.Free, seat.Status);
+        Assert.Equal(cinescout.model.SeatOccupancyStatus.Free, seat.Status);
     }
 
     [Fact]

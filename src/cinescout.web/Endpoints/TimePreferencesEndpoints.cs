@@ -98,7 +98,7 @@ public static class TimePreferencesEndpointsExtensions
     {
         try
         {
-            days = (DaysOfWeekFlags)(int)DayCodeConverter.FromDayCodes(dayCodes);
+            days = DayCodeConverter.FromDayCodes(dayCodes);
             problem = null!;
             return true;
         }
@@ -113,7 +113,7 @@ public static class TimePreferencesEndpointsExtensions
     private static TimeWindowDto ToDto(FavoriteTimeWindow window) => new()
     {
         Id = window.Id,
-        DayCodes = DayCodeConverter.ToDayCodes((Weekday)(int)window.DaysOfWeek),
+        DayCodes = DayCodeConverter.ToDayCodes(window.DaysOfWeek),
         StartTime = window.StartTime,
         EndTime = window.EndTime,
     };

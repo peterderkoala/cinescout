@@ -18,34 +18,34 @@ public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.
 
     public ApiHardeningTests(Factory factory) => _factory = factory;
 
+    // A POST endpoint under the antiforgery-filtered /api group. No Film is seeded, so a request
+    // that gets past auth and the antiforgery filter reaches the handler's 404 ProblemDetails.
+    private const string TrackUrl = "/api/tracked-movies/999/track";
+
     [Fact]
-    public async Task GetApiPing_WhenUnauthenticated_Returns401NotRedirect()
+    public async Task GetApi_WhenUnauthenticated_Returns401NotRedirect()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        // /api/ping only maps POST; a GET here falls through to the Blazor host's catch-all
-        // fallback route (which serves App.razor for client-side routing) rather than a 404/405 —
-        // that fallback endpoint carries no [AllowAnonymous], so FallbackPolicy still applies and
-        // this still proves the 401-not-redirect override for an unauthenticated /api request.
-        var response = await client.GetAsync("/api/ping");
+        var response = await client.GetAsync("/api/tracked-movies");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.False(response.Headers.Contains("Location"));
     }
 
     [Fact]
-    public async Task PostApiPing_WhenUnauthenticated_Returns401NotRedirect()
+    public async Task PostApi_WhenUnauthenticated_Returns401NotRedirect()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        var response = await client.PostAsync("/api/ping", content: null);
+        var response = await client.PostAsync(TrackUrl, content: null);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.False(response.Headers.Contains("Location"));
     }
 
     [Fact]
-    public async Task PostApiPing_WhileAuthenticatedWithoutAntiforgeryToken_Returns400()
+    public async Task PostApi_WhileAuthenticatedWithoutAntiforgeryToken_Returns400()
     {
         var client = await _factory.CreateAuthenticatedClientAsync();
 
@@ -53,25 +53,26 @@ public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.
         // the 400 below is a missing/invalid *token*, not simply a missing cookie.
         await client.GetAsync("/");
 
-        var response = await client.PostAsync("/api/ping", content: null);
+        var response = await client.PostAsync(TrackUrl, content: null);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]
-    public async Task PostApiPing_WhileAuthenticatedWithValidAntiforgeryToken_Succeeds()
+    public async Task PostApi_WhileAuthenticatedWithValidAntiforgeryToken_ReachesTheHandler()
     {
         var client = await _factory.CreateAuthenticatedClientAsync();
 
         var homeHtml = await client.GetStringAsync("/");
         var token = ExtractAntiforgeryToken(homeHtml);
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/ping");
+        using var request = new HttpRequestMessage(HttpMethod.Post, TrackUrl);
         request.Headers.Add("X-CSRF-TOKEN", token);
 
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]

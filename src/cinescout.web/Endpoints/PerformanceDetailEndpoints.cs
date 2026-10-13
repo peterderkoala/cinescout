@@ -180,7 +180,7 @@ public static class PerformanceDetailEndpointsExtensions
                 SourceSeatId = s.SourceSeatId,
                 Row = s.Row,
                 SeatNumber = s.SeatNumber,
-                Status = (cinescout.contracts.SeatOccupancyStatus)(int)s.Status,
+                Status = s.Status,
                 LeftNeighborSeatId = s.LeftNeighborSeatId,
                 RightNeighborSeatId = s.RightNeighborSeatId,
             }).ToList(),

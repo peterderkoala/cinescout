@@ -4,8 +4,7 @@ using cinescout.contracts;
 namespace cinescout.web.Client.Api;
 
 /// <summary>
-/// The Cinemas screen's per-screen client wrapper (#90's convention, following
-/// <see cref="PingApiClient"/>'s shape): constructor-injected with the shared <see cref="HttpClient"/>.
+/// The Cinemas screen's per-screen client wrapper (#90's convention): constructor-injected with the shared <see cref="HttpClient"/>.
 /// HTTP plumbing (antiforgery header, ProblemDetails parsing) lives in <see cref="ApiClientBase"/>.
 /// </summary>
 public sealed class CinemasApiClient(HttpClient httpClient, AntiforgeryTokenStore antiforgeryTokenStore)

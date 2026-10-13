@@ -34,8 +34,8 @@ incrementally. Until that lands, deploying is the manual `docker compose` proces
 ## Architecture
 
 Six projects under `src/`, split so the WASM client never depends on anything server-only (EF
-Core/Npgsql aren't WASM-appropriate to ship to the browser) and the DTO layer stays a true leaf
-both sides of the wire can see:
+Core/Npgsql aren't WASM-appropriate to ship to the browser) and the DTO layer depends only on
+the dependency-free entity project, so both sides of the wire can see it:
 
 ```mermaid
 graph TD
@@ -51,6 +51,7 @@ graph TD
     web --> persistence
     web --> contracts
     webclient --> contracts
+    contracts --> model
     core --> persistence
     persistence --> model
 ```
@@ -64,12 +65,13 @@ graph TD
 - **`cinescout.core`** — domain services with no UI concerns: the Hall-of-Fame schedule crawl, the
   Kinoheld room/seat crawl (with its own circuit breaker), the time-window/seat-matrix matching
   engine, and the Discord notifier.
-- **`cinescout.contracts`** — the shared DTO project. A true leaf: never references `model`,
-  `persistence`, or `core`, so both `web` and `web.Client` can depend on it safely.
+- **`cinescout.contracts`** — the shared DTO project. References only `model` (for its
+  enums), never `persistence` or `core`, so both `web` and `web.Client` can depend on it safely.
 - **`cinescout.persistence`** — `CineScoutDbContext`, EF Core migrations, and the design-time
   factory `dotnet ef` uses.
 - **`cinescout.model`** — the EF Core entity set (`Cinema`, `Film`, `Performance`, `Room`,
-  `SeatStatus`, etc.). A true leaf, referenced by everything that needs to read/write the database.
+  `SeatStatus`, etc.). A true leaf with no package references; it reaches the WASM client through
+  `contracts`, so keep it that way.
 
 Each production assembly has a matching `*.Tests` project (see [`CLAUDE.md`](CLAUDE.md) for the
 testing conventions — real Postgres via Testcontainers for anything touching the
