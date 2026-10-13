@@ -7,6 +7,7 @@ using cinescout.web.Components;
 using cinescout.web.Endpoints;
 using cinescout.web.Extensions;
 using cinescout.web.HealthChecks;
+using Hangfire;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -122,6 +123,15 @@ app.UseAntiforgery();
 app.MapStaticAssets().AllowAnonymous();
 
 app.MapHealthChecks("/healthz").AllowAnonymous();
+
+if (!isTestingEnvironment)
+{
+    app.MapHangfireDashboard(new DashboardOptions
+    {
+        Authorization = [new AuthenticatedDashboardFilter()],
+        AppPath = "/",
+    });
+}
 
 app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUser> hasher, CineScoutDbContext db) =>
 {

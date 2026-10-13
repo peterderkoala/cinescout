@@ -53,6 +53,12 @@
                         <i class="bi bi-building" aria-hidden="true"></i> Cinemas
                     </NavLink>
                 </li>
+                @* Server-rendered Hangfire dashboard: no client route matches, so this is a full page load. *@
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center gap-1" href="hangfire">
+                        <i class="bi bi-speedometer2" aria-hidden="true"></i> Jobs
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

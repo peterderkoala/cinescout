@@ -169,6 +169,8 @@ single-use and only valid while the app's `User` row has no password set yet.
 - **Health**: `docker inspect --format='{{json .State.Health}}' <app-container-name>` reports the
   container's Docker `HEALTHCHECK` status (web liveness + a coarse Hangfire-alive signal), or hit
   `/healthz` directly.
+- **Jobs**: the Hangfire dashboard at `/hangfire` (the "Jobs" nav link) shows the crawl runs,
+  retries and failures. It needs a logged-in session like the rest of the app.
 - **Logs**: written to both stdout (`docker compose logs app`) and a rotating file inside the
   named `log-data` volume (`/app/logs` in the container), 14 days of daily-rolling retention.
 
