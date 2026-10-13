@@ -29,7 +29,7 @@ A user-defined day-of-week + time range the user prefers performances to fall wi
 _Avoid_: Favorite time, preferred slot
 
 **Match**:
-A record that one `Performance` has satisfied a `TrackedMovie`'s active preferences at a point in time. Distinct from whether a notification was actually sent for it (see `NotificationLog`).
+A record that one `Performance` has satisfied a `TrackedMovie`'s active preferences at a point in time. Created once per `Performance`/`TrackedMovie` pair and never closed; whether enough adjacent seats are currently free is a live property of it, not a new `Match`. Distinct from whether a notification was actually sent for it (see `NotificationLog`).
 _Avoid_: Alert (that's the outward-facing behavior a `Match` triggers, not the record itself)
 
 **NotificationLog**:
