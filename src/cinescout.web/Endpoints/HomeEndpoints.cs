@@ -48,7 +48,7 @@ public static class HomeEndpointsExtensions
     private static async Task<IReadOnlyList<FilmPerformanceCardModel>> BuildActiveMatchesAsync(
         CineScoutDbContext db, CancellationToken cancellationToken)
     {
-        var matches = await db.Matches.Where(m => m.Status == MatchStatus.Active).ToListAsync(cancellationToken);
+        var matches = await db.Matches.ToListAsync(cancellationToken);
         if (matches.Count == 0)
         {
             return [];

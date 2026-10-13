@@ -236,7 +236,7 @@ upcoming performance and no `TrackedMovie` — each with a **Track** button.
 
 ### 5.6 Home — `data-entity="Match"`
 
-Featured cards for `Match.Status == Active` (two-column). Empty states, exactly as worded:
+Featured cards for every `Match` (two-column). Empty states, exactly as worded:
 no matches and nothing tracked → “No matches yet — start by marking a film as tracked.” (link to Tracked);
 no matches but films tracked → “No matches yet — you'll see them here the moment a tracked film's screening
 fits your preferences.” Below: **Tracked Movies** panel (max 5, compact rows, “View all →”) and

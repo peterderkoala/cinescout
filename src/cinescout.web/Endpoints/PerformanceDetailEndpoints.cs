@@ -131,7 +131,7 @@ public static class PerformanceDetailEndpointsExtensions
         var seats = await db.SeatStatuses.Where(s => s.PerformanceId == id).ToListAsync(cancellationToken);
         var prices = await db.PerformancePriceAreas.Where(p => p.PerformanceId == id).Select(p => p.OrderPrice).ToListAsync(cancellationToken);
         var tracking = await db.TrackedMovies.AnyAsync(t => t.FilmId == performance.FilmId, cancellationToken);
-        var activeMatch = await db.Matches.SingleOrDefaultAsync(m => m.PerformanceId == id && m.Status == MatchStatus.Active, cancellationToken);
+        var match = await db.Matches.SingleOrDefaultAsync(m => m.PerformanceId == id, cancellationToken);
 
         var hasSufficientSeats = false;
         var reasons = new List<string>();
@@ -141,13 +141,13 @@ public static class PerformanceDetailEndpointsExtensions
             var block = matrix is not null ? SeatBlockFinder.FindContiguousFreeBlock(seats, matrix) : null;
             hasSufficientSeats = block is not null;
 
-            if (activeMatch is not null && block is not null)
+            if (match is not null && block is not null)
             {
                 reasons.Add($"{block.Count} seat{(block.Count == 1 ? "" : "s")} free");
             }
         }
 
-        if (activeMatch is not null)
+        if (match is not null)
         {
             var windows = await db.FavoriteTimeWindows.ToListAsync(cancellationToken);
             if (TimeWindowMatcher.FindMatchingWindow(performance.StartsAt, windows) is not null)
@@ -166,7 +166,7 @@ public static class PerformanceDetailEndpointsExtensions
             Price = prices.Count > 0 ? FormatPrice(prices.Min()) : null,
             Status = DeriveStatus(performance, hasSufficientSeats),
             Tracking = tracking,
-            IsMatch = activeMatch is not null,
+            IsMatch = match is not null,
             MatchReasons = reasons,
             PosterUrl = film.PosterUrl,
             BookingLink = performance.BookingLink,

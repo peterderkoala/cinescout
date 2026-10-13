@@ -159,7 +159,6 @@ public class CineScoutDbContextTests : IAsyncLifetime
                 PerformanceId = performanceId,
                 TrackedMovieId = trackedMovieId,
                 MatchedAt = new DateTimeOffset(2026, 7, 17, 12, 5, 0, TimeSpan.Zero),
-                Status = MatchStatus.Active,
             };
             write.Matches.Add(match);
             await write.SaveChangesAsync();
@@ -231,7 +230,6 @@ public class CineScoutDbContextTests : IAsyncLifetime
         Assert.True(readMatrix.IsEnabled);
 
         var readMatch = await read.Matches.SingleAsync(m => m.Id == matchId);
-        Assert.Equal(MatchStatus.Active, readMatch.Status);
         Assert.Equal(trackedMovieId, readMatch.TrackedMovieId);
 
         var readLog = await read.NotificationLogs.SingleAsync(n => n.MatchId == matchId);

@@ -116,7 +116,6 @@ public sealed class HomeEndpointsTests : IClassFixture<HomeEndpointsTestFactory>
                 PerformanceId = performanceId,
                 TrackedMovieId = trackedMovie.Id,
                 MatchedAt = DateTimeOffset.UtcNow,
-                Status = MatchStatus.Active,
                 HasSufficientSeats = true,
             });
             await db.SaveChangesAsync();

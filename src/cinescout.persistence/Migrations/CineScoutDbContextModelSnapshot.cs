@@ -175,9 +175,6 @@ namespace cinescout.persistence.Migrations
                     b.Property<int>("PerformanceId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
                     b.Property<int>("TrackedMovieId")
                         .HasColumnType("integer");
 

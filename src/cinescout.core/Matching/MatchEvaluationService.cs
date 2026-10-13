@@ -35,7 +35,7 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
         var hasSufficientSeats = block is not null;
 
         var existingMatch = await db.Matches.SingleOrDefaultAsync(
-            m => m.PerformanceId == performanceId && m.TrackedMovieId == trackedMovie.Id && m.Status == MatchStatus.Active,
+            m => m.PerformanceId == performanceId && m.TrackedMovieId == trackedMovie.Id,
             cancellationToken);
 
         if (existingMatch is null)
@@ -57,7 +57,6 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
                 PerformanceId = performanceId,
                 TrackedMovieId = trackedMovie.Id,
                 MatchedAt = DateTimeOffset.UtcNow,
-                Status = MatchStatus.Active,
                 HasSufficientSeats = true,
             };
             db.Matches.Add(match);

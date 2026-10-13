@@ -168,7 +168,6 @@ public class MatchEvaluationServiceTests : IAsyncLifetime
 
         await using var read = new CineScoutDbContext(options);
         var match = await read.Matches.SingleAsync(m => m.PerformanceId == performanceId);
-        Assert.Equal(MatchStatus.Active, match.Status);
         Assert.True(match.HasSufficientSeats);
 
         var log = await read.NotificationLogs.SingleAsync();

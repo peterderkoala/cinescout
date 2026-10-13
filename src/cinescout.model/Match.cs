@@ -1,15 +1,9 @@
 namespace cinescout.model;
 
-public enum MatchStatus
-{
-    Active,
-    Superseded,
-}
-
 /// <summary>
 /// A record that one Performance has satisfied a TrackedMovie's active preferences at a
-/// point in time. A new Active Match is only created the first time a pairing starts
-/// satisfying preferences — while Active, re-crawls don't create duplicates.
+/// point in time. Created the first time a pairing starts satisfying preferences and never
+/// closed, so re-crawls don't create duplicates; HasSufficientSeats is its live state.
 /// </summary>
 public class Match
 {
@@ -17,7 +11,6 @@ public class Match
     public int PerformanceId { get; set; }
     public int TrackedMovieId { get; set; }
     public DateTimeOffset MatchedAt { get; set; }
-    public MatchStatus Status { get; set; }
 
     /// <summary>
     /// Whether the applicable FavoriteSeatMatrix's contiguous-block-vs-PartySize check was
