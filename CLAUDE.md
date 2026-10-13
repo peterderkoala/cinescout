@@ -18,7 +18,7 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 - Build: `dotnet build src/cinescout.slnx`
 - Test: `./run-tests.sh [--filter FullyQualifiedName~X]` — wraps `dotnet test`, falls back to `sg docker` if
   Docker isn't reachable directly. Persistence/core/web tests need Docker (Testcontainers Postgres).
-- `./coverage.sh` (tests + coverage) then `./crap-check.sh` (CRAP ceiling 30) — exactly what CI runs.
+- `./coverage.sh` — tests + coverage report, exactly what CI runs.
 - Run: `dotnet run --project src/cinescout.web` (port 5100), needs `ConnectionStrings__Postgres`.
 - Compose: `docker compose -f docker/docker-compose.yml up` with `docker/.env` copied from `.env.example`.
 - No lint is configured — don't invent one.
