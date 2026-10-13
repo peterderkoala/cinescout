@@ -76,15 +76,6 @@ public static class WebServiceCollectionExtensions
         return services;
     }
 
-    public static async Task MigrateLegacyPasswordHashAsync(this WebApplication app)
-    {
-        await using var scope = app.Services.CreateAsyncScope();
-        var db = scope.ServiceProvider.GetRequiredService<CineScoutDbContext>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-        await LegacyPasswordHashMigrator.MigrateAsync(db, app.Configuration, logger);
-    }
-
     public static async Task LogFirstRunTokenIfNeededAsync(this WebApplication app)
     {
         await using var scope = app.Services.CreateAsyncScope();

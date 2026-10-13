@@ -86,7 +86,7 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 ## Auth invariant
 
 - A null `User.PasswordHash` is the only "not set up" signal (ADR 0001); setup goes through `/setup` with the
-  token logged at startup. `Auth__PasswordHash` is upgrade-only, read once while the hash is null.
+  token logged at startup.
 
 ## Agent skills
 

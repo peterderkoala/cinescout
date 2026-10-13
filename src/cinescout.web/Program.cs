@@ -88,7 +88,6 @@ var app = builder.Build();
 if (!isTestingEnvironment)
 {
     await app.Services.ApplyMigrationsAsync();
-    await app.MigrateLegacyPasswordHashAsync();
     await app.LogFirstRunTokenIfNeededAsync();
     app.ScheduleRecurringJobs();
     await app.SeedKinoheldRoomsAsync();
