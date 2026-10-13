@@ -7,8 +7,7 @@
 @*
     Cinemas screen — Technical Design Spec.md §5.1 / CineScout Prototype.dc.html
     (data-screen-label="Cinemas"). Master/detail: list (col-lg-4) + detail card and Rooms card
-    (col-lg-8). Fetches only once interactive (RendererInfo.IsInteractive, issue #86) — the
-    static-prerender pass renders CardSkeleton instead.
+    (col-lg-8). Renders CardSkeleton until the first fetch completes.
 *@
 
 <PageTitle>Cinemas</PageTitle>
@@ -23,7 +22,7 @@
     for seat availability.
 </p>
 
-@if (!RendererInfo.IsInteractive || _cinemas is null)
+@if (_cinemas is null)
 {
     <CardSkeleton Count="2" />
 }

@@ -11,9 +11,8 @@
     (#96). Per #78's resolution, the day-grouping/windowing/omit-empty-days behavior is design
     intent to build, not code ported from the old flat, ungrouped Schedule.razor stub (deleted in
     this same PR) — that stub had no load-bearing behavior worth porting (confirmed against #78's
-    own resolution comment), unlike #98's PerformanceDetail legacy page. Fetches only once
-    interactive (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders
-    CardSkeleton instead. Unlike TrackedMovies/Home, GET failures are left to bubble to the
+    own resolution comment), unlike #98's PerformanceDetail legacy page. Renders CardSkeleton until
+    the first fetch completes. Unlike TrackedMovies/Home, GET failures are left to bubble to the
     app-wide #blazor-error-ui bar (§8's generic Error state) rather than a per-page try/catch,
     matching Home.razor's own GET-only precedent.
 *@
@@ -23,12 +22,12 @@
 <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-2">
     <h3 class="mb-0" style="color: var(--bs-body-color);">Schedule</h3>
     <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-secondary" @onclick="PreviousWeekAsync" disabled="@(!RendererInfo.IsInteractive || _busy || _weekOffset == 0)">← Previous week</button>
-        <button class="btn btn-sm btn-outline-secondary" @onclick="NextWeekAsync" disabled="@(!RendererInfo.IsInteractive || _busy)">Next week →</button>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="PreviousWeekAsync" disabled="@(_busy || _weekOffset == 0)">← Previous week</button>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="NextWeekAsync" disabled="@_busy">Next week →</button>
     </div>
 </div>
 
-@if (!RendererInfo.IsInteractive || _schedule is null)
+@if (_schedule is null)
 {
     <CardSkeleton Count="4" />
 }

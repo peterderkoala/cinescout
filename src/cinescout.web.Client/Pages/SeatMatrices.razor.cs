@@ -49,10 +49,7 @@ public partial class SeatMatrices
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            _page = await Api.GetPageAsync();
-        }
+        _page = await Api.GetPageAsync();
     }
 
     private RoomOptionDto? RoomOf(int roomId) => _page!.Rooms.FirstOrDefault(r => r.Id == roomId);

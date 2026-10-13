@@ -8,15 +8,15 @@
     Seat Matrices screen — Technical Design Spec.md §5.2 / CineScout Prototype.dc.html
     (data-screen-label="Seat Matrices"). Two pills (General/Overrides) share one filter bar and one
     editor card (max-width:44rem). Filtering and the tab switch are both purely client-side over one
-    fetched SeatMatricesPageDto — no further round trip needed. Fetches only once interactive
-    (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders CardSkeleton instead.
+    fetched SeatMatricesPageDto — no further round trip needed.
+    Renders CardSkeleton until the first fetch completes.
 *@
 
 <PageTitle>Seat Matrices</PageTitle>
 
 <h3 class="mb-3" style="color: var(--bs-body-color);">Seat Matrices</h3>
 
-@if (!RendererInfo.IsInteractive || _page is null)
+@if (_page is null)
 {
     <CardSkeleton Count="3" />
 }

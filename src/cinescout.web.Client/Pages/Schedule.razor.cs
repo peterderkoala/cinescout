@@ -10,10 +10,7 @@ public partial class Schedule
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            _schedule = await Api.GetAsync(_weekOffset);
-        }
+        _schedule = await Api.GetAsync(_weekOffset);
     }
 
     private async Task PreviousWeekAsync()

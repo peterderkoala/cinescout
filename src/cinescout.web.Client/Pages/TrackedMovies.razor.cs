@@ -11,10 +11,7 @@ public partial class TrackedMovies
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            _page = await Api.GetAsync();
-        }
+        _page = await Api.GetAsync();
     }
 
     private Task TrackAsync(int filmId) => RunActionAsync(() => Api.TrackAsync(filmId));

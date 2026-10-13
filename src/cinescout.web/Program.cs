@@ -63,8 +63,6 @@ builder.Services
     .AddCinemas();
 
 builder.Services.AddCineScoutAuthentication(builder.Configuration);
-builder.Services.AddClientApiClientsForPrerendering();
-
 // HeaderName must be set explicitly: IAntiforgery.ValidateRequestAsync only reads the request
 // token from a form field unless a header name is configured too — the WASM client sends JSON, not
 // form-encoded bodies, so without this every /api mutation would fail antiforgery validation no

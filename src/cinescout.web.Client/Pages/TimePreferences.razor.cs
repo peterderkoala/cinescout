@@ -24,10 +24,7 @@ public partial class TimePreferences
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            _windows = await Api.GetListAsync();
-        }
+        _windows = await Api.GetListAsync();
     }
 
     private void ToggleDay(string code)

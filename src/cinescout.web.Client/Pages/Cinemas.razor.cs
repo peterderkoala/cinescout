@@ -24,10 +24,7 @@ public partial class Cinemas
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            await LoadCinemasAsync();
-        }
+        await LoadCinemasAsync();
     }
 
     private async Task LoadCinemasAsync()

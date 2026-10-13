@@ -8,15 +8,15 @@
     Time Preferences screen — Technical Design Spec.md §5.3 / CineScout Prototype.dc.html
     (data-screen-label="Time Preferences"). Editor card + list, max-width:32rem — the simplest of
     the five existing screens (#78's resolution: no filter bar, no cross-entity joins), converted
-    first as the template the remaining ones (#94–#98) follow. Fetches only once interactive
-    (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders CardSkeleton instead.
+    first as the template the remaining ones (#94–#98) follow.
+    Renders CardSkeleton until the first fetch completes.
 *@
 
 <PageTitle>Time Preferences</PageTitle>
 
 <h3 class="mb-3" style="color: var(--bs-body-color);">Time Preferences</h3>
 
-@if (!RendererInfo.IsInteractive || _windows is null)
+@if (_windows is null)
 {
     <div style="max-width:32rem;">
         <CardSkeleton Count="2" />

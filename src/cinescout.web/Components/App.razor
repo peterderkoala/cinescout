@@ -24,11 +24,11 @@
     <link rel="stylesheet" href="@Assets["cinescout.web.styles.css"]" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="PageRenderMode" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="PageRenderMode" />
     <script src="@Assets["lib/bootstrap/dist/js/bootstrap.bundle.min.js"]"></script>
     <script src="@Assets["js/password-toggle.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
@@ -41,6 +41,13 @@
     private HttpContext? HttpContext { get; set; }
 
     private string? _antiforgeryToken;
+
+    // Set once here, not per page (#121: per-page declarations were forgotten on every screen).
+    // Pages marked [ExcludeFromInteractiveRouting] (Login, Setup, Error) stay static SSR because they
+    // need HttpContext. No prerender: screens fetch from /api once WASM is up, so a server pass only
+    // rendered a skeleton.
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext?.AcceptsInteractiveRouting() == true ? new InteractiveWebAssemblyRenderMode(prerender: false) : null;
 
     protected override void OnInitialized()
     {

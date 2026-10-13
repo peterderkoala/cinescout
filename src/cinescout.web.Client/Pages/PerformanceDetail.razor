@@ -12,16 +12,15 @@
     alert table (§5.7) is transient Force Refresh response state via KinoheldStatusParser (#90),
     not part of the GET DTO — PerformanceDetailDto carries no outcome field (see its doc comment).
     Links to /schedule (#96, not yet built) the same way Home links to /tracked-movies ahead of
-    #95 — a forward reference, not a dead link once that screen ships. Fetches only once
-    interactive (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders
-    CardSkeleton instead.
+    #95 — a forward reference, not a dead link once that screen ships.
+    Renders CardSkeleton until the first fetch completes.
 *@
 
 <PageTitle>Performance</PageTitle>
 
 <a href="/schedule" class="small d-inline-block mb-3">← Back to schedule</a>
 
-@if (!RendererInfo.IsInteractive || !_loaded)
+@if (!_loaded)
 {
     <div style="max-width:60rem;">
         <CardSkeleton Count="1" />

@@ -1,9 +1,8 @@
-@* Shared loading-skeleton component every screen renders during the static-prerender pass instead
-   of fetching (RendererInfo.IsInteractive gating, issue #86) — built on Bootstrap's already-vendored
-   placeholder/placeholder-glow utilities per #90's "What to build", not exact-layout-mimicking
-   markup or bespoke per-screen CSS. §8 calls out "the design's placeholder counts" but no prototype
-   file specifies one (#86's resolution), so Count defaults to a single card and callers repeat it
-   as needed. *@
+@* Shared loading-skeleton component every screen renders until its first fetch completes —
+   built on Bootstrap's already-vendored placeholder/placeholder-glow utilities per #90's "What to
+   build", not exact-layout-mimicking markup or bespoke per-screen CSS. §8 calls out "the design's
+   placeholder counts" but no prototype file specifies one (#86's resolution), so Count defaults to
+   a single card and callers repeat it as needed. *@
 @for (var i = 0; i < Count; i++)
 {
     <div class="card mb-3" aria-hidden="true">

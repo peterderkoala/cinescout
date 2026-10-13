@@ -20,11 +20,8 @@ public partial class PerformanceDetail
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            _page = await Api.GetAsync(Id);
-            _loaded = true;
-        }
+        _page = await Api.GetAsync(Id);
+        _loaded = true;
     }
 
     private async Task ForceRefreshAsync()

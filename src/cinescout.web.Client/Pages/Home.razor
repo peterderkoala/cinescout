@@ -8,14 +8,12 @@
     Home screen — Technical Design Spec.md §5.6 / CineScout Prototype.dc.html
     (data-screen-label="Home"). Featured Active-Match cards (two-column), then a Tracked Movies
     panel (max 5) and Recent Activity (max 5). A build, not a retrofit (#97): this page needs DB
-    access via the new HomeApiClient, so unlike the old 7-line WASM stub it fetches only once
-    interactive (RendererInfo.IsInteractive, issue #86) — the static-prerender pass renders
-    CardSkeleton instead.
+    access via the new HomeApiClient. Renders CardSkeleton until the first fetch completes.
 *@
 
 <PageTitle>Home</PageTitle>
 
-@if (!RendererInfo.IsInteractive || _page is null)
+@if (_page is null)
 {
     <h3 class="mb-3" style="color: var(--bs-body-color);">Active Matches</h3>
     <CardSkeleton Count="2" />
@@ -88,9 +86,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        if (RendererInfo.IsInteractive)
-        {
-            _page = await Api.GetAsync();
-        }
+        _page = await Api.GetAsync();
     }
 }
