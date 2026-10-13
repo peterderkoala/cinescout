@@ -1,33 +1,16 @@
 using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
-namespace cinescout.persistence.Tests;
+namespace cinescout.core.Tests;
 
-public class CineScoutDbContextTests : IAsyncLifetime
+public class CineScoutDbContextTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
+    public Task InitializeAsync() => postgres.ResetAsync();
 
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
-        var options = BuildOptions();
-        await using var context = new CineScoutDbContext(options);
-        await context.Database.MigrateAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-    }
-
-    private DbContextOptions<CineScoutDbContext> BuildOptions() =>
-        new DbContextOptionsBuilder<CineScoutDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
-            .Options;
+    private DbContextOptions<CineScoutDbContext> BuildOptions() => postgres.Options;
 
     [Fact]
     public async Task RoundTrips_one_instance_of_every_entity_type()

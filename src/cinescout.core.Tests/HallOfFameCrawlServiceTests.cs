@@ -5,15 +5,11 @@ using cinescout.model;
 using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.core.Tests;
 
-public class HallOfFameCrawlServiceTests : IAsyncLifetime
+public class HallOfFameCrawlServiceTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
-
     private readonly IDiscordNotifier _notifier = CreateNotifier();
 
     private static IDiscordNotifier CreateNotifier()
@@ -24,24 +20,11 @@ public class HallOfFameCrawlServiceTests : IAsyncLifetime
         return notifier;
     }
 
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
+    public Task InitializeAsync() => postgres.ResetAsync();
 
-        var options = BuildOptions();
-        await using var context = new CineScoutDbContext(options);
-        await context.Database.MigrateAsync();
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 
-    public async Task DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-    }
-
-    private DbContextOptions<CineScoutDbContext> BuildOptions() =>
-        new DbContextOptionsBuilder<CineScoutDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
-            .Options;
+    private DbContextOptions<CineScoutDbContext> BuildOptions() => postgres.Options;
 
     private static Cinema MakeCinema() => new()
     {

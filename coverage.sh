@@ -7,7 +7,7 @@
 # first use). Reading a single project's raw coverage.cobertura.xml on its own is misleading: e.g.
 # cinescout.web shows up in cinescout.contracts.Tests' report too (trivially, via RoomMapperTests)
 # alongside its real coverage from cinescout.web.Tests — merging is what makes the number honest.
-# Mirrors run-tests.sh's Docker-reachability fallback — the persistence/core/web test projects
+# Mirrors run-tests.sh's Docker-reachability fallback — the core/web test projects
 # still need Docker for their Testcontainers-backed Postgres.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"

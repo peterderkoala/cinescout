@@ -17,7 +17,7 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 
 - Build: `dotnet build src/cinescout.slnx`
 - Test: `./run-tests.sh [--filter FullyQualifiedName~X]` — wraps `dotnet test`, falls back to `sg docker` if
-  Docker isn't reachable directly. Persistence/core/web tests need Docker (Testcontainers Postgres).
+  Docker isn't reachable directly. Core/web tests need Docker (Testcontainers Postgres).
 - `./coverage.sh` — tests + coverage report, exactly what CI runs.
 - Run: `dotnet run --project src/cinescout.web` (port 5100), needs `ConnectionStrings__Postgres`.
 - Compose: `docker compose -f docker/docker-compose.yml up` with `docker/.env` copied from `.env.example`.
@@ -63,8 +63,10 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 
 ## Testing conventions
 
-- Real Postgres via Testcontainers, never a mocked `DbContext`. NSubstitute only at the HTTP-edge seams
-  (`IHallOfFameClient`, `IKinoheldClient`, `IDiscordNotifier`). Matching logic is pure, tested without I/O. No bUnit.
+- Real Postgres via Testcontainers, never a mocked `DbContext`. One container per test class: core tests that
+  touch the DB take `IClassFixture<PostgresFixture>` and call `ResetAsync()` (TRUNCATE) in `InitializeAsync`.
+- NSubstitute only at the HTTP-edge seams (`IHallOfFameClient`, `IKinoheldClient`, `IDiscordNotifier`). Matching
+  logic is pure, tested without I/O. No bUnit.
 - Web tests: pass the connection string with `UseSetting` in `ConfigureWebHost` — `ConfigureAppConfiguration` is
   too late, `Program.cs` reads it before `Build()`. The `Testing` environment skips Hangfire and migrations and
   doesn't require the connection string.

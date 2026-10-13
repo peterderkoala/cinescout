@@ -5,36 +5,19 @@ using cinescout.persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.core.Tests;
 
-public class MatchEvaluationServiceTests : IAsyncLifetime
+public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>, IAsyncLifetime
 {
     private const DaysOfWeekFlags AllDays = DaysOfWeekFlags.Monday | DaysOfWeekFlags.Tuesday | DaysOfWeekFlags.Wednesday
         | DaysOfWeekFlags.Thursday | DaysOfWeekFlags.Friday | DaysOfWeekFlags.Saturday | DaysOfWeekFlags.Sunday;
 
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
+    public Task InitializeAsync() => postgres.ResetAsync();
 
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
-        var options = BuildOptions();
-        await using var context = new CineScoutDbContext(options);
-        await context.Database.MigrateAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-    }
-
-    private DbContextOptions<CineScoutDbContext> BuildOptions() =>
-        new DbContextOptionsBuilder<CineScoutDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
-            .Options;
+    private DbContextOptions<CineScoutDbContext> BuildOptions() => postgres.Options;
 
     private sealed record Scenario(int CinemaId, int RoomId, int FilmId, int PerformanceId);
 

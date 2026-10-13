@@ -73,7 +73,8 @@ graph TD
   `SeatStatus`, etc.). A true leaf with no package references; it reaches the WASM client through
   `contracts`, so keep it that way.
 
-Each production assembly has a matching `*.Tests` project (see [`CLAUDE.md`](CLAUDE.md) for the
+`core`, `web`, `web.Client` and `contracts` each have a matching `*.Tests` project; the `persistence`
+mapping is tested in `core.Tests` (see [`CLAUDE.md`](CLAUDE.md) for the
 testing conventions — real Postgres via Testcontainers for anything touching the
 database, no bUnit for `.razor` markup).
 

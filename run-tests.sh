@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the full test suite (dotnet test src/cinescout.slnx). The persistence/core test projects
+# Runs the full test suite (dotnet test src/cinescout.slnx). The core/web test projects
 # spin up a real Postgres via Testcontainers, so Docker must be reachable. If the invoking shell's
 # docker group membership hasn't taken effect yet (a fresh `usermod -aG docker` needs a new login
 # session), this falls back to `sg docker -c "..."` automatically instead of failing outright.

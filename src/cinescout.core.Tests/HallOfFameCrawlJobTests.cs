@@ -6,33 +6,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using Testcontainers.PostgreSql;
 
 namespace cinescout.core.Tests;
 
-public class HallOfFameCrawlJobTests : IAsyncLifetime
+public class HallOfFameCrawlJobTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>, IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18")
-        .Build();
+    public Task InitializeAsync() => postgres.ResetAsync();
 
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
 
-        var options = BuildOptions();
-        await using var context = new CineScoutDbContext(options);
-        await context.Database.MigrateAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        await _postgres.DisposeAsync();
-    }
-
-    private DbContextOptions<CineScoutDbContext> BuildOptions() =>
-        new DbContextOptionsBuilder<CineScoutDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
-            .Options;
+    private DbContextOptions<CineScoutDbContext> BuildOptions() => postgres.Options;
 
     private static IDiscordNotifier CreateNotifier()
     {
