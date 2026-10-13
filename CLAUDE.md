@@ -73,7 +73,7 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 - Register recurring jobs via DI-resolved `IRecurringJobManager`, not static `RecurringJob` (it reads the unset
   `JobStorage.Current` and throws at startup).
 - Startup-wiring changes must be run against a real Postgres — `dotnet test` won't catch them.
-- `IDiscordNotifier`/`IEmailSender` never throw and read config at call time; unconfigured = clean failure result.
+- `IDiscordNotifier` never throws and reads config at call time; unconfigured = clean failure result.
 
 ## Docker gotchas
 

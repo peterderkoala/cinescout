@@ -56,7 +56,6 @@ builder.Services
     .AddHallOfFame()
     .AddKinoheld()
     .AddDiscord()
-    .AddEmail()
     .AddMatching()
     .AddTrackedMovies()
     .AddPreferences()

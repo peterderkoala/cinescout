@@ -1,7 +1,6 @@
 using System.Net;
 using cinescout.core.Cinemas;
 using cinescout.core.Discord;
-using cinescout.core.Email;
 using cinescout.core.HallOfFame;
 using cinescout.core.Kinoheld;
 using cinescout.core.Matching;
@@ -57,13 +56,6 @@ public static class CoreServiceCollectionExtensions
     {
         services.AddHttpClient<IDiscordNotifier, DiscordNotifier>()
             .AddStandardResilienceHandler();
-
-        return services;
-    }
-
-    public static IServiceCollection AddEmail(this IServiceCollection services)
-    {
-        services.AddTransient<IEmailSender, EmailSender>();
 
         return services;
     }

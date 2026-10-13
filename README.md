@@ -20,7 +20,7 @@ This is a personal, single-user, self-hosted app — not a multi-tenant SaaS.
 ## Status
 
 The full v1 feature set from the original spec is built and tested: scheduled crawling of the
-cinema's listings and Kinoheld seat data, the time/seat-matrix matching engine, Discord/email
+cinema's listings and Kinoheld seat data, the time/seat-matrix matching engine, Discord
 notifications, cookie-based auth with a first-run setup flow, and all nine screens of the web UI
 (Schedule, Tracked Movies, Time Preferences, Seat Matrices, Cinemas, Home, Performance Detail,
 Login/Setup). 289+ tests across the solution — current coverage is tracked live at the
@@ -63,7 +63,7 @@ graph TD
   over `/api`, never touches the database directly.
 - **`cinescout.core`** — domain services with no UI concerns: the Hall-of-Fame schedule crawl, the
   Kinoheld room/seat crawl (with its own circuit breaker), the time-window/seat-matrix matching
-  engine, and the Discord/email notifiers.
+  engine, and the Discord notifier.
 - **`cinescout.contracts`** — the shared DTO project. A true leaf: never references `model`,
   `persistence`, or `core`, so both `web` and `web.Client` can depend on it safely.
 - **`cinescout.persistence`** — `CineScoutDbContext`, EF Core migrations, and the design-time
@@ -105,7 +105,7 @@ cp docker/.env.example docker/.env
 Edit `docker/.env` and fill in real values — every variable is documented inline in
 `docker/.env.example`, including which ones are optional and what their defaults are. At minimum,
 set a real `POSTGRES_PASSWORD` (and match it in `ConnectionStrings__Postgres`). Everything else
-(Discord webhook, outbound email, crawl intervals, reverse-proxy trust) can be left at its default
+(Discord webhook, crawl intervals, reverse-proxy trust) can be left at its default
 and configured later.
 
 `docker/.env` is git-ignored — never commit it.
