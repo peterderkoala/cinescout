@@ -3,18 +3,15 @@ using cinescout.contracts;
 using cinescout.core.Matching;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed class ScheduleEndpointsTests : IClassFixture<ScheduleEndpointsTestFactory>
+public sealed class ScheduleEndpointsTests : IClassFixture<PostgresWebFactory>
 {
-    private readonly ScheduleEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public ScheduleEndpointsTests(ScheduleEndpointsTestFactory factory) => _factory = factory;
+    public ScheduleEndpointsTests(PostgresWebFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Get_NoPerformances_ReturnsEmptyWindowCopyAndCorrectWeekLabel()
@@ -273,28 +270,5 @@ public sealed class ScheduleEndpointsTests : IClassFixture<ScheduleEndpointsTest
         db.Films.Add(film);
         await db.SaveChangesAsync();
         return film;
-    }
-}
-
-public sealed class ScheduleEndpointsTestFactory : PostgresWebFactory
-{
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
     }
 }

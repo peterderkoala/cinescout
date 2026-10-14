@@ -1,28 +1,23 @@
 using System.Net;
-using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed class LoginTests : IClassFixture<LoginTests.Factory>
+public sealed class LoginTests : IClassFixture<PostgresWebFactory>
 {
-    private const string CorrectPassword = "correct-horse-battery-staple";
     private const string AuthCookiePrefix = ".AspNetCore.Cookies=";
 
-    private readonly Factory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public LoginTests(Factory factory) => _factory = factory;
+    public LoginTests(PostgresWebFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Login_WithCorrectPassword_IssuesAuthCookie()
     {
-        await _factory.SetSeededUserPasswordHashAsync(CorrectPassword);
+        await _factory.SetSeededUserPasswordHashAsync(PostgresWebFactory.CorrectPassword);
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        var response = await client.PostAsync("/account/login", FormBody(CorrectPassword));
+        var response = await client.PostAsync("/account/login", FormBody(PostgresWebFactory.CorrectPassword));
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains(
@@ -33,7 +28,7 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
     [Fact]
     public async Task Login_WithWrongPassword_IssuesNoCookieAndRedirectsBackToLogin()
     {
-        await _factory.SetSeededUserPasswordHashAsync(CorrectPassword);
+        await _factory.SetSeededUserPasswordHashAsync(PostgresWebFactory.CorrectPassword);
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
         var response = await client.PostAsync("/account/login", FormBody("not-the-password"));
@@ -49,7 +44,7 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
         await _factory.SetSeededUserPasswordHashAsync(null);
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        var response = await client.PostAsync("/account/login", FormBody(CorrectPassword));
+        var response = await client.PostAsync("/account/login", FormBody(PostgresWebFactory.CorrectPassword));
 
         Assert.False(response.Headers.Contains("Set-Cookie"));
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
@@ -69,18 +64,4 @@ public sealed class LoginTests : IClassFixture<LoginTests.Factory>
 
     private static FormUrlEncodedContent FormBody(string password) =>
         new([new KeyValuePair<string, string>("password", password)]);
-
-    public sealed class Factory : PostgresWebFactory
-    {
-        // The seeded User row starts with PasswordHash == null (ADR 0001) — tests set it directly
-        // against the same real Postgres the app uses, rather than going through a config-based
-        // credential, matching the login flow's actual source of truth after this change.
-        public async Task SetSeededUserPasswordHashAsync(string? password)
-        {
-            await using var db = CreateDbContext();
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = password is null ? null : new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, password);
-            await db.SaveChangesAsync();
-        }
-    }
 }

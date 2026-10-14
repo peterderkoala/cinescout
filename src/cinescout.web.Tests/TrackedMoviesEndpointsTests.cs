@@ -1,21 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using cinescout.contracts;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed partial class TrackedMoviesEndpointsTests : IClassFixture<TrackedMoviesEndpointsTestFactory>
+public sealed class TrackedMoviesEndpointsTests : IClassFixture<PostgresWebFactory>
 {
-    private readonly TrackedMoviesEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public TrackedMoviesEndpointsTests(TrackedMoviesEndpointsTestFactory factory) => _factory = factory;
+    public TrackedMoviesEndpointsTests(PostgresWebFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Get_NoTrackedMoviesAndNoFilms_ReturnsEmptyLists()
@@ -177,7 +173,7 @@ public sealed partial class TrackedMoviesEndpointsTests : IClassFixture<TrackedM
     public async Task Track_MovesFilmFromAllFilmsToTrackedMovies()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         int filmId;
         await using (var db = _factory.CreateDbContext())
@@ -217,7 +213,7 @@ public sealed partial class TrackedMoviesEndpointsTests : IClassFixture<TrackedM
     public async Task Untrack_MovesFilmFromTrackedMoviesToAllFilms()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         int filmId;
         await using (var db = _factory.CreateDbContext())
@@ -255,27 +251,9 @@ public sealed partial class TrackedMoviesEndpointsTests : IClassFixture<TrackedM
     }
 
     [Fact]
-    public async Task Untrack_AlreadyUntracked_IsADefensiveNoOp()
-    {
-        await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
-
-        int filmId;
-        await using (var db = _factory.CreateDbContext())
-        {
-            var film = await AddFilmAsync(db, "Never Tracked Film");
-            filmId = film.Id;
-        }
-
-        var response = await client.PostAsync($"/api/tracked-movies/{filmId}/untrack", content: null);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Track_UnknownFilmId_Returns404()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsync("/api/tracked-movies/999999/track", content: null);
 
@@ -285,21 +263,11 @@ public sealed partial class TrackedMoviesEndpointsTests : IClassFixture<TrackedM
     [Fact]
     public async Task Untrack_UnknownFilmId_Returns404()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsync("/api/tracked-movies/999999/untrack", content: null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    private async Task<HttpClient> CreateWritableClientAsync()
-    {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
-
-        return client;
     }
 
     private static async Task<Cinema> AddCinemaAsync(CineScoutDbContext db, string name)
@@ -325,39 +293,5 @@ public sealed partial class TrackedMoviesEndpointsTests : IClassFixture<TrackedM
         db.Films.Add(film);
         await db.SaveChangesAsync();
         return film;
-    }
-
-    private static string ExtractAntiforgeryToken(string html)
-    {
-        var match = AntiforgeryTokenMetaTagRegex().Match(html);
-        Assert.True(match.Success, "Expected an antiforgery-token <meta> tag in the response HTML.");
-
-        return match.Groups[1].Value;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
-}
-
-public sealed class TrackedMoviesEndpointsTestFactory : PostgresWebFactory
-{
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
     }
 }

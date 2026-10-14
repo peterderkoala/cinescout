@@ -1,20 +1,18 @@
 using System.Net;
-using cinescout.persistence;
 using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cinescout.web.Tests;
 
-public sealed class SetupTests : IClassFixture<SetupTests.Factory>
+public sealed class SetupTests : IClassFixture<PostgresWebFactory>
 {
     private const string AuthCookiePrefix = ".AspNetCore.Cookies=";
 
-    private readonly Factory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public SetupTests(Factory factory) => _factory = factory;
+    public SetupTests(PostgresWebFactory factory) => _factory = factory;
 
     [Fact]
     public async Task GetLogin_WhenUnset_RedirectsToSetup()
@@ -84,7 +82,8 @@ public sealed class SetupTests : IClassFixture<SetupTests.Factory>
             response.Headers.GetValues("Set-Cookie"),
             value => value.StartsWith(AuthCookiePrefix, StringComparison.Ordinal));
 
-        var user = await _factory.GetSeededUserAsync();
+        await using var db = _factory.CreateDbContext();
+        var user = await db.Users.SingleAsync();
         Assert.NotNull(user.PasswordHash);
         Assert.NotNull(user.SetupCompletedAt);
     }
@@ -121,22 +120,4 @@ public sealed class SetupTests : IClassFixture<SetupTests.Factory>
             new KeyValuePair<string, string>("password", password),
             new KeyValuePair<string, string>("confirmPassword", confirmPassword),
         ]);
-
-    public sealed class Factory : PostgresWebFactory
-    {
-        public async Task SetSeededUserPasswordHashAsync(string? password)
-        {
-            await using var db = CreateDbContext();
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = password is null ? null : new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, password);
-            user.SetupCompletedAt = password is null ? null : DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        public async Task<cinescout.model.User> GetSeededUserAsync()
-        {
-            await using var db = CreateDbContext();
-            return await db.Users.SingleAsync();
-        }
-    }
 }

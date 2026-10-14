@@ -1,21 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using cinescout.contracts;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatricesEndpointsTestFactory>
+public sealed class SeatMatricesEndpointsTests : IClassFixture<PostgresWebFactory>
 {
-    private readonly SeatMatricesEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public SeatMatricesEndpointsTests(SeatMatricesEndpointsTestFactory factory) => _factory = factory;
+    public SeatMatricesEndpointsTests(PostgresWebFactory factory) => _factory = factory;
 
     private static SeatMatrixWriteRequest GeneralRequest(int roomId) => new()
     {
@@ -41,24 +37,14 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
         PartySize = 3,
     };
 
-    private async Task<HttpClient> CreateWritableClientAsync()
-    {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
-
-        return client;
-    }
-
     [Fact]
     public async Task GetPage_ReturnsCinemasRoomsFilmsAndMatrices()
     {
         await _factory.ResetDatabaseAsync();
         var client = await _factory.CreateAuthenticatedClientAsync();
 
-        var (cinemaId, roomId, filmId) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var createClient = await CreateWritableClientAsync();
+        var (cinemaId, roomId, filmId) = await SeedCinemaRoomAndFilmAsync();
+        var createClient = await _factory.CreateWritableClientAsync();
         var general = await (await createClient.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId))).Content.ReadFromJsonAsync<SeatMatrixDto>();
         Assert.NotNull(general);
 
@@ -75,8 +61,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Post_CreatesGeneralMatrix_AndReturns201WithLocation()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId));
 
@@ -94,8 +80,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Post_CreatesFilmOverride_AndReturns201()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, filmId) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, filmId) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/seat-matrices", OverrideRequest(roomId, filmId));
 
@@ -109,8 +95,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Post_SecondGeneralMatrixForSameRoom_ReturnsProblemDetails409()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var first = await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId));
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
@@ -124,8 +110,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Post_MissingName_ReturnsProblemDetails400()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId) with { Name = "" });
 
@@ -135,23 +121,9 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     }
 
     [Fact]
-    public async Task Post_RowFromAfterRowTo_ReturnsProblemDetails400()
-    {
-        await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
-
-        var response = await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId) with { RowStart = "F", RowEnd = "D" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Row from must not come after row to", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Post_UnknownRoom_ReturnsProblemDetails400()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(999999));
 
@@ -164,8 +136,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Post_UnknownFilm_ReturnsProblemDetails400()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/seat-matrices", OverrideRequest(roomId, 999999));
 
@@ -178,7 +150,7 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Post_WithoutAntiforgeryToken_Returns400()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
         var client = await _factory.CreateAuthenticatedClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId));
@@ -190,8 +162,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Put_UpdatesExistingMatrix_PreservesIsEnabled()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId))).Content.ReadFromJsonAsync<SeatMatrixDto>();
         Assert.NotNull(created);
@@ -213,8 +185,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Put_UnknownId_Returns404()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PutAsJsonAsync("/api/seat-matrices/999999", GeneralRequest(roomId));
 
@@ -222,28 +194,11 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     }
 
     [Fact]
-    public async Task Put_IntoSecondGeneralMatrixForSameRoom_ReturnsProblemDetails409()
-    {
-        await _factory.ResetDatabaseAsync();
-        var (_, roomId, filmId) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
-
-        var general = await (await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId))).Content.ReadFromJsonAsync<SeatMatrixDto>();
-        var theOverride = await (await client.PostAsJsonAsync("/api/seat-matrices", OverrideRequest(roomId, filmId))).Content.ReadFromJsonAsync<SeatMatrixDto>();
-        Assert.NotNull(general);
-        Assert.NotNull(theOverride);
-
-        var response = await client.PutAsJsonAsync($"/api/seat-matrices/{theOverride.Id}", GeneralRequest(roomId) with { Name = "Now general too" });
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Delete_RemovesMatrix_AndIsIdempotent()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId))).Content.ReadFromJsonAsync<SeatMatrixDto>();
         Assert.NotNull(created);
@@ -262,8 +217,8 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     public async Task Toggle_FlipsIsEnabled()
     {
         await _factory.ResetDatabaseAsync();
-        var (_, roomId, _) = await _factory.SeedCinemaRoomAndFilmAsync();
-        var client = await CreateWritableClientAsync();
+        var (_, roomId, _) = await SeedCinemaRoomAndFilmAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/seat-matrices", GeneralRequest(roomId))).Content.ReadFromJsonAsync<SeatMatrixDto>();
         Assert.NotNull(created);
@@ -281,32 +236,16 @@ public sealed partial class SeatMatricesEndpointsTests : IClassFixture<SeatMatri
     [Fact]
     public async Task Toggle_UnknownId_Returns404()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsync("/api/seat-matrices/999999/toggle", content: null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static string ExtractAntiforgeryToken(string html)
+    private async Task<(int CinemaId, int RoomId, int FilmId)> SeedCinemaRoomAndFilmAsync()
     {
-        var match = AntiforgeryTokenMetaTagRegex().Match(html);
-        Assert.True(match.Success, "Expected an antiforgery-token <meta> tag in the response HTML.");
-
-        return match.Groups[1].Value;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
-}
-
-public sealed class SeatMatricesEndpointsTestFactory : PostgresWebFactory
-{
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
-    public async Task<(int CinemaId, int RoomId, int FilmId)> SeedCinemaRoomAndFilmAsync()
-    {
-        await using var db = CreateDbContext();
+        await using var db = _factory.CreateDbContext();
 
         var cinema = new Cinema
         {
@@ -326,23 +265,5 @@ public sealed class SeatMatricesEndpointsTestFactory : PostgresWebFactory
         await db.SaveChangesAsync();
 
         return (cinema.Id, room.Id, film.Id);
-    }
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
     }
 }

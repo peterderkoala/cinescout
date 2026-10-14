@@ -2,21 +2,18 @@ using System.Net.Http.Json;
 using cinescout.contracts;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed class HomeEndpointsTests : IClassFixture<HomeEndpointsTestFactory>
+public sealed class HomeEndpointsTests : IClassFixture<PostgresWebFactory>
 {
     private const DaysOfWeekFlags AllDays = DaysOfWeekFlags.Monday | DaysOfWeekFlags.Tuesday | DaysOfWeekFlags.Wednesday
         | DaysOfWeekFlags.Thursday | DaysOfWeekFlags.Friday | DaysOfWeekFlags.Saturday | DaysOfWeekFlags.Sunday;
 
-    private readonly HomeEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public HomeEndpointsTests(HomeEndpointsTestFactory factory) => _factory = factory;
+    public HomeEndpointsTests(PostgresWebFactory factory) => _factory = factory;
 
     [Fact]
     public async Task Get_NoMatchesAndNoTrackedMovies_ReturnsEmptyPanelsAndHasAnyTrackedMovieFalse()
@@ -262,28 +259,5 @@ public sealed class HomeEndpointsTests : IClassFixture<HomeEndpointsTestFactory>
                 UpdatedAt = DateTimeOffset.UtcNow,
             });
         }
-    }
-}
-
-public sealed class HomeEndpointsTestFactory : PostgresWebFactory
-{
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
     }
 }

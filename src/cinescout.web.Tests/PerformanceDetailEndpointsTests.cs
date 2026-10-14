@@ -1,21 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using cinescout.contracts;
 using cinescout.core.Kinoheld;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace cinescout.web.Tests;
 
-public sealed partial class PerformanceDetailEndpointsTests : IClassFixture<PerformanceDetailEndpointsTestFactory>
+public sealed class PerformanceDetailEndpointsTests : IClassFixture<PerformanceDetailEndpointsTestFactory>
 {
     private readonly PerformanceDetailEndpointsTestFactory _factory;
 
@@ -155,7 +151,7 @@ public sealed partial class PerformanceDetailEndpointsTests : IClassFixture<Perf
     [Fact]
     public async Task ForceRefresh_CinemaWithoutKinoheldCinemaId_ReturnsProblemDetails409WithoutKinoheldStatus()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         int performanceId;
         await using (var db = _factory.CreateDbContext())
@@ -190,21 +186,11 @@ public sealed partial class PerformanceDetailEndpointsTests : IClassFixture<Perf
     [Fact]
     public async Task ForceRefresh_UnknownId_Returns404()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsync("/api/performances/999999/force-refresh", content: null);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    private async Task<HttpClient> CreateWritableClientAsync()
-    {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
-
-        return client;
     }
 
     private const DaysOfWeekFlags AllDays = DaysOfWeekFlags.Monday | DaysOfWeekFlags.Tuesday | DaysOfWeekFlags.Wednesday
@@ -261,17 +247,6 @@ public sealed partial class PerformanceDetailEndpointsTests : IClassFixture<Perf
             });
         }
     }
-
-    private static string ExtractAntiforgeryToken(string html)
-    {
-        var match = AntiforgeryTokenMetaTagRegex().Match(html);
-        Assert.True(match.Success, "Expected an antiforgery-token <meta> tag in the response HTML.");
-
-        return match.Groups[1].Value;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
 }
 
 /// <summary>
@@ -282,7 +257,7 @@ public sealed partial class PerformanceDetailEndpointsTests : IClassFixture<Perf
 /// so setting <see cref="FakeKinoheldClient.NextGetSeatsResult"/> here doesn't affect
 /// <see cref="PerformanceDetailEndpointsTests"/>' shared fixture.
 /// </summary>
-public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClassFixture<PerformanceDetailEndpointsTestFactory>
+public sealed class PerformanceDetailEndpointsFakeKinoheldTests : IClassFixture<PerformanceDetailEndpointsTestFactory>
 {
     private readonly PerformanceDetailEndpointsTestFactory _factory;
 
@@ -292,7 +267,7 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
     public async Task ForceRefresh_Fetched_ReturnsUpdatedSeatsAndKinoheldStatus200()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         int performanceId;
         await using (var db = _factory.CreateDbContext())
@@ -338,7 +313,7 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
     public async Task ForceRefresh_NotBookable_ReturnsProblemDetails409WithNotBookableKinoheldStatus()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
         var performanceId = await SeedPerformanceAsync("not-bookable-1");
 
         _factory.FakeKinoheldClient.NextGetSeatsResult = (_, _) => new KinoheldSeatsResult.NotBookable();
@@ -354,7 +329,7 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
     public async Task ForceRefresh_Gone_ReturnsProblemDetails410WithGoneKinoheldStatus()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
         var performanceId = await SeedPerformanceAsync("gone-1");
 
         _factory.FakeKinoheldClient.NextGetSeatsResult = (_, _) => new KinoheldSeatsResult.NotFound();
@@ -370,7 +345,7 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
     public async Task ForceRefresh_CalledAgainWithinCooldown_ReturnsProblemDetails429WithCooldownKinoheldStatus()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
         var performanceId = await SeedPerformanceAsync("cooldown-1");
 
         _factory.FakeKinoheldClient.NextGetSeatsResult = (_, _) => new KinoheldSeatsResult.Success("{\"seats\":{}}", [], []);
@@ -408,19 +383,6 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
         await db.SaveChangesAsync();
         return performance.Id;
     }
-
-    private async Task<HttpClient> CreateWritableClientAsync()
-    {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = AntiforgeryTokenMetaTagRegex().Match(homeHtml).Groups[1].Value;
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
-
-        return client;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
 }
 
 /// <summary>
@@ -429,7 +391,7 @@ public sealed partial class PerformanceDetailEndpointsFakeKinoheldTests : IClass
 /// here must not leak into either of the other two test classes' shared fixtures — same isolation
 /// <c>CinemasEndpointsKinoheldStatusTests</c> already established for the same reason.
 /// </summary>
-public sealed partial class PerformanceDetailEndpointsBreakerTests : IClassFixture<PerformanceDetailEndpointsTestFactory>
+public sealed class PerformanceDetailEndpointsBreakerTests : IClassFixture<PerformanceDetailEndpointsTestFactory>
 {
     private readonly PerformanceDetailEndpointsTestFactory _factory;
 
@@ -439,10 +401,7 @@ public sealed partial class PerformanceDetailEndpointsBreakerTests : IClassFixtu
     public async Task ForceRefresh_WhileBreakerTripped_ReturnsProblemDetails503WithBreakerOpenKinoheldStatus()
     {
         await _factory.ResetDatabaseAsync();
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = AntiforgeryTokenMetaTagRegex().Match(homeHtml).Groups[1].Value;
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
+        var client = await _factory.CreateWritableClientAsync();
 
         int performanceId;
         await using (var db = _factory.CreateDbContext())
@@ -476,9 +435,6 @@ public sealed partial class PerformanceDetailEndpointsBreakerTests : IClassFixtu
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("\"kinoheldStatus\":\"breaker-open\"", body, StringComparison.Ordinal);
     }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
 }
 
 /// <summary>
@@ -504,27 +460,7 @@ public sealed class FakeKinoheldClient : IKinoheldClient
 
 public sealed class PerformanceDetailEndpointsTestFactory : PostgresWebFactory
 {
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
     public FakeKinoheldClient FakeKinoheldClient { get; } = new();
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
-    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {

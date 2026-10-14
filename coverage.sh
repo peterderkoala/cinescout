@@ -5,8 +5,7 @@
 # etc. — no shields.io/third-party dependency, the color is baked into the SVG at generation time),
 # via ReportGenerator (a local tool, see .config/dotnet-tools.json — `dotnet tool restore` before
 # first use). Reading a single project's raw coverage.cobertura.xml on its own is misleading: e.g.
-# cinescout.web shows up in cinescout.contracts.Tests' report too (trivially, via RoomMapperTests)
-# alongside its real coverage from cinescout.web.Tests — merging is what makes the number honest.
+# cinescout.contracts shows up in several projects' reports — merging is what makes the number honest.
 # Mirrors run-tests.sh's Docker-reachability fallback — the core/web test projects
 # still need Docker for their Testcontainers-backed Postgres.
 set -euo pipefail

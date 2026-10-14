@@ -21,7 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\cinescout.contracts\cinescout.contracts.csproj" />
     <ProjectReference Include="..\cinescout.model\cinescout.model.csproj" />
-    <ProjectReference Include="..\cinescout.web\cinescout.web.csproj" />
   </ItemGroup>
 
 </Project>

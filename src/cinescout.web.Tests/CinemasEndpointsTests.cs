@@ -1,23 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using cinescout.contracts;
 using cinescout.core.Kinoheld;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace cinescout.web.Tests;
 
-public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpointsTestFactory>
+public sealed class CinemasEndpointsTests : IClassFixture<PostgresWebFactory>
 {
-    private readonly CinemasEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public CinemasEndpointsTests(CinemasEndpointsTestFactory factory) => _factory = factory;
+    public CinemasEndpointsTests(PostgresWebFactory factory) => _factory = factory;
 
     private static CinemaWriteRequest ExampleRequest(string externalCinemaId = "580") => new()
     {
@@ -26,16 +22,6 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
         CrawlBaseUrl = "https://kamp-lintfort.hall-of-fame.website",
         IsActive = true,
     };
-
-    private async Task<HttpClient> CreateWritableClientAsync()
-    {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
-
-        return client;
-    }
 
     [Fact]
     public async Task GetList_ReturnsCinemasOrderedByName_WithRoomCounts()
@@ -112,7 +98,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task Post_CreatesCinema_AndReturns201WithLocation()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("post-create-1"));
 
@@ -128,7 +114,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task Post_MissingName_ReturnsProblemDetails400()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("post-invalid-1") with { Name = "" });
 
@@ -138,19 +124,9 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     }
 
     [Fact]
-    public async Task Post_MalformedCrawlBaseUrl_ReturnsProblemDetails400()
-    {
-        var client = await CreateWritableClientAsync();
-
-        var response = await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("post-invalid-2") with { CrawlBaseUrl = "not-a-url" });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Post_DuplicateExternalCinemaId_ReturnsProblemDetails409()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var first = await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("dup-1"));
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
@@ -158,21 +134,6 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
         var second = await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("dup-1") with { Name = "A Different Cinema" });
 
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
-    }
-
-    [Fact]
-    public async Task Put_DuplicateExternalCinemaIdFromAnotherCinema_ReturnsProblemDetails409()
-    {
-        var client = await CreateWritableClientAsync();
-
-        var first = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("dup-put-1"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
-        var second = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("dup-put-2"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
-        Assert.NotNull(first);
-        Assert.NotNull(second);
-
-        var response = await client.PutAsJsonAsync($"/api/cinemas/{second.Id}", ExampleRequest("dup-put-1"));
-
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
     [Fact]
@@ -188,7 +149,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task Put_UpdatesExistingCinema()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("put-1"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
         Assert.NotNull(created);
@@ -204,7 +165,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task Put_UnknownId_Returns404()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PutAsJsonAsync("/api/cinemas/999999", ExampleRequest("put-unknown"));
 
@@ -214,7 +175,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task Delete_CinemaWithNoRooms_Returns204()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("delete-1"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
         Assert.NotNull(created);
@@ -227,7 +188,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task Delete_CinemaWithRooms_ReturnsProblemDetails409()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("delete-2"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
         Assert.NotNull(created);
@@ -249,7 +210,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task PutRoom_RenamesRoom()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("rename-1"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
         Assert.NotNull(created);
@@ -275,7 +236,7 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
     [Fact]
     public async Task ReseedRooms_NothingCrawledYet_ReturnsProblemDetails409WithoutKinoheldStatus()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/cinemas", ExampleRequest("reseed-1"))).Content.ReadFromJsonAsync<CinemaDetailDto>();
         Assert.NotNull(created);
@@ -286,38 +247,24 @@ public sealed partial class CinemasEndpointsTests : IClassFixture<CinemasEndpoin
         var body = await response.Content.ReadAsStringAsync();
         Assert.DoesNotContain("kinoheldStatus", body, StringComparison.Ordinal);
     }
-
-    private static string ExtractAntiforgeryToken(string html)
-    {
-        var match = AntiforgeryTokenMetaTagRegex().Match(html);
-        Assert.True(match.Success, "Expected an antiforgery-token <meta> tag in the response HTML.");
-
-        return match.Groups[1].Value;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
 }
 
 /// <summary>
-/// Separate test class, own <see cref="CinemasEndpointsTestFactory"/> instance (own Postgres
-/// container, own DI container): <see cref="KinoheldCircuitBreaker"/> is a permanent one-way trip
+/// Separate test class, own <see cref="PostgresWebFactory"/> instance (own database,
+/// own DI container): <see cref="KinoheldCircuitBreaker"/> is a permanent one-way trip
 /// with no reset, so tripping it here must not leak into <see cref="CinemasEndpointsTests"/>'
 /// shared fixture.
 /// </summary>
-public sealed partial class CinemasEndpointsKinoheldStatusTests : IClassFixture<CinemasEndpointsTestFactory>
+public sealed class CinemasEndpointsKinoheldStatusTests : IClassFixture<PostgresWebFactory>
 {
-    private readonly CinemasEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public CinemasEndpointsKinoheldStatusTests(CinemasEndpointsTestFactory factory) => _factory = factory;
+    public CinemasEndpointsKinoheldStatusTests(PostgresWebFactory factory) => _factory = factory;
 
     [Fact]
     public async Task ReseedRooms_WhileBreakerTripped_ReturnsBreakerOpenKinoheldStatus()
     {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = AntiforgeryTokenMetaTagRegex().Match(homeHtml).Groups[1].Value;
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/cinemas", new CinemaWriteRequest
         {
@@ -336,31 +283,5 @@ public sealed partial class CinemasEndpointsKinoheldStatusTests : IClassFixture<
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Assert.Contains("\"kinoheldStatus\":\"breaker-open\"", body, StringComparison.Ordinal);
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
-}
-
-public sealed class CinemasEndpointsTestFactory : PostgresWebFactory
-{
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
     }
 }

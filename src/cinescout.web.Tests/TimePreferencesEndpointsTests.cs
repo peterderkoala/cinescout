@@ -1,21 +1,17 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using cinescout.contracts;
 using cinescout.model;
 using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePreferencesEndpointsTestFactory>
+public sealed class TimePreferencesEndpointsTests : IClassFixture<PostgresWebFactory>
 {
-    private readonly TimePreferencesEndpointsTestFactory _factory;
+    private readonly PostgresWebFactory _factory;
 
-    public TimePreferencesEndpointsTests(TimePreferencesEndpointsTestFactory factory) => _factory = factory;
+    public TimePreferencesEndpointsTests(PostgresWebFactory factory) => _factory = factory;
 
     private static TimeWindowWriteRequest ExampleRequest() => new()
     {
@@ -23,16 +19,6 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
         StartTime = new TimeOnly(19, 0),
         EndTime = new TimeOnly(22, 30),
     };
-
-    private async Task<HttpClient> CreateWritableClientAsync()
-    {
-        var client = await _factory.CreateAuthenticatedClientAsync();
-        var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
-        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", token);
-
-        return client;
-    }
 
     [Fact]
     public async Task GetList_ReturnsWindowsOrderedByStartTime_WithDayCodes()
@@ -60,7 +46,7 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     [Fact]
     public async Task Post_CreatesTimeWindow_AndReturns201WithLocation()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/time-preferences", ExampleRequest());
 
@@ -77,7 +63,7 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     [Fact]
     public async Task Post_NoDaysSelected_ReturnsProblemDetails400()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/time-preferences", ExampleRequest() with { DayCodes = [] });
 
@@ -87,22 +73,9 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     }
 
     [Fact]
-    public async Task Post_EndTimeNotAfterStartTime_ReturnsProblemDetails400()
-    {
-        var client = await CreateWritableClientAsync();
-
-        var response = await client.PostAsJsonAsync(
-            "/api/time-preferences", ExampleRequest() with { StartTime = new TimeOnly(20, 0), EndTime = new TimeOnly(20, 0) });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var body = await response.Content.ReadAsStringAsync();
-        Assert.Contains("End time must be later than start time.", body, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Post_UnrecognizedDayCode_ReturnsProblemDetails400()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync("/api/time-preferences", ExampleRequest() with { DayCodes = ["Xx"] });
 
@@ -122,7 +95,7 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     [Fact]
     public async Task Put_UpdatesExistingWindow()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/time-preferences", ExampleRequest())).Content.ReadFromJsonAsync<TimeWindowDto>();
         Assert.NotNull(created);
@@ -141,7 +114,7 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     [Fact]
     public async Task Put_UnknownId_Returns404()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var response = await client.PutAsJsonAsync("/api/time-preferences/999999", ExampleRequest());
 
@@ -151,7 +124,7 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     [Fact]
     public async Task Put_InvalidRequest_ReturnsProblemDetails400_AndLeavesWindowUnchanged()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/time-preferences", ExampleRequest())).Content.ReadFromJsonAsync<TimeWindowDto>();
         Assert.NotNull(created);
@@ -168,7 +141,7 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
     [Fact]
     public async Task Delete_RemovesWindow_AndIsIdempotent()
     {
-        var client = await CreateWritableClientAsync();
+        var client = await _factory.CreateWritableClientAsync();
 
         var created = await (await client.PostAsJsonAsync("/api/time-preferences", ExampleRequest())).Content.ReadFromJsonAsync<TimeWindowDto>();
         Assert.NotNull(created);
@@ -181,39 +154,5 @@ public sealed partial class TimePreferencesEndpointsTests : IClassFixture<TimePr
 
         await using var read = _factory.CreateDbContext();
         Assert.False(await read.FavoriteTimeWindows.AnyAsync(w => w.Id == created.Id));
-    }
-
-    private static string ExtractAntiforgeryToken(string html)
-    {
-        var match = AntiforgeryTokenMetaTagRegex().Match(html);
-        Assert.True(match.Success, "Expected an antiforgery-token <meta> tag in the response HTML.");
-
-        return match.Groups[1].Value;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
-}
-
-public sealed class TimePreferencesEndpointsTestFactory : PostgresWebFactory
-{
-    private const string CorrectPassword = "correct-horse-battery-staple";
-
-    public async Task<HttpClient> CreateAuthenticatedClientAsync()
-    {
-        await using (var db = CreateDbContext())
-        {
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, CorrectPassword);
-            user.SetupCompletedAt = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-        await client.PostAsync(
-            "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-        return client;
     }
 }

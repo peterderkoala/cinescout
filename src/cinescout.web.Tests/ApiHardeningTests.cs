@@ -1,20 +1,13 @@
 using System.Net;
-using System.Text.RegularExpressions;
-using cinescout.persistence;
-using cinescout.web.Auth;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 
 namespace cinescout.web.Tests;
 
-public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.Factory>
+public sealed class ApiHardeningTests : IClassFixture<PostgresWebFactory>
 {
-    private const string CorrectPassword = "correct-horse-battery-staple";
+    private readonly PostgresWebFactory _factory;
 
-    private readonly Factory _factory;
-
-    public ApiHardeningTests(Factory factory) => _factory = factory;
+    public ApiHardeningTests(PostgresWebFactory factory) => _factory = factory;
 
     // A POST endpoint under the antiforgery-filtered /api group. No Film is seeded, so a request
     // that gets past auth and the antiforgery filter reaches the handler's 404 ProblemDetails.
@@ -62,7 +55,7 @@ public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.
         var client = await _factory.CreateAuthenticatedClientAsync();
 
         var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
+        var token = PostgresWebFactory.ExtractAntiforgeryToken(homeHtml);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, TrackUrl);
         request.Headers.Add("X-CSRF-TOKEN", token);
@@ -76,12 +69,12 @@ public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.
     [Fact]
     public async Task Login_SetsAuthCookieWithSameSiteStrict()
     {
-        await _factory.SetSeededUserPasswordHashAsync(CorrectPassword);
+        await _factory.SetSeededUserPasswordHashAsync(PostgresWebFactory.CorrectPassword);
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
         var response = await client.PostAsync(
             "/account/login",
-            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
+            new FormUrlEncodedContent([new KeyValuePair<string, string>("password", PostgresWebFactory.CorrectPassword)]));
 
         var setCookieHeader = Assert.Single(
             response.Headers.GetValues("Set-Cookie"),
@@ -95,46 +88,8 @@ public sealed partial class ApiHardeningTests : IClassFixture<ApiHardeningTests.
         var client = await _factory.CreateAuthenticatedClientAsync();
 
         var homeHtml = await client.GetStringAsync("/");
-        var token = ExtractAntiforgeryToken(homeHtml);
+        var token = PostgresWebFactory.ExtractAntiforgeryToken(homeHtml);
 
         Assert.False(string.IsNullOrWhiteSpace(token));
-    }
-
-    private static string ExtractAntiforgeryToken(string html)
-    {
-        var match = AntiforgeryTokenMetaTagRegex().Match(html);
-        Assert.True(match.Success, "Expected an antiforgery-token <meta> tag in the response HTML.");
-
-        return match.Groups[1].Value;
-    }
-
-    [GeneratedRegex("""<meta name="antiforgery-token" content="([^"]+)"\s*/>""")]
-    private static partial Regex AntiforgeryTokenMetaTagRegex();
-
-    public sealed class Factory : PostgresWebFactory
-    {
-        public async Task SetSeededUserPasswordHashAsync(string? password)
-        {
-            await using var db = CreateDbContext();
-            var user = await db.Users.SingleAsync();
-            user.PasswordHash = password is null ? null : new PasswordHasher<AppUser>().HashPassword(AppUser.Instance, password);
-            user.SetupCompletedAt = password is null ? null : DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
-        }
-
-        // WebApplicationFactory's default client keeps cookies across requests on the same
-        // instance (HandleCookies defaults to true), so logging in once here makes every later
-        // request on the returned client an authenticated one, same as a real browser session.
-        public async Task<HttpClient> CreateAuthenticatedClientAsync()
-        {
-            await SetSeededUserPasswordHashAsync(CorrectPassword);
-
-            var client = CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-            await client.PostAsync(
-                "/account/login",
-                new FormUrlEncodedContent([new KeyValuePair<string, string>("password", CorrectPassword)]));
-
-            return client;
-        }
     }
 }
