@@ -1,0 +1,18 @@
+@* Centered max-width:24rem card on a full-height ground, brand mark above — Technical Design
+   Spec.md §5.8. Login.razor/Setup.razor opt into this via @layout instead of silently inheriting
+   MainLayout's navbar, the gap issue #78 found (there's no "you're not signed in yet" nav to show).
+   Applies via the same DefaultLayout-override mechanism MainLayout itself uses (Routes.razor), so
+   no render-mode change: whichever render mode the page picks, this layout follows it — issue #99
+   stays static SSR permanently, this doesn't introduce any interactivity. *@
+@inherits LayoutComponentBase
+
+<div class="d-flex flex-column align-items-center justify-content-center px-3 py-5" style="min-height:100vh;">
+    <div class="mb-4 d-flex align-items-center gap-2 cs-heading fw-bold" style="font-size:1.5rem; color: var(--bs-body-color);">
+        <i class="bi bi-film" aria-hidden="true"></i> CineScout
+    </div>
+    <div class="card" style="width:100%; max-width:24rem;">
+        <div class="card-body p-4">
+            @Body
+        </div>
+    </div>
+</div>

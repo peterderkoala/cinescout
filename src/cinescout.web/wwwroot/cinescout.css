@@ -1,0 +1,94 @@
+/*
+ * CineScout design tokens and global utilities — Technical Design Spec.md §2.
+ * Ported from the prototype's <helmet><style> block (docs/design/CineScout Prototype.dc.html).
+ *
+ * This is the one deliberately-global stylesheet in a codebase that otherwise uses Blazor scoped
+ * CSS (Component.razor.css) by default — see issue #76's resolution. Scoped files must only ever
+ * *consume* var(--cinescout-*) / var(--bs-*) declared here, never re-declare a token: scoped rules
+ * beat this file twice over (later load order, plus Blazor's [b-xxxxx] attribute raising
+ * specificity), so a token redeclared in a scoped file becomes invisible to the dark-mode block
+ * below and silently breaks dark mode.
+ *
+ * Linked in App.razor after app.css (trimmed to Blazor plumbing) and before the generated scoped
+ * bundle (cinescout.web.styles.css).
+ */
+
+:root {
+  color-scheme: light;
+  --cinescout-primary: #7A1F2B;
+  --cinescout-primary-hover: #5C1720;
+  --cinescout-on-primary: #fff;
+  --cinescout-accent-match: #B8860B;
+  --cinescout-accent-match-text: #8A6508;
+  --cinescout-navbar-bg: #7A1F2B;
+  --cinescout-page-bg: #f7f5f3;
+  --bs-success: #328168;
+  --bs-success-rgb: 50, 129, 104;
+}
+
+/* Dark mode is CSS-only — no JS toggle, so static-SSR and interactive pages render identically
+   and there is no flash of unstyled content. Both halves of the .cs-btn-outline /
+   .btn-outline-secondary re-tint must land together or dark mode loses contrast (§2 caveat). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --cinescout-primary: #7A1F2B;
+    --cinescout-primary-hover: #5C1720;
+    --cinescout-on-primary: #fff;
+    --cinescout-accent-match: #D1AB5B;
+    --cinescout-accent-match-text: #D1AB5B;
+    --cinescout-navbar-bg: #2C161A;
+    --cinescout-page-bg: #16181A;
+
+    --bs-body-color: #DEE2E6;
+    --bs-body-color-rgb: 222, 226, 230;
+    --bs-body-bg: #1E2124;
+    --bs-body-bg-rgb: 30, 33, 36;
+    --bs-emphasis-color: #FFF;
+    --bs-secondary-color: rgba(222, 226, 230, .75);
+    --bs-secondary-bg: #343A40;
+    --bs-tertiary-color: rgba(222, 226, 230, .5);
+    --bs-tertiary-bg: #2B3035;
+    --bs-border-color: #495057;
+    --bs-heading-color: inherit;
+    --bs-success: #328168;
+    --bs-success-rgb: 50, 129, 104;
+    --bs-link-color: #D35869;
+    --bs-link-hover-color: #E2808D;
+  }
+  .bg-white { background-color: var(--bs-body-bg) !important; }
+  .text-bg-light { background-color: var(--bs-secondary-bg) !important; color: var(--bs-body-color) !important; }
+  .alert-light { background-color: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+  .btn-outline-secondary { --bs-btn-color: #ADB5BD; --bs-btn-border-color: #6C757D; --bs-btn-hover-bg: #6C757D; --bs-btn-hover-border-color: #6C757D; }
+  .form-control, .form-select { background-color: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+  .form-select { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3e%3cpath fill='none' stroke='%23DEE2E6' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e"); }
+  .form-control:focus, .form-select:focus { background-color: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+  .form-floating > label { color: var(--bs-body-color); }
+  .card { --bs-card-bg: var(--bs-body-bg); --bs-card-border-color: var(--bs-border-color); }
+  .list-group { --bs-list-group-bg: var(--bs-body-bg); --bs-list-group-color: var(--bs-body-color); --bs-list-group-border-color: var(--bs-border-color); }
+  .navbar-toggler-icon { filter: invert(1) grayscale(100%) brightness(2); }
+  :root .cs-btn-outline { background: transparent; color: var(--bs-body-color); border-color: var(--bs-border-color); }
+  :root .cs-btn-outline:hover { background: rgba(209,171,91,.08); color: var(--cinescout-accent-match); border-color: var(--cinescout-accent-match); }
+}
+
+body { font-family: 'Open Sans', sans-serif; background: var(--cinescout-page-bg); color: var(--bs-body-color); }
+h1, h2, h3, h4, h5, h6, .btn, .nav-link, .navbar-brand, .card-header, .cs-heading {
+  font-family: 'Montserrat', sans-serif;
+}
+a { color: var(--bs-body-color); }
+a:hover { color: var(--bs-body-color); }
+
+.cs-btn-primary { background: var(--cinescout-primary); color: var(--cinescout-on-primary); border: 1px solid var(--cinescout-primary); }
+.cs-btn-primary:hover { background: var(--cinescout-primary-hover); border-color: var(--cinescout-primary-hover); color: var(--cinescout-on-primary); }
+.cs-btn-outline { background: transparent; color: var(--cinescout-primary); border: 1px solid var(--cinescout-primary); }
+.cs-btn-outline:hover { background: var(--cinescout-primary); color: #fff; }
+.cs-btn-outline:hover { color: var(--cinescout-on-primary); }
+.nav-pills { --bs-nav-pills-link-active-bg: var(--cinescout-primary); --bs-nav-pills-link-active-color: var(--cinescout-on-primary); }
+.cs-pill { color: var(--bs-body-color); }
+
+/* Global focus style — always the gold ring, never the browser default (§2). */
+:focus-visible {
+  outline: 2px solid var(--cinescout-accent-match);
+  outline-offset: 2px;
+}
+.form-control:focus { border-color: var(--cinescout-primary); box-shadow: 0 0 0 .2rem rgba(122,31,43,.15); }

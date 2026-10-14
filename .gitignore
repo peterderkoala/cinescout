@@ -176,6 +176,9 @@ coverage*.json
 coverage*.xml
 coverage*.info
 
+# coverage.sh's output: per-project Cobertura reports plus the merged ReportGenerator HTML report
+/coverage/
+
 # Visual Studio code coverage results
 *.coverage
 *.coveragexml
@@ -427,3 +430,10 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Session handoff docs (agent-generated, throwaway — see CLAUDE.md)
+/handoff/
+# Added by code-review-graph
+.code-review-graph/
+# Machine-specific MCP config (hard-coded local paths)
+/.mcp.json

@@ -1,0 +1,49 @@
+@*
+    SeatGrid zone mode — Technical Design Spec.md §4.2 / SeatGrid.dc.html. Renders one
+    FavoriteSeatMatrix's row/seat-number range as gold blocks, 16px cells / 2px gaps, capped at
+    5x25 (SeatGridCapping) with a 35%-opacity ghost row/column plus a "+N rows · +N seats" caption
+    for anything beyond the cap (issue #77: keeps every card the same height regardless of
+    auditorium size).
+*@
+@using System.Globalization
+@using cinescout.contracts
+
+<div class="d-flex flex-column" style="gap:2px; width:max-content;">
+    @for (var r = 0; r < Capping.RowsShown; r++)
+    {
+        <div class="d-flex" style="gap:2px;">@RowCells(1)</div>
+    }
+    @if (Capping.HasGhostRow)
+    {
+        <div class="d-flex" style="gap:2px;">@RowCells(0.35)</div>
+    }
+    @if (Capping.OverflowCaption.Length > 0)
+    {
+        <div class="fw-semibold" style="font-size:.72rem; letter-spacing:.04em; color:var(--cinescout-accent-match); margin-top:6px;">
+            @Capping.OverflowCaption
+        </div>
+    }
+</div>
+
+@*
+    RowCells stays here rather than moving to ZoneSeatGrid.razor.cs (#106): it returns a
+    RenderFragment built from a Razor `@<text>` template, syntax only the Razor compiler understands
+    — it cannot appear in a plain .cs file. Every other member of this class lives in
+    ZoneSeatGrid.razor.cs.
+*@
+@code {
+    private RenderFragment<double> RowCells => opacity =>
+        @<text>
+            @for (var c = 0; c < Capping.SeatsShown; c++)
+            {
+                <div style="width:16px; height:16px; flex:none; border-radius:2px; background:var(--cinescout-accent-match); opacity:@Opacity(opacity);"></div>
+            }
+            @if (Capping.HasGhostColumn)
+            {
+                // Flat 0.35, not `opacity * 0.35` — the ghost-row/ghost-column corner cell would
+                // otherwise compound to ~12% (0.35 * 0.35) instead of the spec's single 35% ghost
+                // opacity, when a matrix overflows both the row cap and the seat cap at once.
+                <div style="width:16px; height:16px; flex:none; border-radius:2px; background:var(--cinescout-accent-match); opacity:@Opacity(0.35);"></div>
+            }
+        </text>;
+}
