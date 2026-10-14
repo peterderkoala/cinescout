@@ -108,7 +108,7 @@ public partial class Cinemas
 
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Save failed.";
+            _error = problem.MessageOr("Save failed.");
             return;
         }
 
@@ -134,7 +134,7 @@ public partial class Cinemas
         var problem = await Api.DeleteAsync(id);
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Delete failed.";
+            _error = problem.MessageOr("Delete failed.");
             return;
         }
 
@@ -199,7 +199,7 @@ public partial class Cinemas
         if (problem is not null)
         {
             _errorClass = "alert-danger";
-            _error = problem.Detail ?? problem.Title ?? "Rename failed.";
+            _error = problem.MessageOr("Rename failed.");
             return;
         }
 

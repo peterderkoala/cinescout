@@ -178,7 +178,7 @@ public partial class SeatMatrices
 
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Save failed.";
+            _error = problem.MessageOr("Save failed.");
             return;
         }
 
@@ -197,7 +197,7 @@ public partial class SeatMatrices
         var problem = await Api.DeleteAsync(id);
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Delete failed.";
+            _error = problem.MessageOr("Delete failed.");
             return;
         }
 
@@ -216,7 +216,7 @@ public partial class SeatMatrices
         var (matrix, problem) = await Api.ToggleEnabledAsync(id);
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Update failed.";
+            _error = problem.MessageOr("Update failed.");
             return;
         }
 

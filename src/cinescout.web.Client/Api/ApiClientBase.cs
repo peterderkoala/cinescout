@@ -78,4 +78,8 @@ public abstract class ApiClientBase(HttpClient httpClient, AntiforgeryTokenStore
 public sealed record ApiProblem(
     [property: JsonPropertyName("title")] string? Title,
     [property: JsonPropertyName("detail")] string? Detail,
-    [property: JsonPropertyName("kinoheldStatus")] string? KinoheldStatus);
+    [property: JsonPropertyName("kinoheldStatus")] string? KinoheldStatus)
+{
+    /// <summary>The message to show the user: the server's detail, else its title, else <paramref name="fallback"/>.</summary>
+    public string MessageOr(string fallback) => Detail ?? Title ?? fallback;
+}

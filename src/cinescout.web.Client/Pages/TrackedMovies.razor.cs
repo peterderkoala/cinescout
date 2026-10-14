@@ -29,7 +29,7 @@ public partial class TrackedMovies
 
             if (problem is not null)
             {
-                _error = problem.Detail ?? problem.Title ?? "Something went wrong.";
+                _error = problem.MessageOr("Something went wrong.");
                 // The acted-on film may no longer exist (e.g. removed by another session) — refetch
                 // so a dead row doesn't linger in the UI indefinitely instead of leaving _page stale.
                 _page = await Api.GetAsync();

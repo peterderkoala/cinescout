@@ -79,7 +79,7 @@ public partial class TimePreferences
 
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Save failed.";
+            _error = problem.MessageOr("Save failed.");
             return;
         }
 
@@ -98,7 +98,7 @@ public partial class TimePreferences
         var problem = await Api.DeleteAsync(id);
         if (problem is not null)
         {
-            _error = problem.Detail ?? problem.Title ?? "Delete failed.";
+            _error = problem.MessageOr("Delete failed.");
             return;
         }
 
