@@ -33,8 +33,12 @@ A record that one `Performance` has satisfied a `TrackedMovie`'s active preferen
 _Avoid_: Alert (that's the outward-facing behavior a `Match` triggers, not the record itself)
 
 **NotificationLog**:
-A record of one attempt to notify the user (e.g. via Discord). Carries a `NotificationType` (`TrackStarted`, `TrackStopped`, `RulesMatched`, `SeatAvailabilityChanged`, `NewFilmAdded`); `MatchId` is only set for `RulesMatched`/`SeatAvailabilityChanged`, since track-lifecycle and new-film notifications aren't tied to a specific `Match`.
+A record of one attempt to notify the user through one `NotificationChannel`, so an event that fans out to several channels leaves one record per channel, and the records of one fan-out share a dispatch. Carries a `NotificationType` (`TrackStarted`, `TrackStopped`, `RulesMatched`, `SeatAvailabilityChanged`, `NewFilmAdded`); `MatchId` is only set for `RulesMatched`/`SeatAvailabilityChanged`, since track-lifecycle and new-film notifications aren't tied to a specific `Match`.
 _Avoid_: Alert log, notification
+
+**NotificationChannel**:
+A delivery target the user configured (today: a Discord webhook), subscribed to a set of `NotificationType`s. A notification goes out through every enabled channel subscribed to its type; each `NotificationLog` records the channel it went through.
+_Avoid_: Webhook (that's one kind of channel, not the concept), notification target
 
 **SeatStatus**:
 The current free/sold state of one seat (row + seat number) for one `Performance`, upserted each Kinoheld crawl. Carries adjacency (`LeftNeighborSeatId`/`RightNeighborSeatId`) so contiguous free blocks can be located.
