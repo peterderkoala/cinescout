@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<!--
+  PROTOTYPE — throwaway, lives only on branch prototype/notifications-screen. Never merge.
+  Question (wayfinder #140): what should the Notifications screen look like?
+  Three variants switchable via ?variant=A|B|C (← / → keys or the bottom bar). Open the file directly in a browser.
+  State is in memory; "Send test" is a stub that cycles success / Discord 400 / timeout.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notifications prototype</title>
+<link rel="stylesheet" href="../../src/cinescout.web/wwwroot/lib/bootstrap/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="../../src/cinescout.web/wwwroot/lib/bootstrap-icons/bootstrap-icons.css">
+<link rel="stylesheet" href="../../src/cinescout.web/wwwroot/lib/fonts/fonts.css">
+<link rel="stylesheet" href="../../src/cinescout.web/wwwroot/app.css">
+<link rel="stylesheet" href="../../src/cinescout.web/wwwroot/cinescout.css">
+<style>
+  .navbar { background: var(--cinescout-navbar-bg); }
+  .navbar .nav-link, .navbar-brand { color: rgba(255,255,255,.85) !important; }
+  .navbar .nav-link.active { color: #fff !important; border-bottom: 2px solid #fff; }
+  .type-chip { font-size: .72rem; }
+  .embed { border-left: 4px solid var(--c); background: #2b2d31; color: #dbdee1; border-radius: 4px; padding: .6rem .8rem; font-size: .82rem; }
+  .embed .t { font-weight: 700; color: #fff; }
+  .embed .f b { display: block; font-size: .75rem; color: #b5bac1; }
+  .discord-msg { background: #313338; border-radius: 6px; padding: .75rem; color: #dbdee1; font-size: .85rem; }
+  #proto-bar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 2000;
+    background: #111; color: #fff; border-radius: 999px; padding: 6px 10px; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    display: flex; gap: 10px; align-items: center; font: 600 13px system-ui, sans-serif; }
+  #proto-bar button { background: none; border: 0; color: #fff; font-size: 16px; cursor: pointer; }
+  #proto-state { position: fixed; bottom: 64px; right: 12px; width: 340px; max-height: 40vh; overflow: auto; z-index: 2000;
+    background: #111; color: #9f9; font: 11px ui-monospace, monospace; padding: 8px; border-radius: 6px; opacity: .92; }
+</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-md">
+  <div class="container-fluid">
+    <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" href="#"><i class="bi bi-film"></i> CineScout</a>
+    <ul class="navbar-nav me-auto" style="gap:12px;">
+      <li class="nav-item"><a class="nav-link"><i class="bi bi-calendar3"></i> Schedule</a></li>
+      <li class="nav-item"><a class="nav-link"><i class="bi bi-bookmark-star"></i> Tracked Movies</a></li>
+      <li class="nav-item"><a class="nav-link"><i class="bi bi-clock"></i> Time Preferences</a></li>
+      <li class="nav-item"><a class="nav-link"><i class="bi bi-grid-3x3"></i> Seat Matrices</a></li>
+      <li class="nav-item"><a class="nav-link"><i class="bi bi-building"></i> Cinemas</a></li>
+      <li class="nav-item"><a class="nav-link active"><i class="bi bi-bell"></i> Notifications</a></li>
+      <li class="nav-item"><a class="nav-link"><i class="bi bi-speedometer2"></i> Jobs</a></li>
+    </ul>
+    <a class="nav-link text-white-50"><i class="bi bi-box-arrow-right"></i> Logout</a>
+  </div>
+</nav>
+
+<div class="container-fluid py-4" style="max-width:1536px; margin-inline:auto;" id="page"></div>
+
+<div id="proto-bar"><button id="prev">←</button><span id="label"></span><button id="next">→</button></div>
+<pre id="proto-state" title="click to collapse" onclick="this.style.maxHeight = this.style.maxHeight === '1.4em' ? '40vh' : '1.4em'"></pre>
+
+<script>
+const TYPES = [
+  ['TrackStarted', 'Track started', '#3498DB'],
+  ['TrackStopped', 'Track stopped', '#95A5A6'],
+  ['RulesMatched', 'Rules matched', '#2ECC71'],
+  ['SeatAvailabilityChanged', 'Seat availability', '#1ABC9C'],
+  ['NewFilmAdded', 'New film', '#9B59B6'],
+];
+const ALL = TYPES.map(t => t[0]);
+let nextId = 4;
+const state = {
+  channels: [
+    { id: 1, name: 'cinescout', webhookMasked: '…/webhooks/1290…/••••', displayName: 'CineScout', avatarUrl: '', prefix: '', suppress: false, enabled: true, types: [...ALL], lastError: null, lastDelivery: 'Success · 2 h ago' },
+    { id: 2, name: 'seats', webhookMasked: '…/webhooks/1311…/••••', displayName: 'CineScout Seats', avatarUrl: '', prefix: '@here', suppress: false, enabled: true, types: ['RulesMatched', 'SeatAvailabilityChanged'], lastError: null, lastDelivery: 'Failed · 1 d ago (429)' },
+    { id: 3, name: 'old-server', webhookMasked: '…/webhooks/1102…/••••', displayName: '', avatarUrl: '', prefix: '', suppress: true, enabled: false, types: [...ALL], lastError: 'Webhook no longer exists. Disabled automatically.', lastDelivery: 'Failed · 3 d ago (404)' },
+  ],
+  selectedId: 1,
+  editing: null,      // working copy of the form (unsaved values)
+  testResult: null,
+  testCycle: 0,
+};
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const typeLabel = k => TYPES.find(t => t[0] === k)[1];
+const chips = c => c.types.length === ALL.length
+  ? '<span class="badge text-bg-light border type-chip">All types</span>'
+  : c.types.map(t => `<span class="badge text-bg-light border type-chip">${typeLabel(t)}</span>`).join(' ');
+
+function startEdit(id) {
+  const c = id ? state.channels.find(x => x.id === id) : null;
+  state.selectedId = id;
+  state.editing = c ? { ...c, types: [...c.types], webhookUrl: '' }
+                    : { id: null, name: '', webhookMasked: '', webhookUrl: '', displayName: '', avatarUrl: '', prefix: '', suppress: false, enabled: true, types: [...ALL], lastError: null };
+  state.testResult = null;
+  render();
+}
+function save() {
+  const e = state.editing;
+  if (!e.id && !e.webhookUrl) { state.testResult = { ok: false, text: 'Webhook URL is required.' }; return render(); }
+  const masked = e.webhookUrl ? '…/webhooks/' + (e.webhookUrl.match(/webhooks\/(\d{4})/)?.[1] ?? '????') + '…/••••' : e.webhookMasked;
+  const saved = { ...e, webhookMasked: masked, lastError: null };
+  delete saved.webhookUrl;
+  if (e.id) state.channels = state.channels.map(c => c.id === e.id ? { ...c, ...saved } : c);
+  else { saved.id = nextId++; saved.lastDelivery = '—'; state.channels.push(saved); }
+  state.selectedId = saved.id; state.editing = null; state.testResult = null; render();
+}
+function remove(id) { state.channels = state.channels.filter(c => c.id !== id); state.editing = null; state.selectedId = state.channels[0]?.id ?? null; render(); }
+function toggleEnabled(id) { const c = state.channels.find(x => x.id === id); c.enabled = !c.enabled; if (c.enabled) c.lastError = null; render(); }
+function toggleType(id, t) { const c = state.channels.find(x => x.id === id); c.types = c.types.includes(t) ? c.types.filter(x => x !== t) : [...c.types, t]; render(); }
+function sendTest() {
+  const outcomes = [
+    { ok: true, text: 'Sent ✓' },
+    { ok: false, text: 'Discord returned 400: Invalid Form Body (embeds.0.thumbnail.url: Not a well formed URL)' },
+    { ok: false, text: 'Discord did not answer within 10 s.' },
+  ];
+  state.testResult = { pending: true }; render();
+  setTimeout(() => { state.testResult = outcomes[state.testCycle++ % 3]; render(); }, 600);
+}
+const bind = (field, el) => { state.editing[field] = el.type === 'checkbox' ? el.checked : el.value; renderStateOnly(); if (field === 'prefix' || field === 'displayName') { const p = document.getElementById('preview'); if (p) p.innerHTML = previewHtml(); } };
+const bindType = (t, el) => { const e = state.editing; e.types = el.checked ? [...e.types, t] : e.types.filter(x => x !== t); renderStateOnly(); };
+
+function testResultHtml() {
+  const r = state.testResult;
+  if (!r) return '';
+  if (r.pending) return '<span class="small text-muted"><span class="spinner-border spinner-border-sm"></span> Sending…</span>';
+  return `<span class="small ${r.ok ? 'text-success' : 'text-danger'}">${esc(r.text)}</span>`;
+}
+
+function formHtml(compact) {
+  const e = state.editing;
+  const col = compact ? 'col-12' : 'col-12 col-md-6';
+  return `
+  ${e.lastError ? `<div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle"></i> ${esc(e.lastError)}</div>` : ''}
+  <div class="row g-3">
+    <div class="${col}"><label class="form-label small text-muted">Name</label>
+      <input class="form-control form-control-sm" value="${esc(e.name)}" oninput="bind('name',this)" placeholder="e.g. seats"></div>
+    <div class="${col}"><label class="form-label small text-muted">Webhook URL</label>
+      <input class="form-control form-control-sm" value="${esc(e.webhookUrl)}" oninput="bind('webhookUrl',this)"
+        placeholder="${e.id ? esc(e.webhookMasked) + ' (leave empty to keep)' : 'https://discord.com/api/webhooks/…'}"></div>
+    <div class="${col}"><label class="form-label small text-muted">Display name <span class="opacity-75">(optional)</span></label>
+      <input class="form-control form-control-sm" value="${esc(e.displayName)}" oninput="bind('displayName',this)" placeholder="Webhook default"></div>
+    <div class="${col}"><label class="form-label small text-muted">Avatar URL <span class="opacity-75">(optional)</span></label>
+      <input class="form-control form-control-sm" value="${esc(e.avatarUrl)}" oninput="bind('avatarUrl',this)" placeholder="Webhook default"></div>
+    <div class="${col}"><label class="form-label small text-muted">Prefix message <span class="opacity-75">(optional, e.g. @here)</span></label>
+      <input class="form-control form-control-sm" value="${esc(e.prefix)}" oninput="bind('prefix',this)"></div>
+    <div class="${col} d-flex flex-column justify-content-end gap-1">
+      <div class="form-check form-switch"><input class="form-check-input" type="checkbox" ${e.suppress ? 'checked' : ''} onchange="bind('suppress',this)" id="sup">
+        <label class="form-check-label small" for="sup">Silent (suppress push/desktop notifications)</label></div>
+      <div class="form-check form-switch"><input class="form-check-input" type="checkbox" ${e.enabled ? 'checked' : ''} onchange="bind('enabled',this)" id="en">
+        <label class="form-check-label small" for="en">Enabled</label></div>
+    </div>
+    <div class="col-12"><label class="form-label small text-muted d-block">Send these notifications</label>
+      ${TYPES.map(([k, l]) => `<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" id="t-${k}" ${e.types.includes(k) ? 'checked' : ''} onchange="bindType('${k}',this)"><label class="form-check-label small" for="t-${k}">${l}</label></div>`).join('')}
+    </div>
+  </div>
+  <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+    <button class="btn btn-sm cs-btn-primary" onclick="save()"><i class="bi bi-check-lg"></i> Save</button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="sendTest()"><i class="bi bi-send"></i> Send test</button>
+    ${testResultHtml()}
+    ${e.id ? `<button class="btn btn-sm btn-outline-danger ms-auto" onclick="remove(${e.id})"><i class="bi bi-trash"></i> Delete</button>` : ''}
+  </div>`;
+}
+
+function previewHtml() {
+  const e = state.editing ?? {};
+  return `<div class="discord-msg">
+    <div><b style="color:#fff">${esc(e.displayName || 'Webhook default')}</b> <span class="badge bg-primary" style="font-size:.6rem">APP</span></div>
+    ${e.prefix ? `<div style="background:rgba(250,168,26,.15);padding:0 4px;border-radius:3px;display:inline-block">${esc(e.prefix)}</div>` : ''}
+    <div class="embed mt-1" style="--c:#2ECC71">
+      <div class="t">🎬 Matches your preferences</div>
+      <div><b>Sample Film</b></div>
+      <div class="row g-2 mt-1 f"><div class="col-4"><b>Cinema</b>Kino am Markt</div><div class="col-4"><b>Room</b>Saal 1</div><div class="col-4"><b>Starts</b>Wed, 21 Oct 2026 20:15 (in 2 days)</div></div>
+      <div class="f mt-1"><b>Seats</b>4 adjacent free in "Parkett", needs 2</div>
+      <div class="mt-2" style="font-size:.7rem;color:#b5bac1">CineScout · test</div>
+    </div></div>`;
+}
+
+const header = (extra = '') => `
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h3 class="mb-0">Notifications</h3>
+    <button class="btn btn-sm cs-btn-primary" onclick="startEdit(null)"><i class="bi bi-plus-lg"></i> Add channel</button>
+  </div>
+  <p class="small mb-4" style="color:var(--bs-secondary-color); max-width:52rem;">Discord channels CineScout posts to. Each channel receives only the notification types it subscribes to. ${extra}</p>`;
+
+const statusDot = c => `<span style="width:8px;height:8px;border-radius:50%;flex:none;background:${c.lastError ? 'var(--bs-warning)' : c.enabled ? 'var(--bs-success)' : 'var(--bs-border-color)'}"></span>`;
+
+// A — Master/detail, mirrors the Cinemas screen: list left, edit card right.
+function VariantA() {
+  if (!state.editing && state.selectedId) { const c = state.channels.find(x => x.id === state.selectedId); if (c) state.editing = { ...c, types: [...c.types], webhookUrl: '' }; }
+  return header() + `<div class="row g-4">
+    <div class="col-12 col-lg-4"><div class="list-group">
+      ${state.channels.map(c => `<a href="#" class="list-group-item list-group-item-action" onclick="startEdit(${c.id});return false"
+          style="${state.selectedId === c.id ? 'background:rgba(122,31,43,.06);border-left:3px solid var(--cinescout-primary)' : 'border-left:3px solid transparent'}">
+        <div class="d-flex align-items-center gap-2">${statusDot(c)}<span style="font-weight:600">#${esc(c.name)}</span>
+          ${!c.enabled ? '<span class="badge text-bg-secondary ms-auto">Off</span>' : ''}</div>
+        <div class="mt-1">${chips(c)}</div>
+        ${c.lastError ? `<div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle"></i> ${esc(c.lastError)}</div>` : ''}
+        <div style="font-size:.75rem;color:var(--bs-secondary-color);margin-top:2px">${esc(c.webhookMasked)} · ${esc(c.lastDelivery)}</div>
+      </a>`).join('') || '<p class="small text-muted">No channels yet. Add one to get notified.</p>'}
+    </div></div>
+    <div class="col-12 col-lg-8">${state.editing ? `<div class="card"><div class="card-body">
+      <h6 class="card-title mb-3">${state.editing.id ? '#' + esc(state.editing.name) : 'New channel'}</h6>${formHtml(false)}</div></div>` : ''}</div>
+  </div>`;
+}
+
+// B — Routing matrix: channels × NotificationTypes as toggles; edit in an inline panel below.
+function VariantB() {
+  return header('Toggle a cell to route that type to that channel.') + `
+  <div class="card mb-4"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th>Channel</th>${TYPES.map(([, l, c]) => `<th class="text-center small"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${c}"></span> ${l}</th>`).join('')}<th class="text-center small">Enabled</th><th></th></tr></thead>
+    <tbody>${state.channels.map(c => `<tr class="${c.enabled ? '' : 'opacity-50'}">
+      <td><div class="d-flex align-items-center gap-2">${statusDot(c)}<b>#${esc(c.name)}</b></div>
+        <div style="font-size:.72rem;color:var(--bs-secondary-color)">${esc(c.lastError ?? c.lastDelivery)}</div></td>
+      ${ALL.map(t => `<td class="text-center"><input class="form-check-input" type="checkbox" ${c.types.includes(t) ? 'checked' : ''} onchange="toggleType(${c.id},'${t}')"></td>`).join('')}
+      <td class="text-center"><div class="form-check form-switch d-inline-block"><input class="form-check-input" type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleEnabled(${c.id})"></div></td>
+      <td class="text-end"><button class="btn btn-sm btn-outline-secondary" onclick="startEdit(${c.id})"><i class="bi bi-pencil"></i></button></td>
+    </tr>`).join('')}</tbody></table></div></div>
+  ${state.editing ? `<div class="card"><div class="card-body"><div class="d-flex justify-content-between mb-3"><h6 class="card-title mb-0">${state.editing.id ? 'Edit #' + esc(state.editing.name) : 'New channel'}</h6>
+    <button class="btn-close" onclick="state.editing=null;render()"></button></div>${formHtml(false)}</div></div>` : ''}`;
+}
+
+// C — Card stack with an expanded editor and a live Discord preview beside the form.
+function VariantC() {
+  const e = state.editing;
+  return header() + `<div class="d-flex flex-column gap-3" style="max-width:72rem">
+    ${!e || e.id ? '' : `<div class="card border-2" style="border-color:var(--cinescout-primary)"><div class="card-body"><div class="row g-4">
+        <div class="col-12 col-xl-7"><h6 class="card-title mb-3">New channel</h6>${formHtml(true)}</div>
+        <div class="col-12 col-xl-5"><div class="small text-muted mb-2">Preview of "Send test"</div><div id="preview">${previewHtml()}</div></div></div></div></div>`}
+    ${state.channels.map(c => e && e.id === c.id
+      ? `<div class="card border-2" style="border-color:var(--cinescout-primary)"><div class="card-body"><div class="row g-4">
+          <div class="col-12 col-xl-7"><div class="d-flex justify-content-between mb-3"><h6 class="card-title mb-0">#${esc(c.name)}</h6><button class="btn-close" onclick="state.editing=null;render()"></button></div>${formHtml(true)}</div>
+          <div class="col-12 col-xl-5"><div class="small text-muted mb-2">Preview of "Send test"</div><div id="preview">${previewHtml()}</div></div></div></div></div>`
+      : `<div class="card ${c.enabled ? '' : 'opacity-75'}"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+          ${statusDot(c)}<div style="min-width:12rem"><b>#${esc(c.name)}</b><div style="font-size:.75rem;color:var(--bs-secondary-color)">${esc(c.webhookMasked)}</div></div>
+          <div class="flex-grow-1">${chips(c)}${c.prefix ? ` <span class="badge text-bg-warning type-chip">${esc(c.prefix)}</span>` : ''}${c.suppress ? ' <span class="badge text-bg-secondary type-chip">silent</span>' : ''}
+            ${c.lastError ? `<div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle"></i> ${esc(c.lastError)}</div>` : `<div style="font-size:.75rem;color:var(--bs-secondary-color)">Last delivery: ${esc(c.lastDelivery)}</div>`}</div>
+          <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleEnabled(${c.id})"></div>
+          <button class="btn btn-sm btn-outline-secondary" onclick="startEdit(${c.id})"><i class="bi bi-pencil"></i> Edit</button>
+        </div></div>`).join('')}
+  </div>`;
+}
+
+const VARIANTS = { A: ['Master/detail', VariantA], B: ['Routing matrix', VariantB], C: ['Card stack + preview', VariantC] };
+const keys = Object.keys(VARIANTS);
+const current = () => { const v = new URLSearchParams(location.search).get('variant'); return keys.includes(v) ? v : 'A'; };
+function go(delta) {
+  const k = keys[(keys.indexOf(current()) + delta + keys.length) % keys.length];
+  history.replaceState(null, '', '?variant=' + k);
+  state.editing = null; state.testResult = null; render();
+}
+function renderStateOnly() { document.getElementById('proto-state').textContent = JSON.stringify(state, null, 1); }
+function render() {
+  const [name, fn] = VARIANTS[current()];
+  document.getElementById('page').innerHTML = fn();
+  document.getElementById('label').textContent = `${current()} (${name})`;
+  renderStateOnly();
+}
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+document.addEventListener('keydown', ev => {
+  if (ev.target.closest('input, textarea, [contenteditable]')) return;
+  if (ev.key === 'ArrowLeft') go(-1);
+  if (ev.key === 'ArrowRight') go(1);
+});
+render();
+</script>
+</body>
+</html>
