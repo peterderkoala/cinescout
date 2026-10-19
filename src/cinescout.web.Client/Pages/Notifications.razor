@@ -1,0 +1,151 @@
+@page "/notifications"
+@using cinescout.contracts
+@using cinescout.model
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject NotificationChannelsApiClient Api
+
+@*
+    Notifications screen — Technical Design Spec.md §5.9, variant A of the #140 prototype. Master/detail
+    like Cinemas: channel list (col-lg-4) + edit card (col-lg-8). The webhook URL is only ever shown
+    masked; leaving the field empty keeps the saved one (#141).
+*@
+
+<PageTitle>Notifications</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h3 class="mb-0" style="color: var(--bs-body-color);">Notifications</h3>
+    <button class="btn btn-sm cs-btn-primary" @onclick="StartAdd"><i class="bi bi-plus-lg"></i> Add channel</button>
+</div>
+<p class="small mb-4" style="color:var(--bs-secondary-color); max-width:52rem;">
+    Discord channels CineScout posts to. Each channel receives only the notification types it subscribes to.
+</p>
+
+@if (_channels is null)
+{
+    <CardSkeleton Count="2" />
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-12 col-lg-4">
+            @if (_channels.Count == 0)
+            {
+                <p class="small" style="color:var(--bs-secondary-color);">No channels yet. Add one to get notified.</p>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var channel in _channels)
+                    {
+                        var isSelected = _selectedId == channel.Id;
+                        <a href="#"
+                           class="list-group-item list-group-item-action"
+                           style="@(isSelected ? "background:rgba(122,31,43,.06); border-left:3px solid var(--cinescout-primary);" : "border-left:3px solid transparent;")"
+                           @onclick="() => Select(channel)" @onclick:preventDefault="true">
+                            <div class="d-flex align-items-center gap-2">
+                                <span style="width:8px; height:8px; border-radius:50%; flex:none; background:@StatusColor(channel);"></span>
+                                <span style="font-weight:600; color:var(--bs-body-color);">#@channel.Name</span>
+                                @if (!channel.IsEnabled)
+                                {
+                                    <span class="badge text-bg-secondary ms-auto">Off</span>
+                                }
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                @foreach (var label in TypeLabels(channel.Types))
+                                {
+                                    <span class="badge text-bg-light border" style="font-size:.72rem;">@label</span>
+                                }
+                            </div>
+                            @if (channel.LastError is not null)
+                            {
+                                <div class="small text-warning-emphasis mt-1"><i class="bi bi-exclamation-triangle"></i> @channel.LastError</div>
+                            }
+                            <div class="text-truncate" style="font-size:.75rem; color:var(--bs-secondary-color); margin-top:2px;">
+                                @channel.WebhookUrlMasked · @LastDelivery(channel)
+                            </div>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="col-12 col-lg-8">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title mb-3">@(_selected is null ? "New channel" : $"#{_selected.Name}")</h6>
+
+                    @if (_selected?.LastError is { } lastError)
+                    {
+                        <div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle"></i> @lastError</div>
+                    }
+                    @if (_error is not null)
+                    {
+                        <div class="alert alert-danger py-2 small">@_error</div>
+                    }
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="ncName">Name</label>
+                            <input type="text" class="form-control form-control-sm" id="ncName" placeholder="e.g. seats" @bind="_name" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="ncUrl">Webhook URL</label>
+                            <input type="url" class="form-control form-control-sm" id="ncUrl" @bind="_webhookUrl"
+                                   placeholder="@(_selected is null ? "https://discord.com/api/webhooks/…" : $"{_selected.WebhookUrlMasked} (leave empty to keep)")" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="ncDisplayName">Display name <span class="opacity-75">(optional)</span></label>
+                            <input type="text" class="form-control form-control-sm" id="ncDisplayName" placeholder="Webhook default" @bind="_displayName" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="ncAvatar">Avatar URL <span class="opacity-75">(optional)</span></label>
+                            <input type="url" class="form-control form-control-sm" id="ncAvatar" placeholder="Webhook default" @bind="_avatarUrl" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted" for="ncPrefix">Prefix message <span class="opacity-75">(optional, e.g. @("@")here)</span></label>
+                            <input type="text" class="form-control form-control-sm" id="ncPrefix" @bind="_prefix" />
+                        </div>
+                        <div class="col-12 col-md-6 d-flex flex-column justify-content-end gap-1">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="ncSuppress" @bind="_suppress" />
+                                <label class="form-check-label small" for="ncSuppress">Silent (suppress push/desktop notifications)</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="ncEnabled" @bind="_isEnabled" />
+                                <label class="form-check-label small" for="ncEnabled">Enabled</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <span class="form-label small text-muted d-block">Send these notifications</span>
+                            @foreach (var (flag, label) in AllTypes)
+                            {
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="nc-@flag" checked="@_types.HasFlag(flag)" @onchange="e => ToggleType(flag, (bool)e.Value!)" />
+                                    <label class="form-check-label small" for="nc-@flag">@label</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-4">
+                        <button class="btn btn-sm cs-btn-primary" @onclick="SaveAsync" disabled="@_saving"><i class="bi bi-check-lg"></i> Save</button>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="SendTestAsync" disabled="@_testing"><i class="bi bi-send"></i> Send test</button>
+                        @if (_testing)
+                        {
+                            <span class="small text-muted"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Sending…</span>
+                        }
+                        else if (_testResult is { } result)
+                        {
+                            <span class="small @(result.Success ? "text-success" : "text-danger")" role="status">@result.Text</span>
+                        }
+                        @if (_selected is not null)
+                        {
+                            <button class="btn btn-sm btn-outline-danger ms-auto" @onclick="DeleteAsync"><i class="bi bi-trash"></i> Delete</button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

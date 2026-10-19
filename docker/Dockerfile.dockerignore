@@ -1,0 +1,10 @@
+# Applies to the build context (repo root) when building docker/Dockerfile — BuildKit picks up
+# a Dockerfile-specific ignore file named `<dockerfile>.dockerignore` automatically, so this can
+# live in docker/ alongside the Dockerfile rather than needing a root-level .dockerignore.
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+.git/
+.claude/
+docker/.env

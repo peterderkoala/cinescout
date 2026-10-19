@@ -1,0 +1,60 @@
+@page "/performances/{Id:int}"
+@using cinescout.contracts
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject PerformanceDetailApiClient Api
+
+@*
+    Performance Detail screen — Technical Design Spec.md §5.7 / CineScout Prototype.dc.html
+    (data-screen-label="Performance Detail"). Back-link, featured card, then Seats: Force refresh +
+    LiveSeatGrid (#91) + its three-item legend (added here, not inside LiveSeatGrid.razor — that
+    component only renders the grid itself, per its existing scope). The Kinoheld four-outcome
+    alert table (§5.7) is transient Force Refresh response state via KinoheldStatusParser (#90),
+    not part of the GET DTO — PerformanceDetailDto carries no outcome field (see its doc comment).
+    Links to /schedule (#96, not yet built) the same way Home links to /tracked-movies ahead of
+    #95 — a forward reference, not a dead link once that screen ships.
+    Renders CardSkeleton until the first fetch completes.
+*@
+
+<PageTitle>Performance</PageTitle>
+
+<a href="/schedule" class="small d-inline-block mb-3">← Back to schedule</a>
+
+@if (!_loaded)
+{
+    <div style="max-width:60rem;">
+        <CardSkeleton Count="1" />
+    </div>
+}
+else if (_page is null)
+{
+    <div class="alert alert-secondary">Performance not found.</div>
+}
+else
+{
+    <div style="max-width:60rem;">
+        <FilmPerformanceCard Card="_page.Card" Variant="FilmPerformanceCardVariant.Featured" />
+
+        @if (_error is not null)
+        {
+            <div class="alert @_errorClass mt-3 mb-0" role="alert">@_error</div>
+        }
+
+        <div class="d-flex justify-content-between align-items-center mt-4 mb-2 flex-wrap gap-2">
+            <h5 class="mb-0">Seats</h5>
+            <button class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1" @onclick="ForceRefreshAsync" disabled="@(_refreshing || _coolingDown)">
+                <i class="bi bi-arrow-clockwise"></i> Force refresh
+            </button>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <LiveSeatGrid Seats="_page.Seats" />
+                <div class="d-flex gap-3 mt-3 small text-muted flex-wrap">
+                    <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:transparent;border:2px solid var(--bs-success);"></span> Free</span>
+                    <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--bs-secondary);"></span> Sold</span>
+                    <span class="d-flex align-items-center gap-1"><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:transparent;border:2px solid var(--bs-warning);"></span> Other</span>
+                </div>
+            </div>
+        </div>
+    </div>
+}

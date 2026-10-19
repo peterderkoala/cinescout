@@ -1,0 +1,57 @@
+/* Navbar/shell styling is scoped per issue #76's resolution (rule 2) — only design tokens and the
+   .cs-* utilities are global. Rules here only ever *consume* var(--cinescout-*) / var(--bs-*),
+   never redeclare them. */
+
+.navbar {
+    background: var(--cinescout-navbar-bg);
+    /* Prototype's inline style is `padding: 20px; padding-top: 12px; padding-right: 12px;
+       padding-bottom: 12px; padding-left: 12px` — the longhand overrides after the shorthand
+       resolve to a uniform 12px on every side, not 20px on top. */
+    padding: 12px;
+}
+
+.navbar-brand {
+    color: var(--cinescout-on-primary);
+    font-size: 26px;
+    height: 34px;
+}
+
+.navbar-brand:hover {
+    color: var(--cinescout-on-primary);
+}
+
+.navbar-toggler {
+    border-color: rgba(255, 255, 255, .5);
+}
+
+/* The prototype gives Logout `text-white` explicitly (line 102), not the idle nav-link tint —
+   it isn't part of the active/idle route-highlighting set the other nav items use. Logout is a
+   <button type="submit"> (see NavMenu.razor), so the usual button chrome is reset to look like
+   the plain nav-link it visually replaces. */
+.logout-link {
+    color: #fff;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+.logout-link:hover {
+    color: #fff;
+}
+
+/* NavLink renders as a child component, so its <a> needs ::deep to be reached from here. */
+::deep .nav-link {
+    color: rgba(255, 255, 255, .78);
+    border-bottom: 2px solid transparent;
+}
+
+::deep .nav-link:hover {
+    color: #fff;
+}
+
+::deep .nav-link.active {
+    color: #fff;
+    font-weight: 600;
+    border-bottom-color: var(--cinescout-accent-match);
+}

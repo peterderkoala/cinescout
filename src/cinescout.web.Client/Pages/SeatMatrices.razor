@@ -1,0 +1,261 @@
+@page "/seat-matrices"
+@using cinescout.contracts
+@using cinescout.web.Client.Api
+@using cinescout.web.Client.Shared
+@inject SeatMatricesApiClient Api
+
+@*
+    Seat Matrices screen — Technical Design Spec.md §5.2 / CineScout Prototype.dc.html
+    (data-screen-label="Seat Matrices"). Two pills (General/Overrides) share one filter bar and one
+    editor card (max-width:44rem). Filtering and the tab switch are both purely client-side over one
+    fetched SeatMatricesPageDto — no further round trip needed.
+    Renders CardSkeleton until the first fetch completes.
+*@
+
+<PageTitle>Seat Matrices</PageTitle>
+
+<h3 class="mb-3" style="color: var(--bs-body-color);">Seat Matrices</h3>
+
+@if (_page is null)
+{
+    <CardSkeleton Count="3" />
+}
+else
+{
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item"><a class="nav-link @(_isOverridesTab ? "" : "active")" href="#" @onclick="() => SwitchTab(false)" @onclick:preventDefault="true">General (per room)</a></li>
+        <li class="nav-item"><a class="nav-link @(_isOverridesTab ? "active" : "")" href="#" @onclick="() => SwitchTab(true)" @onclick:preventDefault="true">Film-specific overrides</a></li>
+    </ul>
+
+    <div class="d-flex align-items-end flex-wrap gap-3 mb-4">
+        <div style="min-width:15rem;">
+            <label class="form-label small text-muted mb-1" for="mxFilterCinema">Cinema</label>
+            <select class="form-select form-select-sm" id="mxFilterCinema" @bind="_filterCinemaId" @bind:after="OnFilterCinemaChanged">
+                <option value="">All cinemas</option>
+                @foreach (var cinema in _page.Cinemas)
+                {
+                    <option value="@cinema.Id">@cinema.Name</option>
+                }
+            </select>
+        </div>
+        <div style="min-width:13rem;">
+            <label class="form-label small text-muted mb-1" for="mxFilterRoom">Room</label>
+            <select class="form-select form-select-sm" id="mxFilterRoom" @bind="_filterRoomId">
+                <option value="">All rooms</option>
+                @foreach (var room in FilterRoomOptions)
+                {
+                    <option value="@room.Id">@room.Name</option>
+                }
+            </select>
+        </div>
+        @if (FilterActive)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">Clear filters</button>
+        }
+        <div class="ms-auto small" style="color:var(--bs-secondary-color); padding-bottom:.35rem;">Showing @FilteredCount of @TotalCount</div>
+    </div>
+
+    @if (!_isOverridesTab)
+    {
+        @if (FilteredRooms.Count == 0)
+        {
+            <div class="card mb-4">
+                <div class="card-body text-center py-5">
+                    <p class="mb-3" style="color:var(--bs-secondary-color);">No seat matrices match the selected cinema and room.</p>
+                    <button class="btn btn-sm cs-btn-outline" @onclick="ClearFilters">Clear filters</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3 mb-4">
+                @foreach (var room in FilteredRooms)
+                {
+                    var general = _page.Matrices.FirstOrDefault(m => m.RoomId == room.Id && m.FilmId is null);
+                    var overrideFilmTitles = OverrideFilmTitlesFor(room.Id);
+                    <div class="col-md-6 col-xl-4">
+                        <div class="card h-100 @(general is { IsEnabled: false } ? "opacity-50" : "")">
+                            <div class="card-body d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
+                                    <div>
+                                        <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">@CinemaNameOf(room.CinemaId) · @room.Name</div>
+                                        <h6 class="mb-0">@(general?.Name ?? room.Name)</h6>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-none">
+                                        @if (overrideFilmTitles.Count > 0)
+                                        {
+                                            <i class="bi bi-info-circle-fill" title="@($"Overridden by a film-specific matrix for: {string.Join(", ", overrideFilmTitles)}")" style="color:var(--cinescout-accent-match); font-size:1.05rem; cursor:help;"></i>
+                                        }
+                                        @if (general is not null)
+                                        {
+                                            <span class="badge @(general.IsEnabled ? "text-bg-success" : "text-bg-secondary")">@(general.IsEnabled ? "Enabled" : "Disabled")</span>
+                                        }
+                                    </div>
+                                </div>
+                                @if (general is not null)
+                                {
+                                    <ZoneSeatGrid Matrix="@(new ZoneSeatGridModel { RowStart = general.RowStart, RowEnd = general.RowEnd, SeatNumberStart = general.SeatNumberStart, SeatNumberEnd = general.SeatNumberEnd })" />
+                                    @RenderMetaStrip(general)
+                                    <div class="d-flex gap-1 flex-wrap mt-auto">
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(general)">Edit</button>
+                                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleAsync(general.Id)">@(general.IsEnabled ? "Disable" : "Enable")</button>
+                                        <button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete" @onclick="() => DeleteAsync(general.Id)"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="text-muted small mb-3">No general preference set</p>
+                                    <button class="btn btn-sm cs-btn-outline mt-auto align-self-start" @onclick="() => StartAddForRoom(room)">Add matrix</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        @if (FilteredOverrideMatrices.Count == 0)
+        {
+            <div class="card mb-4">
+                <div class="card-body text-center py-5">
+                    <p class="mb-3" style="color:var(--bs-secondary-color);">No seat matrices match the selected cinema and room.</p>
+                    <button class="btn btn-sm cs-btn-outline" @onclick="ClearFilters">Clear filters</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3 mb-4">
+                @foreach (var matrix in FilteredOverrideMatrices)
+                {
+                    var room = RoomOf(matrix.RoomId);
+                    <div class="col-md-6 col-xl-4">
+                        <div class="card h-100 @(matrix.IsEnabled ? "" : "opacity-50")">
+                            <div class="card-body d-flex flex-column">
+                                <div class="d-flex justify-content-between align-items-start mb-3 gap-2">
+                                    <div>
+                                        <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">@CinemaNameOf(room?.CinemaId ?? 0) · @room?.Name</div>
+                                        <h6 class="mb-1">@FilmTitleOf(matrix.FilmId!.Value)</h6>
+                                        <span class="badge text-bg-light border">@matrix.Name</span>
+                                    </div>
+                                    <span class="badge @(matrix.IsEnabled ? "text-bg-success" : "text-bg-secondary")">@(matrix.IsEnabled ? "Enabled" : "Disabled")</span>
+                                </div>
+                                <ZoneSeatGrid Matrix="@(new ZoneSeatGridModel { RowStart = matrix.RowStart, RowEnd = matrix.RowEnd, SeatNumberStart = matrix.SeatNumberStart, SeatNumberEnd = matrix.SeatNumberEnd })" />
+                                @RenderMetaStrip(matrix)
+                                <div class="d-flex gap-1 flex-wrap mt-auto">
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => StartEdit(matrix)">Edit</button>
+                                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => ToggleAsync(matrix.Id)">@(matrix.IsEnabled ? "Disable" : "Enable")</button>
+                                    <button class="btn btn-sm btn-outline-danger" title="Delete" aria-label="Delete" @onclick="() => DeleteAsync(matrix.Id)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <div class="card" style="max-width:44rem;">
+        <div class="card-body">
+            <h6 class="card-title mb-3">@EditorTitle</h6>
+
+            @if (_error is not null)
+            {
+                <div class="alert alert-danger py-2 small" role="alert">@_error</div>
+            }
+
+            <div class="row g-2">
+                @if (_isOverridesTab)
+                {
+                    <div class="col-12">
+                        <label class="form-label small text-muted" for="mxFilm">Film</label>
+                        <select class="form-select form-select-sm" id="mxFilm" @bind="_editorFilmId">
+                            <option value="">— select film —</option>
+                            @foreach (var film in _page.Films)
+                            {
+                                <option value="@film.Id">@film.Title</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="col-12 col-md-7">
+                    <label class="form-label small text-muted" for="mxCinema">Cinema</label>
+                    <select class="form-select form-select-sm" id="mxCinema" @bind="_editorCinemaId" @bind:after="OnEditorCinemaChanged">
+                        <option value="">— select cinema —</option>
+                        @foreach (var cinema in _page.Cinemas)
+                        {
+                            <option value="@cinema.Id">@cinema.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12 col-md-5">
+                    <label class="form-label small text-muted" for="mxRoom">Room</label>
+                    <select class="form-select form-select-sm" id="mxRoom" @bind="_editorRoomId">
+                        <option value="">— select room —</option>
+                        @foreach (var room in EditorRoomOptions)
+                        {
+                            <option value="@room.Id">@room.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small text-muted" for="mxName">Name</label>
+                    <input class="form-control form-control-sm" id="mxName" placeholder="e.g. Sweet spot" @bind="_name" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted" for="mxRowStart">Row from</label>
+                    <input class="form-control form-control-sm" id="mxRowStart" @bind="_rowStart" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted" for="mxRowEnd">Row to</label>
+                    <input class="form-control form-control-sm" id="mxRowEnd" @bind="_rowEnd" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted" for="mxSeatStart">Seat from</label>
+                    <input type="number" class="form-control form-control-sm" id="mxSeatStart" @bind="_seatNumberStart" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted" for="mxSeatEnd">Seat to</label>
+                    <input type="number" class="form-control form-control-sm" id="mxSeatEnd" @bind="_seatNumberEnd" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small text-muted" for="mxParty">Party size</label>
+                    <input type="number" class="form-control form-control-sm" id="mxParty" @bind="_partySize" />
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-sm cs-btn-primary" @onclick="SaveAsync" disabled="@_saving">@(_editingId is null ? "+ Add seat matrix" : "Save changes")</button>
+                @if (_editingId is not null)
+                {
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ResetEditor">Cancel</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@*
+    RenderMetaStrip stays here rather than moving to SeatMatrices.razor.cs (#106): it returns a
+    RenderFragment built from a Razor `@<tag>` template, syntax only the Razor compiler understands
+    — it cannot appear in a plain .cs file. Every other member of this class lives in
+    SeatMatrices.razor.cs.
+*@
+@code {
+    private RenderFragment RenderMetaStrip(SeatMatrixDto matrix) =>
+        @<div class="d-flex mt-3 mb-3" style="gap:0;">
+            <div style="padding-right:18px;">
+                <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">Rows</div>
+                <div style="font-size:.95rem; color:var(--bs-body-color);">@matrix.RowStart&ndash;@matrix.RowEnd</div>
+            </div>
+            <div style="padding:0 18px; border-left:1px solid var(--bs-border-color);">
+                <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">Seats</div>
+                <div style="font-size:.95rem; color:var(--bs-body-color);">@matrix.SeatNumberStart&ndash;@matrix.SeatNumberEnd</div>
+            </div>
+            <div style="padding-left:18px; border-left:1px solid var(--bs-border-color);">
+                <div class="text-uppercase" style="font-size:.65rem; letter-spacing:.07em; color:var(--bs-secondary-color); margin-bottom:2px;">Party</div>
+                <div style="font-size:.95rem; color:var(--bs-body-color);">of @matrix.PartySize</div>
+            </div>
+        </div>;
+}

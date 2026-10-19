@@ -1,0 +1,308 @@
+using cinescout.core.Matching;
+using cinescout.model;
+using cinescout.persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+
+namespace cinescout.core.Kinoheld;
+
+/// <summary>
+/// Fetches and stores Kinoheld seat availability, both on the recurring schedule (tracked films'
+/// upcoming performances only) and on demand from the performance detail page. Every outgoing
+/// call is gated by the <see cref="KinoheldCircuitBreaker"/> — the moment Kinoheld pushes back
+/// (403/429/anomalous), all polling stops until an app restart. HTTP 400 ("not currently
+/// bookable") and 404 ("show not found") are expected per-performance outcomes: logged, skipped,
+/// retried next cycle, never a trip.
+/// </summary>
+public sealed class KinoheldSeatCrawlService(
+    CineScoutDbContext db,
+    IKinoheldClient client,
+    KinoheldCircuitBreaker circuitBreaker,
+    KinoheldFetchCooldownTracker cooldownTracker,
+    IConfiguration configuration,
+    MatchEvaluationService matchEvaluationService,
+    ILogger<KinoheldSeatCrawlService> logger)
+{
+    /// <summary>
+    /// Recurring-crawl path: fetches seats for every upcoming, non-cancelled performance of a
+    /// currently-tracked film. Stops iterating immediately if the circuit breaker trips mid-run.
+    /// </summary>
+    public async Task CrawlTrackedAsync(CancellationToken cancellationToken)
+    {
+        if (circuitBreaker.IsTripped)
+        {
+            logger.LogWarning(
+                "Kinoheld circuit breaker is tripped (reason: {Reason}, at {TrippedAt}); skipping seat crawl entirely.",
+                circuitBreaker.TripReason,
+                circuitBreaker.TrippedAt);
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var trackedFilmIds = db.TrackedMovies.Select(w => w.FilmId);
+        var performances = await db.Performances
+            .Where(p => trackedFilmIds.Contains(p.FilmId)
+                && p.StartsAt >= now
+                && p.Status == PerformanceStatus.Normal)
+            .OrderBy(p => p.StartsAt)
+            .ToListAsync(cancellationToken);
+
+        foreach (var performance in performances)
+        {
+            var outcome = await FetchAndStoreAsync(performance, cancellationToken);
+            if (outcome == SeatFetchOutcome.CircuitOpen)
+            {
+                logger.LogWarning(
+                    "Kinoheld circuit breaker tripped mid-crawl; stopping immediately with remaining performances unfetched.");
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// On-demand path for the performance detail page. Serves cache when the latest snapshot is
+    /// within the freshness window — the same <c>Kinoheld:SeatCrawlIntervalMinutes</c> (default 30)
+    /// the recurring crawl runs on (#14: one window) — unless
+    /// <paramref name="forceRefresh"/> is set. The 30-second per-performance cooldown applies to
+    /// force-refresh only — it exists purely to absorb accidental double-clicks (#14), not to
+    /// second-guess a deliberate refresh or throttle routine stale-cache fetches (those are
+    /// already bounded by the freshness window after any successful fetch).
+    /// </summary>
+    public async Task<SeatFetchOutcome> FetchForPerformanceAsync(int performanceId, bool forceRefresh, CancellationToken cancellationToken)
+    {
+        if (circuitBreaker.IsTripped)
+        {
+            return SeatFetchOutcome.CircuitOpen;
+        }
+
+        var performance = await db.Performances.SingleOrDefaultAsync(p => p.Id == performanceId, cancellationToken);
+        if (performance is null)
+        {
+            logger.LogWarning("On-demand seat fetch requested for unknown performance {PerformanceId}.", performanceId);
+            return SeatFetchOutcome.Unavailable;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+
+        if (!forceRefresh)
+        {
+            var freshnessMinutes = configuration.GetValue("Kinoheld:SeatCrawlIntervalMinutes", 30);
+            var latestCrawledAt = await db.SeatingSnapshots
+                .Where(s => s.PerformanceId == performanceId)
+                .MaxAsync(s => (DateTimeOffset?)s.CrawledAt, cancellationToken);
+
+            if (latestCrawledAt is not null && now - latestCrawledAt.Value < TimeSpan.FromMinutes(freshnessMinutes))
+            {
+                return SeatFetchOutcome.Fresh;
+            }
+        }
+
+        if (forceRefresh && !cooldownTracker.TryBeginFetch(performance.Id, now))
+        {
+            return SeatFetchOutcome.CooldownActive;
+        }
+
+        return await FetchAndStoreAsync(performance, cancellationToken);
+    }
+
+    /// <summary>
+    /// Shared fetch-and-store core. <paramref name="performance"/> must be tracked by this
+    /// service's <see cref="CineScoutDbContext"/> (both public paths load it that way).
+    /// </summary>
+    private async Task<SeatFetchOutcome> FetchAndStoreAsync(Performance performance, CancellationToken cancellationToken)
+    {
+        var cinemaId = await db.Cinemas
+            .Where(s => s.Id == performance.CinemaId)
+            .Select(s => s.KinoheldCinemaId)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (cinemaId is null)
+        {
+            // Never guess the cid — it's captured by room seeding and simply may not be there yet.
+            logger.LogWarning(
+                "Skipping seat fetch for performance {PerformanceId}: its Cinema {CinemaId} has no KinoheldCinemaId yet (room seeding hasn't captured it).",
+                performance.Id,
+                performance.CinemaId);
+            return SeatFetchOutcome.Unavailable;
+        }
+
+        var result = await client.GetSeatsAsync(cinemaId, performance.SourcePerformanceId, cancellationToken);
+
+        switch (result)
+        {
+            case KinoheldSeatsResult.Success success:
+                await StoreAsync(performance, success, cancellationToken);
+                return SeatFetchOutcome.Fetched;
+
+            case KinoheldSeatsResult.NotBookable:
+                logger.LogInformation(
+                    "Performance {PerformanceId} (show {ShowId}) is not currently bookable on Kinoheld (HTTP 400); skipping, will retry next cycle.",
+                    performance.Id,
+                    performance.SourcePerformanceId);
+                return SeatFetchOutcome.NotBookable;
+
+            case KinoheldSeatsResult.NotFound:
+                logger.LogInformation(
+                    "Performance {PerformanceId} (show {ShowId}) no longer exists on Kinoheld (HTTP 404); skipping.",
+                    performance.Id,
+                    performance.SourcePerformanceId);
+                return SeatFetchOutcome.NotFound;
+
+            case KinoheldSeatsResult.Blocked blocked:
+                circuitBreaker.Trip($"Kinoheld answered HTTP {blocked.StatusCode} to a getSeats request for show {performance.SourcePerformanceId} — treating as a block; all Kinoheld polling is stopped until app restart.");
+                logger.LogError(
+                    "Kinoheld blocked a getSeats request (HTTP {StatusCode}) for performance {PerformanceId}; circuit breaker tripped, all polling stopped.",
+                    blocked.StatusCode,
+                    performance.Id);
+                return SeatFetchOutcome.CircuitOpen;
+
+            case KinoheldSeatsResult.Anomalous anomalous:
+                circuitBreaker.Trip($"Anomalous Kinoheld getSeats response for show {performance.SourcePerformanceId}: {anomalous.Detail} All Kinoheld polling is stopped until app restart.");
+                logger.LogError(
+                    "Anomalous Kinoheld getSeats response for performance {PerformanceId}: {Detail}; circuit breaker tripped, all polling stopped.",
+                    performance.Id,
+                    anomalous.Detail);
+                return SeatFetchOutcome.CircuitOpen;
+
+            default:
+                throw new InvalidOperationException($"Unhandled KinoheldSeatsResult variant {result.GetType().Name}.");
+        }
+    }
+
+    private async Task StoreAsync(Performance performance, KinoheldSeatsResult.Success success, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        var snapshot = new SeatingSnapshot
+        {
+            PerformanceId = performance.Id,
+            CrawledAt = now,
+            RawPayload = success.RawPayload,
+        };
+        db.SeatingSnapshots.Add(snapshot);
+        // SeatingSnapshotSeat is FK-only (no navigation property), so we need the real generated
+        // Id before building the detail rows below — save immediately, matching the
+        // HallOfFameCrawlService snapshot pattern.
+        await db.SaveChangesAsync(cancellationToken);
+
+        foreach (var seat in success.Seats)
+        {
+            db.SeatingSnapshotSeats.Add(new SeatingSnapshotSeat
+            {
+                SnapshotId = snapshot.Id,
+                SourceSeatId = seat.SourceSeatId,
+                Row = seat.Row,
+                SeatNumber = seat.SeatNumber,
+                Status = MapStatus(seat.RawStatus),
+                LeftNeighborSeatId = seat.LeftNeighborSeatId,
+                RightNeighborSeatId = seat.RightNeighborSeatId,
+                PriceAreaProviderId = seat.PriceAreaProviderId,
+            });
+        }
+
+        await UpsertPriceAreasAsync(performance.Id, success.PriceAreas, cancellationToken);
+
+        // SeatStatus is the current-state mirror of the latest crawl: update in place, add new,
+        // and remove rows for seats absent from this response.
+        var existingStatuses = await db.SeatStatuses
+            .Where(s => s.PerformanceId == performance.Id)
+            .ToListAsync(cancellationToken);
+        var existingBySeatId = existingStatuses.ToDictionary(s => s.SourceSeatId);
+        var seenSeatIds = new HashSet<string>();
+
+        foreach (var seat in success.Seats)
+        {
+            seenSeatIds.Add(seat.SourceSeatId);
+
+            if (!existingBySeatId.TryGetValue(seat.SourceSeatId, out var status))
+            {
+                status = new SeatStatus
+                {
+                    PerformanceId = performance.Id,
+                    SourceSeatId = seat.SourceSeatId,
+                    Row = seat.Row,
+                };
+                db.SeatStatuses.Add(status);
+            }
+
+            ApplySeat(seat, status, now);
+        }
+
+        db.SeatStatuses.RemoveRange(existingStatuses.Where(s => !seenSeatIds.Contains(s.SourceSeatId)));
+
+        // First successful response resolves the performance's room via the seeded Room table
+        // (the Hall-of-Fame schedule has no room concept; secId is the auditorium's external id).
+        if (performance.RoomId is null && success.Seats.Count > 0)
+        {
+            var sectorId = success.Seats[0].SectorId;
+            var room = await db.Rooms.SingleOrDefaultAsync(
+                r => r.CinemaId == performance.CinemaId && r.ExternalAuditoriumId == sectorId,
+                cancellationToken);
+
+            if (room is null)
+            {
+                logger.LogWarning(
+                    "No Room with ExternalAuditoriumId {SectorId} found for Cinema {CinemaId}; leaving performance {PerformanceId}'s RoomId null.",
+                    sectorId,
+                    performance.CinemaId,
+                    performance.Id);
+            }
+            else
+            {
+                performance.RoomId = room.Id;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        await matchEvaluationService.EvaluateAsync(performance.Id, cancellationToken);
+    }
+
+    /// <summary>
+    /// PerformancePriceArea is the current-state mirror of the latest crawl's price areas — same
+    /// add/update/remove posture as SeatStatus above.
+    /// </summary>
+    private async Task UpsertPriceAreasAsync(int performanceId, IReadOnlyList<KinoheldPriceArea> priceAreas, CancellationToken cancellationToken)
+    {
+        var existing = await db.PerformancePriceAreas
+            .Where(p => p.PerformanceId == performanceId)
+            .ToListAsync(cancellationToken);
+        var existingByProviderId = existing.ToDictionary(p => p.ProviderId);
+        var seenProviderIds = new HashSet<string>();
+
+        foreach (var area in priceAreas)
+        {
+            seenProviderIds.Add(area.ProviderId);
+
+            if (!existingByProviderId.TryGetValue(area.ProviderId, out var row))
+            {
+                row = new PerformancePriceArea { PerformanceId = performanceId, ProviderId = area.ProviderId, Name = area.Name };
+                db.PerformancePriceAreas.Add(row);
+            }
+
+            row.Name = area.Name;
+            row.OrderPrice = area.OrderPrice;
+        }
+
+        db.PerformancePriceAreas.RemoveRange(existing.Where(p => !seenProviderIds.Contains(p.ProviderId)));
+    }
+
+    private static void ApplySeat(KinoheldSeat seat, SeatStatus target, DateTimeOffset now)
+    {
+        target.Row = seat.Row;
+        target.SeatNumber = seat.SeatNumber;
+        target.Status = MapStatus(seat.RawStatus);
+        target.LeftNeighborSeatId = seat.LeftNeighborSeatId;
+        target.RightNeighborSeatId = seat.RightNeighborSeatId;
+        target.PriceAreaProviderId = seat.PriceAreaProviderId;
+        target.UpdatedAt = now;
+    }
+
+    private static SeatOccupancyStatus MapStatus(string rawStatus) => rawStatus switch
+    {
+        "sf" => SeatOccupancyStatus.Free,
+        "ss" => SeatOccupancyStatus.Sold,
+        _ => SeatOccupancyStatus.Other,
+    };
+}
