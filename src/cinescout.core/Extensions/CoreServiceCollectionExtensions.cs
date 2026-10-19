@@ -52,8 +52,11 @@ public static class CoreServiceCollectionExtensions
 
     public static IServiceCollection AddDiscord(this IServiceCollection services)
     {
+        // Every Discord call is a POST, and a retried POST can post the same message twice (#141) — a
+        // logged failure beats a duplicate. Timeouts and the circuit breaker stay.
         services.AddHttpClient<IDiscordNotifier, DiscordNotifier>()
-            .AddStandardResilienceHandler();
+            .AddStandardResilienceHandler(options => options.Retry.DisableForUnsafeHttpMethods());
+        services.AddScoped<NotificationChannelService>();
 
         return services;
     }

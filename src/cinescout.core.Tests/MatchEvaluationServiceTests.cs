@@ -13,7 +13,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
     private const DaysOfWeekFlags AllDays = DaysOfWeekFlags.Monday | DaysOfWeekFlags.Tuesday | DaysOfWeekFlags.Wednesday
         | DaysOfWeekFlags.Thursday | DaysOfWeekFlags.Friday | DaysOfWeekFlags.Saturday | DaysOfWeekFlags.Sunday;
 
-    public Task InitializeAsync() => postgres.ResetAsync();
+    public Task InitializeAsync() => postgres.ResetWithChannelAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
 
@@ -120,7 +120,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
     private static IDiscordNotifier SucceedingNotifier()
     {
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
             .Returns(new NotificationResult(true, "204 No Content"));
         return notifier;
     }
@@ -159,7 +159,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
         Assert.Equal(NotificationStatus.Success, log.Status);
 
         await notifier.Received(1).SendAsync(
-            Arg.Is<string>(m => m != null && m.Contains("Vaiana - Live Action")),
+            Arg.Any<NotificationChannel>(), Arg.Is<NotificationMessage>(m => m.Description.Contains("Vaiana - Live Action")),
             Arg.Any<CancellationToken>());
     }
 
@@ -188,7 +188,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
 
         await using var read = new CineScoutDbContext(options);
         Assert.Single(await read.Matches.Where(m => m.PerformanceId == performanceId).ToListAsync());
-        await notifier.Received(1).SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.Received(1).SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
             Assert.False(afterInsufficient.HasSufficientSeats);
         }
 
-        await notifier.Received(2).SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.Received(2).SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
 
         // 4) Seats become sufficient again -> flips back -> SeatAvailabilityChanged (call #3).
         await using (var db = new CineScoutDbContext(options))
@@ -259,7 +259,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
             Assert.Equal(2, seatAvailabilityChangedLogs.Count);
         }
 
-        await notifier.Received(3).SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.Received(3).SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -288,7 +288,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
 
         await using var read = new CineScoutDbContext(options);
         Assert.Empty(await read.Matches.Where(m => m.PerformanceId == performanceId).ToListAsync());
-        await notifier.DidNotReceive().SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.DidNotReceive().SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -314,7 +314,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
 
         await using var read = new CineScoutDbContext(options);
         Assert.Empty(await read.Matches.Where(m => m.PerformanceId == performanceId).ToListAsync());
-        await notifier.DidNotReceive().SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.DidNotReceive().SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -341,7 +341,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
 
         await using var read = new CineScoutDbContext(options);
         Assert.Empty(await read.Matches.ToListAsync());
-        await notifier.DidNotReceive().SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.DidNotReceive().SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -369,7 +369,7 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
 
         await using var read = new CineScoutDbContext(options);
         Assert.Empty(await read.Matches.ToListAsync());
-        await notifier.DidNotReceive().SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.DidNotReceive().SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -399,7 +399,8 @@ public class MatchEvaluationServiceTests(PostgresFixture postgres) : IClassFixtu
         }
 
         await notifier.Received(1).SendAsync(
-            Arg.Is<string>(m => m != null && m.Contains("15.36") && !m.Contains("19.90") && m.Contains("https://cdn.example/poster.jpg")),
+            Arg.Any<NotificationChannel>(),
+            Arg.Is<NotificationMessage>(m => m.Fields.Any(f => f.Name == "From" && f.Value == "15.36 €") && m.ThumbnailUrl == "https://cdn.example/poster.jpg"),
             Arg.Any<CancellationToken>());
     }
 }

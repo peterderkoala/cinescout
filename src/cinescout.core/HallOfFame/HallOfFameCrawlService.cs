@@ -87,9 +87,13 @@ public class HallOfFameCrawlService(CineScoutDbContext db, IHallOfFameClient cli
         return film;
     }
 
-    private Task NotifyNewFilmAsync(Film film, CancellationToken cancellationToken) =>
-        NotificationDispatcher.SendAndLogAsync(
-            db, notifier, NotificationType.NewFilmAdded, matchId: null, film.Id, $"New film added: **{film.Title}**.", cancellationToken);
+    private async Task NotifyNewFilmAsync(Film film, CancellationToken cancellationToken)
+    {
+        var cinema = await db.Cinemas.SingleAsync(c => c.Id == film.CinemaId, cancellationToken);
+        await NotificationDispatcher.SendAndLogAsync(
+            db, notifier, NotificationType.NewFilmAdded, matchId: null, film.Id,
+            NotificationMessages.NewFilmAdded(film, cinema, DateTimeOffset.UtcNow), cancellationToken);
+    }
 
     private async Task UpsertPerformanceAsync(
         int cinemaId,

@@ -151,7 +151,7 @@ public class CineScoutDbContextTests(PostgresFixture postgres) : IClassFixture<P
             {
                 NotificationType = NotificationType.RulesMatched,
                 MatchId = matchId,
-                Channel = "Discord",
+                ChannelName = "Discord",
                 SentAt = new DateTimeOffset(2026, 7, 17, 12, 5, 5, TimeSpan.Zero),
                 Status = NotificationStatus.Success,
                 ResponseDetail = "204 No Content",
@@ -218,6 +218,6 @@ public class CineScoutDbContextTests(PostgresFixture postgres) : IClassFixture<P
         var readLog = await read.NotificationLogs.SingleAsync(n => n.MatchId == matchId);
         Assert.Equal(NotificationType.RulesMatched, readLog.NotificationType);
         Assert.Equal(NotificationStatus.Success, readLog.Status);
-        Assert.Equal("Discord", readLog.Channel);
+        Assert.Equal("Discord", readLog.ChannelName);
     }
 }

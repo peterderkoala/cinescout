@@ -194,10 +194,10 @@ public sealed class HomeEndpointsTests : IClassFixture<PostgresWebFactory>
             var noFilm = await AddFilmAsync(db, "Legacy Row (pre-migration, no FilmId)");
 
             db.NotificationLogs.AddRange(
-                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = oldest.Id, Channel = "Discord", SentAt = DateTimeOffset.UtcNow.AddDays(-5), Status = NotificationStatus.Success },
-                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = middle.Id, Channel = "Discord", SentAt = DateTimeOffset.UtcNow.AddDays(-3), Status = NotificationStatus.Success },
-                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = newest.Id, Channel = "Discord", SentAt = DateTimeOffset.UtcNow.AddHours(-2), Status = NotificationStatus.Success },
-                new NotificationLog { NotificationType = NotificationType.NewFilmAdded, FilmId = null, Channel = "Discord", SentAt = DateTimeOffset.UtcNow.AddMinutes(-1), Status = NotificationStatus.Success });
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = oldest.Id, ChannelName = "Discord", DispatchId = Guid.NewGuid(), SentAt = DateTimeOffset.UtcNow.AddDays(-5), Status = NotificationStatus.Success },
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = middle.Id, ChannelName = "Discord", DispatchId = Guid.NewGuid(), SentAt = DateTimeOffset.UtcNow.AddDays(-3), Status = NotificationStatus.Success },
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = newest.Id, ChannelName = "Discord", DispatchId = Guid.NewGuid(), SentAt = DateTimeOffset.UtcNow.AddHours(-2), Status = NotificationStatus.Success },
+                new NotificationLog { NotificationType = NotificationType.NewFilmAdded, FilmId = null, ChannelName = "Discord", DispatchId = Guid.NewGuid(), SentAt = DateTimeOffset.UtcNow.AddMinutes(-1), Status = NotificationStatus.Success });
             _ = noFilm;
             await db.SaveChangesAsync();
         }
@@ -206,6 +206,34 @@ public sealed class HomeEndpointsTests : IClassFixture<PostgresWebFactory>
 
         Assert.NotNull(dto);
         Assert.Equal(["Poor Things", "Past Lives", "The Holdovers"], dto.RecentActivity.Select(a => a.FilmTitle));
+    }
+
+    [Fact]
+    public async Task Get_RecentActivity_ShowsEachDispatchOnce_AndOnlyIfAChannelSucceeded()
+    {
+        await _factory.ResetDatabaseAsync();
+        var client = await _factory.CreateAuthenticatedClientAsync();
+
+        await using (var db = _factory.CreateDbContext())
+        {
+            var fannedOut = await AddFilmAsync(db, "Poor Things");
+            var halfFailed = await AddFilmAsync(db, "Past Lives");
+            var allFailed = await AddFilmAsync(db, "The Holdovers");
+            var (one, two, three) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+            var at = DateTimeOffset.UtcNow;
+
+            db.NotificationLogs.AddRange(
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = fannedOut.Id, ChannelName = "a", DispatchId = one, SentAt = at.AddMinutes(-1), Status = NotificationStatus.Success },
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = fannedOut.Id, ChannelName = "b", DispatchId = one, SentAt = at.AddMinutes(-1), Status = NotificationStatus.Success },
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = halfFailed.Id, ChannelName = "a", DispatchId = two, SentAt = at.AddMinutes(-2), Status = NotificationStatus.Failed },
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = halfFailed.Id, ChannelName = "b", DispatchId = two, SentAt = at.AddMinutes(-2), Status = NotificationStatus.Success },
+                new NotificationLog { NotificationType = NotificationType.TrackStarted, FilmId = allFailed.Id, ChannelName = "a", DispatchId = three, SentAt = at, Status = NotificationStatus.Failed });
+            await db.SaveChangesAsync();
+        }
+
+        var dto = await client.GetFromJsonAsync<HomePageDto>("/api/home");
+
+        Assert.Equal(["Poor Things", "Past Lives"], dto!.RecentActivity.Select(a => a.FilmTitle));
     }
 
     private static DateTimeOffset NextFriday(int hour, int minute)

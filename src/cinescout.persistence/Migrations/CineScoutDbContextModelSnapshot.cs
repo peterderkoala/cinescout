@@ -187,6 +187,48 @@ namespace cinescout.persistence.Migrations
                     b.ToTable("Matches");
                 });
 
+            modelBuilder.Entity("cinescout.model.NotificationChannel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AvatarUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DisplayName")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Prefix")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Suppress")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Types")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("WebhookUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("NotificationChannels");
+                });
+
             modelBuilder.Entity("cinescout.model.NotificationLog", b =>
                 {
                     b.Property<int>("Id")
@@ -195,14 +237,20 @@ namespace cinescout.persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Channel")
+                    b.Property<string>("ChannelName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<Guid>("DispatchId")
+                        .HasColumnType("uuid");
 
                     b.Property<int?>("FilmId")
                         .HasColumnType("integer");
 
                     b.Property<int?>("MatchId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("NotificationChannelId")
                         .HasColumnType("integer");
 
                     b.Property<int>("NotificationType")
@@ -219,9 +267,13 @@ namespace cinescout.persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DispatchId");
+
                     b.HasIndex("FilmId");
 
                     b.HasIndex("MatchId");
+
+                    b.HasIndex("NotificationChannelId");
 
                     b.ToTable("NotificationLogs");
                 });
@@ -576,6 +628,11 @@ namespace cinescout.persistence.Migrations
                         .WithMany()
                         .HasForeignKey("MatchId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("cinescout.model.NotificationChannel", null)
+                        .WithMany()
+                        .HasForeignKey("NotificationChannelId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("cinescout.model.Performance", b =>

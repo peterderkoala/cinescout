@@ -20,7 +20,7 @@ public class HallOfFameCrawlJobTests(PostgresFixture postgres) : IClassFixture<P
     private static IDiscordNotifier CreateNotifier()
     {
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
             .Returns(new NotificationResult(true, "204 No Content"));
         return notifier;
     }

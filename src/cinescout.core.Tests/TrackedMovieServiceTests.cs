@@ -9,7 +9,7 @@ namespace cinescout.core.Tests;
 
 public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<PostgresFixture>, IAsyncLifetime
 {
-    public Task InitializeAsync() => postgres.ResetAsync();
+    public Task InitializeAsync() => postgres.ResetWithChannelAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
 
@@ -44,7 +44,7 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         var (_, filmId) = await SeedFilmAsync();
 
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
             .Returns(new NotificationResult(true, "204 No Content"));
 
         await using (var db = new CineScoutDbContext(options))
@@ -60,11 +60,11 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         var log = await read.NotificationLogs.SingleAsync();
         Assert.Equal(NotificationType.TrackStarted, log.NotificationType);
         Assert.Null(log.MatchId);
-        Assert.Equal("Discord", log.Channel);
+        Assert.Equal("Discord", log.ChannelName);
         Assert.Equal(NotificationStatus.Success, log.Status);
 
         await notifier.Received(1).SendAsync(
-            Arg.Is<string>(m => m != null && m.Contains("Vaiana - Live Action")),
+            Arg.Any<NotificationChannel>(), Arg.Is<NotificationMessage>(m => m.Description.Contains("Vaiana - Live Action")),
             Arg.Any<CancellationToken>());
     }
 
@@ -75,7 +75,7 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         var (_, filmId) = await SeedFilmAsync();
 
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
             .Returns(new NotificationResult(true, "204 No Content"));
 
         await using (var db = new CineScoutDbContext(options))
@@ -99,7 +99,8 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         Assert.Equal(NotificationType.TrackStopped, logs[1].NotificationType);
 
         await notifier.Received(1).SendAsync(
-            Arg.Is<string>(m => m != null && m.Contains("Stopped tracking") && m.Contains("Vaiana - Live Action")),
+            Arg.Any<NotificationChannel>(),
+            Arg.Is<NotificationMessage>(m => m.Title.Contains("Stopped tracking") && m.Description.Contains("Vaiana - Live Action")),
             Arg.Any<CancellationToken>());
     }
 
@@ -110,8 +111,8 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         var (_, filmId) = await SeedFilmAsync();
 
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new NotificationResult(false, "Discord webhook URL not configured."));
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
+            .Returns(new NotificationResult(false, "Could not reach Discord: connection refused"));
 
         await using (var db = new CineScoutDbContext(options))
         {
@@ -124,7 +125,7 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
 
         var log = await read.NotificationLogs.SingleAsync();
         Assert.Equal(NotificationStatus.Failed, log.Status);
-        Assert.Equal("Discord webhook URL not configured.", log.ResponseDetail);
+        Assert.Equal("Could not reach Discord: connection refused", log.ResponseDetail);
     }
 
     [Fact]
@@ -134,7 +135,7 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         var (_, filmId) = await SeedFilmAsync();
 
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
             .Returns(new NotificationResult(true, "204 No Content"));
 
         await using (var db = new CineScoutDbContext(options))
@@ -148,7 +149,7 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
         Assert.Equal(1, await read.TrackedMovies.CountAsync(w => w.FilmId == filmId));
         Assert.Equal(1, await read.NotificationLogs.CountAsync());
 
-        await notifier.Received(1).SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.Received(1).SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -165,6 +166,6 @@ public class TrackedMovieServiceTests(PostgresFixture postgres) : IClassFixture<
 
         Assert.False(await db.TrackedMovies.AnyAsync(w => w.FilmId == filmId));
         Assert.Equal(0, await db.NotificationLogs.CountAsync());
-        await notifier.DidNotReceive().SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await notifier.DidNotReceive().SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 }

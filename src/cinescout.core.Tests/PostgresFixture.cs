@@ -48,5 +48,14 @@ public sealed class PostgresFixture : IAsyncLifetime
         await db.Database.ExecuteSqlRawAsync(_resetSql);
     }
 
+    /// <summary>Reset plus one enabled channel subscribed to every type, for tests of a call site that notifies.</summary>
+    public async Task ResetWithChannelAsync()
+    {
+        await ResetAsync();
+        await using var db = new CineScoutDbContext(Options);
+        db.NotificationChannels.Add(new NotificationChannel { Name = "Discord", WebhookUrl = "https://discord.com/api/webhooks/1/token" });
+        await db.SaveChangesAsync();
+    }
+
     public Task DisposeAsync() => _postgres.DisposeAsync().AsTask();
 }

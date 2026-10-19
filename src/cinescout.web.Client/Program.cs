@@ -21,6 +21,7 @@ builder.Services.AddScoped<HomeApiClient>();
 builder.Services.AddScoped<PerformanceDetailApiClient>();
 builder.Services.AddScoped<TrackedMoviesApiClient>();
 builder.Services.AddScoped<ScheduleApiClient>();
+builder.Services.AddScoped<NotificationChannelsApiClient>();
 
 var host = builder.Build();
 

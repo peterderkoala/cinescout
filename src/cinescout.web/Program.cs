@@ -156,7 +156,7 @@ app.MapPost("/account/login", async (HttpContext context, IPasswordHasher<AppUse
     return Results.Redirect(string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl);
 }).AllowAnonymous();
 
-app.MapApiGroup().MapCinemasEndpoints().MapTimePreferencesEndpoints().MapSeatMatricesEndpoints().MapHomeEndpoints().MapPerformanceDetailEndpoints().MapTrackedMoviesEndpoints().MapScheduleEndpoints();
+app.MapApiGroup().MapCinemasEndpoints().MapTimePreferencesEndpoints().MapSeatMatricesEndpoints().MapHomeEndpoints().MapPerformanceDetailEndpoints().MapTrackedMoviesEndpoints().MapScheduleEndpoints().MapNotificationChannelsEndpoints();
 
 app.MapPost("/account/logout", async (HttpContext context) =>
 {

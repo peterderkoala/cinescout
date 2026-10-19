@@ -19,6 +19,7 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
     public DbSet<FavoriteSeatMatrix> FavoriteSeatMatrices => Set<FavoriteSeatMatrix>();
     public DbSet<Match> Matches => Set<Match>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
     public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -100,6 +101,9 @@ public class CineScoutDbContext(DbContextOptions<CineScoutDbContext> options) : 
         {
             e.HasOne<Match>().WithMany().HasForeignKey(n => n.MatchId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Film>().WithMany().HasForeignKey(n => n.FilmId).OnDelete(DeleteBehavior.Cascade);
+            // SetNull, not Cascade: deleting a channel must not erase its delivery history (#138).
+            e.HasOne<NotificationChannel>().WithMany().HasForeignKey(n => n.NotificationChannelId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(n => n.DispatchId);
         });
 
         // Seeded ahead of first use, not inserted by the setup flow — PasswordHash == null is the

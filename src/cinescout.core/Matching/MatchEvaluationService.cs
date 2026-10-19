@@ -1,4 +1,3 @@
-using System.Globalization;
 using cinescout.core.Discord;
 using cinescout.model;
 using cinescout.persistence;
@@ -99,47 +98,16 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
     {
         var (film, cinema, room) = await LoadNotificationContextAsync(performance, cancellationToken);
         var price = await FindCheapestMatchingPriceAsync(performance.Id, block, cancellationToken);
-        var localStart = CinemaTimeZone.ToLocal(performance.StartsAt);
+        var message = NotificationMessages.RulesMatched(film, cinema, room, performance, window, matrix, block.Count, price, DateTimeOffset.UtcNow);
 
-        var lines = new List<string>
-        {
-            $"🎬 **{film.Title}** matches your preferences!",
-            $"{cinema.Name} / {room.Name} — {localStart:ddd, dd MMM yyyy HH:mm}",
-            $"Falls within your {DescribeWindow(window)} time window, with {block.Count} adjacent free seat(s) (needs {matrix.PartySize}) in \"{matrix.Name}\".",
-        };
-
-        if (price is decimal cheapestPrice)
-        {
-            lines.Add($"From {cheapestPrice.ToString("0.00", CultureInfo.InvariantCulture)} €");
-        }
-
-        lines.Add($"Book: <{performance.BookingLink}>");
-
-        if (!string.IsNullOrEmpty(film.PosterUrl))
-        {
-            lines.Add(film.PosterUrl);
-        }
-
-        await SendAndLogAsync(NotificationType.RulesMatched, match, film.Id, string.Join('\n', lines), cancellationToken);
+        await SendAndLogAsync(NotificationType.RulesMatched, match, film.Id, message, cancellationToken);
     }
 
     private async Task NotifySeatAvailabilityChangedAsync(
         Match match, Performance performance, bool hasSufficientSeats, FavoriteSeatMatrix? matrix, CancellationToken cancellationToken)
     {
         var (film, cinema, room) = await LoadNotificationContextAsync(performance, cancellationToken);
-        var localStart = CinemaTimeZone.ToLocal(performance.StartsAt);
-        var partySizeNote = matrix is not null ? $" (needs {matrix.PartySize})" : string.Empty;
-        var status = hasSufficientSeats
-            ? $"now has enough adjacent free seats again{partySizeNote}"
-            : "no longer has enough adjacent free seats";
-
-        var message = string.Join('\n',
-        [
-            $"🔔 Seat availability changed for **{film.Title}**",
-            $"{cinema.Name} / {room.Name} — {localStart:ddd, dd MMM yyyy HH:mm}",
-            $"It {status}.",
-            $"Book: <{performance.BookingLink}>",
-        ]);
+        var message = NotificationMessages.SeatAvailabilityChanged(film, cinema, room, performance, hasSufficientSeats, matrix, DateTimeOffset.UtcNow);
 
         await SendAndLogAsync(NotificationType.SeatAvailabilityChanged, match, film.Id, message, cancellationToken);
     }
@@ -152,16 +120,13 @@ public sealed class MatchEvaluationService(CineScoutDbContext db, IDiscordNotifi
         return (film, cinema, room);
     }
 
-    private async Task SendAndLogAsync(NotificationType type, Match match, int filmId, string message, CancellationToken cancellationToken)
+    private async Task SendAndLogAsync(NotificationType type, Match match, int filmId, NotificationMessage message, CancellationToken cancellationToken)
     {
-        var result = await NotificationDispatcher.SendAndLogAsync(db, notifier, type, match.Id, filmId, message, cancellationToken);
+        var results = await NotificationDispatcher.SendAndLogAsync(db, notifier, type, match.Id, filmId, message, cancellationToken);
 
-        if (!result.Success)
+        foreach (var failed in results.Where(r => !r.Success))
         {
-            logger.LogWarning("Discord notification ({Type}) for Match {MatchId} failed: {Detail}", type, match.Id, result.Detail);
+            logger.LogWarning("Discord notification ({Type}) for Match {MatchId} failed: {Detail}", type, match.Id, failed.Detail);
         }
     }
-
-    private static string DescribeWindow(FavoriteTimeWindow window) =>
-        $"{window.DaysOfWeek} {window.StartTime:HH:mm}–{window.EndTime:HH:mm}";
 }

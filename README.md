@@ -108,8 +108,11 @@ cp docker/.env.example docker/.env
 Edit `docker/.env` and fill in real values — every variable is documented inline in
 `docker/.env.example`, including which ones are optional and what their defaults are. At minimum,
 set a real `POSTGRES_PASSWORD` (and match it in `ConnectionStrings__Postgres`). Everything else
-(Discord webhook, crawl intervals, reverse-proxy trust) can be left at its default
-and configured later.
+(crawl intervals, reverse-proxy trust) can be left at its default and configured later. Discord
+notifications aren't configured here: add one or more webhooks on the in-app **Notifications** screen.
+
+> **Upgrading:** `Discord__WebhookUrl` is no longer read. After updating, add your webhook on the
+> Notifications screen; until you do, nothing is sent.
 
 `docker/.env` is git-ignored — never commit it.
 

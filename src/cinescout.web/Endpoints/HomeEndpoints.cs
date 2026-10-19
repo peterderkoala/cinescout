@@ -214,8 +214,13 @@ public static class HomeEndpointsExtensions
 
     private static async Task<IReadOnlyList<RecentActivityDto>> BuildRecentActivityAsync(CineScoutDbContext db, CancellationToken cancellationToken)
     {
+        // One entry per dispatch, not per channel row (#138): a fan-out to N channels is one event, and
+        // it only counts as activity if at least one channel actually delivered it. All rows of a
+        // dispatch share FilmId, so Max just picks it.
         var logs = await db.NotificationLogs
-            .Where(n => n.FilmId != null)
+            .Where(n => n.FilmId != null && n.Status == NotificationStatus.Success)
+            .GroupBy(n => n.DispatchId)
+            .Select(g => new { FilmId = g.Max(n => n.FilmId), SentAt = g.Max(n => n.SentAt) })
             .OrderByDescending(n => n.SentAt)
             .Take(5)
             .ToListAsync(cancellationToken);

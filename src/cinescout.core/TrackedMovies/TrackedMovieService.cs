@@ -43,11 +43,11 @@ public sealed class TrackedMovieService(CineScoutDbContext db, IDiscordNotifier 
     private async Task NotifyAsync(NotificationType type, int filmId, CancellationToken cancellationToken)
     {
         var film = await db.Films.SingleAsync(f => f.Id == filmId, cancellationToken);
+        var cinema = await db.Cinemas.SingleAsync(c => c.Id == film.CinemaId, cancellationToken);
         var message = type switch
         {
-            NotificationType.TrackStarted =>
-                $"Now tracking **{film.Title}** — you'll be notified when a screening matches your preferences.",
-            NotificationType.TrackStopped => $"Stopped tracking **{film.Title}**.",
+            NotificationType.TrackStarted => NotificationMessages.TrackStarted(film, cinema, DateTimeOffset.UtcNow),
+            NotificationType.TrackStopped => NotificationMessages.TrackStopped(film, cinema, DateTimeOffset.UtcNow),
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Only track-lifecycle notification types are sent from here."),
         };
 

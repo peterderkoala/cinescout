@@ -15,12 +15,12 @@ public class HallOfFameCrawlServiceTests(PostgresFixture postgres) : IClassFixtu
     private static IDiscordNotifier CreateNotifier()
     {
         var notifier = Substitute.For<IDiscordNotifier>();
-        notifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+        notifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
             .Returns(new NotificationResult(true, "204 No Content"));
         return notifier;
     }
 
-    public Task InitializeAsync() => postgres.ResetAsync();
+    public Task InitializeAsync() => postgres.ResetWithChannelAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
 
@@ -482,11 +482,11 @@ public class HallOfFameCrawlServiceTests(PostgresFixture postgres) : IClassFixtu
         var log = await read.NotificationLogs.SingleAsync();
         Assert.Equal(NotificationType.NewFilmAdded, log.NotificationType);
         Assert.Null(log.MatchId);
-        Assert.Equal("Discord", log.Channel);
+        Assert.Equal("Discord", log.ChannelName);
         Assert.Equal(NotificationStatus.Success, log.Status);
 
         await _notifier.Received(1).SendAsync(
-            Arg.Is<string>(m => m != null && m.Contains("Vaiana - Live Action")),
+            Arg.Any<NotificationChannel>(), Arg.Is<NotificationMessage>(m => m.Description.Contains("Vaiana - Live Action")),
             Arg.Any<CancellationToken>());
     }
 
@@ -529,7 +529,7 @@ public class HallOfFameCrawlServiceTests(PostgresFixture postgres) : IClassFixtu
         await using var read = new CineScoutDbContext(options);
         Assert.Equal(1, await read.NotificationLogs.CountAsync(l => l.NotificationType == NotificationType.NewFilmAdded));
 
-        await _notifier.Received(1).SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _notifier.Received(1).SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -552,8 +552,8 @@ public class HallOfFameCrawlServiceTests(PostgresFixture postgres) : IClassFixtu
         client.GetScheduleAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(schedule);
 
         var failingNotifier = Substitute.For<IDiscordNotifier>();
-        failingNotifier.SendAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new NotificationResult(false, "Discord webhook URL not configured."));
+        failingNotifier.SendAsync(Arg.Any<NotificationChannel>(), Arg.Any<NotificationMessage>(), Arg.Any<CancellationToken>())
+            .Returns(new NotificationResult(false, "Could not reach Discord: connection refused"));
 
         await using (var db = new CineScoutDbContext(options))
         {
@@ -567,7 +567,7 @@ public class HallOfFameCrawlServiceTests(PostgresFixture postgres) : IClassFixtu
 
         var log = await read.NotificationLogs.SingleAsync();
         Assert.Equal(NotificationStatus.Failed, log.Status);
-        Assert.Equal("Discord webhook URL not configured.", log.ResponseDetail);
+        Assert.Equal("Could not reach Discord: connection refused", log.ResponseDetail);
     }
 
     [Fact]

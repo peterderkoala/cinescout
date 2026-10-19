@@ -1,6 +1,6 @@
 @* Full-width bordeaux top navbar — Technical Design Spec.md §3. Replaces the stock left sidebar;
    this is a rewrite, not a retrofit of the old NavMenu (see issue #76's resolution, rule 5).
-   Fixed nav order: Schedule · Tracked Movies · Time Preferences · Seat Matrices · Cinemas, with
+   Fixed nav order: Schedule · Tracked Movies · Time Preferences · Seat Matrices · Cinemas · Notifications, with
    Logout pinned right and the brand mark linking Home. Collapse behavior needs Bootstrap's JS
    bundle, wired up in App.razor (issue #76's consequence-found item 6). *@
 
@@ -51,6 +51,11 @@
                 <li class="nav-item">
                     <NavLink class="nav-link d-flex align-items-center gap-1" href="cinemas">
                         <i class="bi bi-building" aria-hidden="true"></i> Cinemas
+                    </NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link d-flex align-items-center gap-1" href="notifications">
+                        <i class="bi bi-bell" aria-hidden="true"></i> Notifications
                     </NavLink>
                 </li>
                 @* Server-rendered Hangfire dashboard: no client route matches, so this is a full page load. *@

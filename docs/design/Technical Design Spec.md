@@ -70,7 +70,7 @@ gold hover; the light-mode `.cs-btn-outline` is bordeaux. Port both blocks or th
 
 ## 3. Navigation
 
-Order is fixed: **Schedule · Tracked Movies · Time Preferences · Seat Matrices · Cinemas**, with Logout pinned
+Order is fixed: **Schedule · Tracked Movies · Time Preferences · Seat Matrices · Cinemas · Notifications**, with Logout pinned
 right. Brand mark links to Home.
 
 | Item | Icon | Route | Entity |
@@ -81,6 +81,7 @@ right. Brand mark links to Home.
 | Time Preferences | `bi-clock` | `/time-preferences` | `FavoriteTimeWindow` |
 | Seat Matrices | `bi-grid-3x3` | `/seat-matrices` | `FavoriteSeatMatrix` |
 | Cinemas | `bi-building` | `/cinemas` | `Cinema`, `Room` |
+| Notifications | `bi-bell` | `/notifications` | `NotificationChannel` |
 | Logout | `bi-box-arrow-right` | `/login` | `User` |
 
 Active item: white, `font-weight:600`, 2px bottom border in `--cinescout-accent-match`. Idle: `rgba(255,255,255,.78)`.
@@ -240,7 +241,9 @@ Featured cards for every `Match` (two-column). Empty states, exactly as worded:
 no matches and nothing tracked → “No matches yet — start by marking a film as tracked.” (link to Tracked);
 no matches but films tracked → “No matches yet — you'll see them here the moment a tracked film's screening
 fits your preferences.” Below: **Tracked Movies** panel (max 5, compact rows, “View all →”) and
-**Recent Activity** (last 5 `NotificationLog` rows → `{Film.Title}` + relative `SentAt`).
+**Recent Activity** (last 5 *dispatches* → `{Film.Title}` + relative `SentAt`). A notification fanned out to
+several channels writes one `NotificationLog` row per channel sharing a `DispatchId`; it shows once, and only if at
+least one of its channels delivered it.
 
 ### 5.7 Performance Detail — `data-entity="Performance"`
 
@@ -260,6 +263,25 @@ Centered `max-width:24rem` card on a full-height ground, brand mark above. Login
 with a show/hide eye toggle, full-width primary button, “First run? Set up CineScout”.
 Setup: setup token + password + confirm (`User.PasswordHash` after hashing; completing it stamps
 `User.SetupCompletedAt`), errors “Invalid password.” / “Passwords must match.”
+
+### 5.9 Notifications — `data-entity="NotificationChannel"`
+
+Master/detail like Cinemas (visual reference: variant A of the #140 prototype, branch
+`prototype/notifications-screen`). Intro: “Discord channels CineScout posts to. Each channel receives only the
+notification types it subscribes to.” Header button **Add channel**.
+
+- **List (col-lg-4)**: `list-group`, selected item with the bordeaux left border. Each item: status dot (green
+  enabled / grey off / warning when `LastError` is set), `#{Name}`, an “Off” badge when disabled, type badges
+  (“All types” when all five are subscribed), the `LastError` line, then masked webhook URL · last delivery
+  (status + relative time of the channel's newest `NotificationLog`, or “No deliveries yet”). Empty state:
+  “No channels yet. Add one to get notified.”
+- **Edit card (col-lg-8)**: `alert-warning` with `LastError` at the top when set. Fields Name, Webhook URL
+  (never shown in full; placeholder is the masked URL + “(leave empty to keep)”), Display name, Avatar URL,
+  Prefix message (all optional), switches Silent and Enabled, inline checkboxes for the five
+  `NotificationType`s (all checked for a new channel).
+- **Actions**: Save (primary) · Send test (outline) with its result inline — “Sent ✓”, “Discord returned 400: …”,
+  or a plain network/timeout message · Delete (outline-danger, right-aligned, existing channels only). A test
+  sends a sample “Matches your preferences” embed with the form's unsaved options and writes no log row.
 
 ---
 
@@ -334,8 +356,8 @@ and the `#blazor-error-ui` bar which is themed with the warning-subtle tokens.
    Room list and is not persisted on `FavoriteSeatMatrix`.
 7. **Multi-user is out of scope**: `FavoriteTimeWindow`, `FavoriteSeatMatrix`, `TrackedMovie` carry no
    `UserId`, and the design shows a single-user admin app (one `User`, setup-token flow).
-8. **`NotificationLog` is only surfaced as “Recent Activity”** — there is no notification settings screen in
-   the design. `NotificationType`/`Channel` are not exposed yet.
+8. **Notification channels are managed on the Notifications screen (§5.9)** — `NotificationLog` itself is still
+   only surfaced as “Recent Activity” and the per-channel “last delivery” line; there is no log browser.
 
 ---
 
