@@ -2,8 +2,8 @@ using System.Net;
 using System.Text.Json;
 using cinescout.core.Discord;
 using cinescout.core.Extensions;
-using Microsoft.Extensions.DependencyInjection;
 using cinescout.model;
+using Microsoft.Extensions.DependencyInjection;
 using Polly.CircuitBreaker;
 using Polly.Timeout;
 
@@ -131,6 +131,7 @@ public sealed class DiscordNotifierTests
 
         Assert.False(result.Success);
         Assert.False(result.WebhookGone);
+        Assert.Equal(429, result.HttpStatus);
         Assert.Equal("Rate limited by Discord, retry after 65 s", result.Detail);
     }
 
@@ -152,7 +153,7 @@ public sealed class DiscordNotifierTests
         var (result, _) = await SendAsync(Channel(), Message(), new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(shortBody) });
 
         Assert.False(result.Success);
-        Assert.Equal(400, result.StatusCode);
+        Assert.Equal(400, result.HttpStatus);
         Assert.Equal("400 Bad Request: " + shortBody, result.Detail);
 
         var (longResult, _) = await SendAsync(Channel(), Message(), new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(new string('x', 2000)) });
@@ -179,7 +180,7 @@ public sealed class DiscordNotifierTests
 
         Assert.False(result.Success);
         Assert.False(result.WebhookGone);
-        Assert.Null(result.StatusCode);
+        Assert.Null(result.HttpStatus);
     }
 
     [Fact]

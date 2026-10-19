@@ -23,9 +23,10 @@ public sealed class DiscordNotifier(HttpClient httpClient) : IDiscordNotifier
         try
         {
             using var response = await httpClient.PostAsJsonAsync($"{channel.WebhookUrl}?wait=true", ToPayload(channel, message), cancellationToken);
+            var status = (int)response.StatusCode;
             if (response.IsSuccessStatusCode)
             {
-                return new NotificationResult(true, $"{(int)response.StatusCode} {response.ReasonPhrase}", StatusCode: (int)response.StatusCode);
+                return new NotificationResult(true, $"{status} {response.ReasonPhrase}", HttpStatus: status);
             }
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
@@ -33,12 +34,12 @@ public sealed class DiscordNotifier(HttpClient httpClient) : IDiscordNotifier
                 var retryAfter = response.Headers.RetryAfter?.Delta;
                 return new NotificationResult(false, retryAfter is { } delta
                     ? $"Rate limited by Discord, retry after {(int)Math.Ceiling(delta.TotalSeconds)} s"
-                    : "Rate limited by Discord", StatusCode: (int)response.StatusCode);
+                    : "Rate limited by Discord", HttpStatus: status);
             }
 
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            var detail = Truncate($"{(int)response.StatusCode} {response.ReasonPhrase}: {body}", MaxDetailLength);
-            return new NotificationResult(false, detail, WebhookGone: response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Unauthorized, StatusCode: (int)response.StatusCode);
+            var detail = Truncate($"{status} {response.ReasonPhrase}: {body}", MaxDetailLength);
+            return new NotificationResult(false, detail, WebhookGone: response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Unauthorized, HttpStatus: status);
         }
         catch (Exception ex) when (ex is TaskCanceledException or TimeoutRejectedException)
         {

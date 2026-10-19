@@ -142,7 +142,8 @@ public partial class Notifications
 
         _testResult = problem is not null ? (false, problem.MessageOr("Test failed."))
             : result is { Success: true } ? (true, "Sent ✓")
-            : result is { HttpStatus: not null } ? (false, $"Discord returned {result.Detail}")
+            // A 429's detail is already prose ("Rate limited by Discord, …"); other statuses read "400 Bad Request: {body}".
+            : result is { HttpStatus: not (null or 429) } ? (false, $"Discord returned {result.Detail}")
             : (false, result?.Detail ?? "Test failed.");
     }
 
