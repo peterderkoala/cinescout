@@ -72,7 +72,7 @@ public static class NotificationChannelsEndpointsExtensions
         var result = await service.SendTestAsync(channelId, ToInput(request), cancellationToken);
         return result is null
             ? TypedResults.NotFound()
-            : TypedResults.Ok(new NotificationTestResultDto { Success = result.Success, Detail = result.Detail });
+            : TypedResults.Ok(new NotificationTestResultDto { Success = result.Success, Detail = result.Detail, HttpStatus = result.StatusCode });
     }
 
     private static ProblemHttpResult InvalidChannel(string error) =>

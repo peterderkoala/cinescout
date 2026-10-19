@@ -52,6 +52,7 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 
 - `Performance.StartsAt` is Berlin wall-clock stored as a UTC instant. Convert via `CinemaTimeZone` before
   comparing or displaying. DTOs carry Berlin-local `DateTime` (`Kind=Unspecified`), never `DateTimeOffset`.
+  Exception: Discord embeds render start times as `<t:unix:F>` from the UTC instant (Discord localises per viewer, #139).
 - Npgsql `timestamptz` throws on a non-zero offset — call `.ToUniversalTime()` first.
 
 ## Kinoheld posture
@@ -78,7 +79,8 @@ Only gotchas and conventions you can't read off the code. Everything else: look 
 - Register recurring jobs via DI-resolved `IRecurringJobManager`, not static `RecurringJob` (it reads the unset
   `JobStorage.Current` and throws at startup).
 - Startup-wiring changes must be run against a real Postgres — `dotnet test` won't catch them.
-- `IDiscordNotifier` never throws and reads config at call time; unconfigured = clean failure result.
+- `IDiscordNotifier` never throws. Webhooks are DB `NotificationChannel`s, not config; no enabled channel subscribed
+  to a type = nothing sent, no `NotificationLog` row. Discord POSTs are never retried (a retry can double-post).
 
 ## Docker gotchas
 

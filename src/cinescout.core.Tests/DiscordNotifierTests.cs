@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using cinescout.core.Discord;
+using cinescout.core.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using cinescout.model;
 using Polly.CircuitBreaker;
 using Polly.Timeout;
@@ -150,6 +152,7 @@ public sealed class DiscordNotifierTests
         var (result, _) = await SendAsync(Channel(), Message(), new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(shortBody) });
 
         Assert.False(result.Success);
+        Assert.Equal(400, result.StatusCode);
         Assert.Equal("400 Bad Request: " + shortBody, result.Detail);
 
         var (longResult, _) = await SendAsync(Channel(), Message(), new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent(new string('x', 2000)) });
@@ -176,6 +179,32 @@ public sealed class DiscordNotifierTests
 
         Assert.False(result.Success);
         Assert.False(result.WebhookGone);
+        Assert.Null(result.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_registered_client_never_retries_a_failed_POST()
+    {
+        var handler = new CountingHandler(HttpStatusCode.InternalServerError);
+        var services = new ServiceCollection().AddDiscord();
+        services.AddHttpClient<IDiscordNotifier, DiscordNotifier>().ConfigurePrimaryHttpMessageHandler(() => handler);
+        await using var provider = services.BuildServiceProvider();
+
+        var result = await provider.GetRequiredService<IDiscordNotifier>().SendAsync(Channel(), Message(), CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal(1, handler.Calls);
+    }
+
+    private sealed class CountingHandler(HttpStatusCode status) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(status));
+        }
     }
 
     private sealed class RecordingHandler(HttpResponseMessage response) : HttpMessageHandler

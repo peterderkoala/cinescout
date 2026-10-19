@@ -24,9 +24,13 @@ public sealed record NotificationChannelDto
     public DateTimeOffset? LastDeliveryAt { get; init; }
 }
 
-/// <summary>Response of <c>POST /api/notification-channels/test</c>: Discord's answer, shown inline next to the button.</summary>
+/// <summary>
+/// Response of <c>POST /api/notification-channels/test</c>: Discord's answer, shown inline next to the
+/// button. <see cref="HttpStatus"/> is null when Discord never answered (network failure, timeout).
+/// </summary>
 public sealed record NotificationTestResultDto
 {
     public required bool Success { get; init; }
     public required string Detail { get; init; }
+    public int? HttpStatus { get; init; }
 }

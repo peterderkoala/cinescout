@@ -141,7 +141,7 @@ public sealed class NotificationChannelsEndpointsTests(NotificationChannelsTestF
     public async Task Test_sends_a_sample_RulesMatched_embed_with_the_unsaved_options_and_falls_back_to_the_saved_url()
     {
         var id = await SeedAsync(new NotificationChannel { Name = "seats", WebhookUrl = Webhook, DisplayName = "Saved name" });
-        factory.FakeNotifier.Next = new NotificationResult(false, "400 Bad Request: {\"message\": \"Invalid Form Body\"}");
+        factory.FakeNotifier.Next = new NotificationResult(false, "400 Bad Request: {\"message\": \"Invalid Form Body\"}", StatusCode: 400);
         var client = await factory.CreateWritableClientAsync();
 
         var response = await client.PostAsJsonAsync($"/api/notification-channels/test?channelId={id}", Request(webhookUrl: null));
@@ -149,6 +149,7 @@ public sealed class NotificationChannelsEndpointsTests(NotificationChannelsTestF
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = (await response.Content.ReadFromJsonAsync<NotificationTestResultDto>())!;
         Assert.False(result.Success);
+        Assert.Equal(400, result.HttpStatus);
         Assert.Equal("400 Bad Request: {\"message\": \"Invalid Form Body\"}", result.Detail);
 
         var (channel, message) = Assert.Single(factory.FakeNotifier.Calls);

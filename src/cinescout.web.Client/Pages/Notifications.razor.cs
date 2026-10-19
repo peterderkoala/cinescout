@@ -54,34 +54,24 @@ public partial class Notifications
         ? $"{status} · {RelativeTimeFormatter.Format(channel.LastDeliveryAt, DateTimeOffset.UtcNow)}"
         : "No deliveries yet";
 
-    private void Select(NotificationChannelDto channel)
-    {
-        ResetMessages();
-        _selectedId = channel.Id;
-        _selected = channel;
-        _name = channel.Name;
-        _webhookUrl = "";
-        _displayName = channel.DisplayName ?? "";
-        _avatarUrl = channel.AvatarUrl ?? "";
-        _prefix = channel.Prefix ?? "";
-        _suppress = channel.Suppress;
-        _isEnabled = channel.IsEnabled;
-        _types = channel.Types;
-    }
+    private void Select(NotificationChannelDto channel) => LoadForm(channel);
 
-    private void StartAdd()
+    private void StartAdd() => LoadForm(null);
+
+    /// <summary>Fills the edit card from <paramref name="channel"/>, or with a new channel's defaults (all types, enabled) when null.</summary>
+    private void LoadForm(NotificationChannelDto? channel)
     {
         ResetMessages();
-        _selectedId = null;
-        _selected = null;
-        _name = "";
+        _selectedId = channel?.Id;
+        _selected = channel;
+        _name = channel?.Name ?? "";
         _webhookUrl = "";
-        _displayName = "";
-        _avatarUrl = "";
-        _prefix = "";
-        _suppress = false;
-        _isEnabled = true;
-        _types = NotificationTypeFlags.All;
+        _displayName = channel?.DisplayName ?? "";
+        _avatarUrl = channel?.AvatarUrl ?? "";
+        _prefix = channel?.Prefix ?? "";
+        _suppress = channel?.Suppress ?? false;
+        _isEnabled = channel?.IsEnabled ?? true;
+        _types = channel?.Types ?? NotificationTypeFlags.All;
     }
 
     private void ResetMessages()
@@ -152,7 +142,8 @@ public partial class Notifications
 
         _testResult = problem is not null ? (false, problem.MessageOr("Test failed."))
             : result is { Success: true } ? (true, "Sent ✓")
-            : (false, result?.Detail is { } detail && detail.Length > 0 && char.IsDigit(detail[0]) ? $"Discord returned {detail}" : result?.Detail ?? "Test failed.");
+            : result is { HttpStatus: not null } ? (false, $"Discord returned {result.Detail}")
+            : (false, result?.Detail ?? "Test failed.");
     }
 
     private async Task DeleteAsync()

@@ -78,16 +78,16 @@ public sealed class NotificationChannelService(CineScoutDbContext db, IDiscordNo
     {
         channel.Name = input.Name.Trim();
         channel.WebhookUrl = input.WebhookUrl ?? channel.WebhookUrl;
-        channel.DisplayName = Blank(input.DisplayName);
-        channel.AvatarUrl = Blank(input.AvatarUrl);
-        channel.Prefix = Blank(input.Prefix);
+        channel.DisplayName = NullIfBlank(input.DisplayName);
+        channel.AvatarUrl = NullIfBlank(input.AvatarUrl);
+        channel.Prefix = NullIfBlank(input.Prefix);
         channel.Suppress = input.Suppress;
         channel.IsEnabled = input.IsEnabled;
         channel.Types = input.Types;
         channel.LastError = null;
     }
 
-    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static NotificationMessage SampleMessage(DateTimeOffset now)
     {
